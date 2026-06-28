@@ -58,17 +58,37 @@ export function TitledCard({
   return (
     <Card
       data-card-hover={disableHoverEffect ? 'false' : undefined}
-      className={cn('gap-0 overflow-hidden py-0', className)}
+      className={cn(
+        'relative gap-0 overflow-hidden py-0',
+        // 3px 醒目边框、1.75rem 大圆角
+        'border-[3px] border-[#ffd1dc] rounded-[1.75rem] bg-white',
+        // 缩小为 3px 偏移量的硬阴影，更加精致
+        'shadow-[3px_3px_0px_#ffd1dc]',
+        'dark:bg-[#151d2a] dark:border-[#3b2d35] dark:shadow-[3px_3px_0px_#3b2d35]',
+        // 悬浮动效：轻微上浮
+        !disableHoverEffect && 'transition-transform duration-200 hover:-translate-y-1',
+        className
+      )}
     >
+      {/* 萌系斜角背景修饰块 */}
+      <div className="absolute -right-8 -top-8 z-0 h-24 w-24 rounded-full bg-[#ffb3c6]/25 pointer-events-none" />
+      <div className="absolute -bottom-8 -left-8 z-0 h-24 w-24 rounded-full bg-[#64b5f6]/20 pointer-events-none" />
+
       <CardHeader
-        className={cn('border-b p-3 !pb-3 sm:p-5 sm:!pb-5', headerClassName)}
+        className={cn(
+          // 头部和内容使用虚线分割
+          'relative z-10 border-b-2 border-dashed border-[#ffd1dc] p-4 sm:p-5 dark:border-[#3b2d35]',
+          headerClassName
+        )}
       >
         <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
           <div className='flex min-w-0 items-center gap-3'>
             {icon != null && (
               <div
                 className={cn(
-                  'bg-muted flex h-8 w-8 shrink-0 items-center justify-center rounded-lg sm:h-9 sm:w-9',
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white',
+                  // 图标区域使用动漫粉渐变
+                  'bg-gradient-to-br from-[#ffb3c6] to-[#ff758f] shadow-[0_4px_10px_rgba(255,117,143,0.4)]',
                   iconClassName
                 )}
               >
@@ -78,7 +98,7 @@ export function TitledCard({
             <div className='min-w-0'>
               <CardTitle
                 className={cn(
-                  'text-lg tracking-tight sm:text-xl',
+                  'text-lg sm:text-xl font-black tracking-tight text-[#2c3e50] dark:text-[#e2e8f0]',
                   titleClassName
                 )}
               >
@@ -86,7 +106,10 @@ export function TitledCard({
               </CardTitle>
               {description != null && (
                 <CardDescription
-                  className={cn('text-xs sm:text-sm', descriptionClassName)}
+                  className={cn(
+                    'mt-1 text-sm font-bold text-[#7f8c8d] dark:text-[#94a3b8]', 
+                    descriptionClassName
+                  )}
                 >
                   {description}
                 </CardDescription>
@@ -94,11 +117,17 @@ export function TitledCard({
             </div>
           </div>
           {action != null && (
-            <div className='w-full shrink-0 sm:w-auto'>{action}</div>
+            <div className='w-full shrink-0 sm:w-auto mt-2 sm:mt-0'>{action}</div>
           )}
         </div>
       </CardHeader>
-      <CardContent className={cn('p-3 sm:p-5', contentClassName)}>
+      
+      <CardContent 
+        className={cn(
+          'relative z-10 p-4 sm:p-5 text-[#2c3e50] dark:text-[#e2e8f0]', 
+          contentClassName
+        )}
+      >
         {children}
       </CardContent>
     </Card>

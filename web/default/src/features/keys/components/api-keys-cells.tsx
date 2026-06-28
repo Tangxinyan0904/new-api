@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useCallback } from 'react'
-import { Check, Copy, Loader2 } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { Check, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
@@ -34,8 +35,94 @@ import {
 } from '@/components/ui/tooltip'
 import { BadgeCell } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
-import { type ApiKey } from '../types'
+import { updateApiKey } from '../api'
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import type { ApiKey, ApiKeyFormData } from '../types'
+import {
+  ApiKeyGroupCombobox,
+  type ApiKeyGroupOption,
+} from './api-key-group-combobox'
 import { useApiKeys } from './api-keys-provider'
+
+function CopyButtonContent({
+  isLoading,
+  isCopied,
+  t,
+}: {
+  isLoading: boolean
+  isCopied: boolean
+  t: (key: string) => string
+}) {
+  if (isLoading) {
+    return (
+      <>
+        <Loader2 className='size-3.5 animate-spin' />
+        {t('Loading...')}
+      </>
+    )
+  }
+
+  if (isCopied) {
+    return (
+      <>
+        <Check className='size-3.5 text-green-600' />
+        {t('Copied!')}
+      </>
+    )
+  }
+
+  return t('Copy')
+}
+
+function getCopyTooltipLabel({
+  isLoading,
+  isCopied,
+  t,
+}: {
+  isLoading: boolean
+  isCopied: boolean
+  t: (key: string) => string
+}) {
+  if (isLoading) return t('Loading...')
+  if (isCopied) return t('Copied!')
+  return t('Copy API key')
+}
+
+function getGroupUpdatePayload(
+  apiKey: ApiKey,
+  group: string
+): ApiKeyFormData & { id: number } {
+  return {
+    id: apiKey.id,
+    name: apiKey.name,
+    remain_quota: apiKey.remain_quota,
+    expired_time: apiKey.expired_time,
+    unlimited_quota: apiKey.unlimited_quota,
+    model_limits_enabled: apiKey.model_limits_enabled,
+    model_limits: apiKey.model_limits || '',
+    allow_ips: apiKey.allow_ips || '',
+    group,
+    cross_group_retry: group === 'auto' ? !!apiKey.cross_group_retry : false,
+  }
+}
+
+function ensureCurrentGroupOption(
+  options: ApiKeyGroupOption[],
+  apiKey: ApiKey,
+  fallbackLabel: string
+): ApiKeyGroupOption[] {
+  const currentGroup = apiKey.group || ''
+  if (options.some((option) => option.value === currentGroup)) return options
+
+  return [
+    {
+      value: currentGroup,
+      label: currentGroup || fallbackLabel,
+      desc: currentGroup || fallbackLabel,
+    },
+    ...options,
+  ]
+}
 
 export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation()
@@ -119,9 +206,9 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
         <TooltipTrigger
           render={
             <Button
-              variant='ghost'
-              size='icon'
-              className='size-7 shrink-0'
+              variant='outline'
+              size='sm'
+              className='h-7 shrink-0 px-2 text-xs'
               onClick={handleCopy}
               onFocus={() => {
                 if (!resolvedFullKey) void resolveRealKey(apiKey.id)
@@ -133,23 +220,60 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
             />
           }
         >
-          {isLoading ? (
-            <Loader2 className='size-3.5 animate-spin' />
-          ) : isCopied ? (
-            <Check className='size-3.5 text-green-600' />
-          ) : (
-            <Copy className='size-3.5' />
-          )}
+          <CopyButtonContent
+            isLoading={isLoading}
+            isCopied={isCopied}
+            t={t}
+          />
         </TooltipTrigger>
         <TooltipContent>
-          {isLoading
-            ? t('Loading...')
-            : isCopied
-              ? t('Copied!')
-              : t('Copy API key')}
+          {getCopyTooltipLabel({ isLoading, isCopied, t })}
         </TooltipContent>
       </Tooltip>
     </div>
+  )
+}
+
+export function ApiKeyGroupCell({
+  apiKey,
+  groupOptions,
+}: {
+  apiKey: ApiKey
+  groupOptions: ApiKeyGroupOption[]
+}) {
+  const { t } = useTranslation()
+  const { triggerRefresh } = useApiKeys()
+  const mutation = useMutation({
+    mutationFn: (group: string) =>
+      updateApiKey(getGroupUpdatePayload(apiKey, group)),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))
+        triggerRefresh()
+        return
+      }
+
+      toast.error(result.message || t(ERROR_MESSAGES.UPDATE_FAILED))
+    },
+    onError: () => {
+      toast.error(t(ERROR_MESSAGES.UPDATE_FAILED))
+    },
+  })
+
+  const options = ensureCurrentGroupOption(groupOptions, apiKey, t('User Group'))
+
+  return (
+    <ApiKeyGroupCombobox
+      options={options}
+      value={apiKey.group || ''}
+      onValueChange={(group) => {
+        if (group === (apiKey.group || '')) return
+        mutation.mutate(group)
+      }}
+      placeholder={t('Select a group')}
+      disabled={mutation.isPending || options.length === 0}
+      compact
+    />
   )
 }
 

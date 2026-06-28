@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { type ColumnDef } from '@tanstack/react-table'
+import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { getUserGroups } from '@/lib/api'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
@@ -29,17 +29,25 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { BadgeCell, TruncatedCell } from '@/components/data-table'
-import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { API_KEY_STATUSES } from '../constants'
-import { type ApiKey } from '../types'
+import type { ApiKey } from '../types'
+import type { ApiKeyGroupOption } from './api-key-group-combobox'
 import {
+  ApiKeyGroupCell,
   ApiKeyCell,
   ModelLimitsCell,
   IpRestrictionsCell,
 } from './api-keys-cells'
 import { DataTableRowActions } from './data-table-row-actions'
+
+type GroupOptionsData = {
+  options: ApiKeyGroupOption[]
+}
+
+const EMPTY_GROUP_OPTIONS_DATA: GroupOptionsData = {
+  options: [],
+}
 
 function getQuotaProgressColor(percentage: number): string {
   if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
@@ -47,29 +55,33 @@ function getQuotaProgressColor(percentage: number): string {
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
 }
 
-function useGroupRatios(): Record<string, number> {
+function useGroupOptions(): GroupOptionsData {
   const { data } = useQuery({
     queryKey: ['user-groups'],
     queryFn: getUserGroups,
     staleTime: 0,
     select: (res) => {
-      if (!res.success || !res.data) return {}
-      const ratios: Record<string, number> = {}
+      if (!res.success || !res.data) return EMPTY_GROUP_OPTIONS_DATA
+
+      const options: ApiKeyGroupOption[] = []
       for (const [group, info] of Object.entries(res.data)) {
-        if (typeof info.ratio === 'number') {
-          ratios[group] = info.ratio
-        }
+        options.push({
+          value: group,
+          label: group,
+          desc: info.desc || group,
+          ratio: info.ratio,
+        })
       }
-      return ratios
+      return { options }
     },
   })
 
-  return data ?? {}
+  return data ?? EMPTY_GROUP_OPTIONS_DATA
 }
 
 export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
   const { t } = useTranslation()
-  const groupRatios = useGroupRatios()
+  const { options: groupOptions } = useGroupOptions()
   return [
     {
       id: 'select',
@@ -190,47 +202,11 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
     {
       accessorKey: 'group',
       header: t('Group'),
-      cell: ({ row }) => {
-        const apiKey = row.original
-        const group = row.getValue('group') as string
-        const ratio = group && group !== 'auto' ? groupRatios[group] : undefined
-
-        if (group === 'auto') {
-          return (
-            <Tooltip>
-              <TooltipTrigger
-                render={<BadgeCell className='gap-1.5 text-xs' />}
-              >
-                <GroupBadge group='auto' />
-                {apiKey.cross_group_retry && (
-                  <StatusBadge
-                    label={t('Cross-group')}
-                    variant='info'
-                    copyable={false}
-                  />
-                )}
-              </TooltipTrigger>
-              <TooltipContent>
-                <span className='text-xs'>
-                  {t(
-                    'Automatically selects the best available group with circuit breaker mechanism'
-                  )}
-                </span>
-              </TooltipContent>
-            </Tooltip>
-          )
-        }
-        return (
-          <TruncatedCell
-            className='-ml-1.5'
-            tooltipContent={group || '-'}
-            tooltipClassName='break-all'
-          >
-            <GroupBadge group={group} ratio={ratio} />
-          </TruncatedCell>
-        )
-      },
-      size: 160,
+      cell: ({ row }) => (
+        <ApiKeyGroupCell apiKey={row.original} groupOptions={groupOptions} />
+      ),
+      enableSorting: false,
+      size: 190,
       meta: { mobileHidden: true },
     },
     {
