@@ -165,7 +165,9 @@ export function ApiKeyGroupCombobox({
               </span>
             )}
           </span>
-          {!compact && (
+          {compact ? (
+            <GroupRatioBadge ratio={selectedOption?.ratio} />
+          ) : (
             <span className='hidden sm:block'>
               <GroupRatioBadge ratio={selectedOption?.ratio} />
             </span>
