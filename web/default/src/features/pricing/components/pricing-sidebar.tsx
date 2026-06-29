@@ -99,10 +99,11 @@ function FilterChip(props: {
       type='button'
       onClick={props.onClick}
       className={cn(
-        'group inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-all',
+        // 核心：药丸形状、悬浮动效、粗字体
+        'group inline-flex max-w-full items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition-all hover:-translate-y-0.5',
         props.active
-          ? 'border-foreground/30 bg-foreground/5 text-foreground shadow-sm'
-          : 'border-border/70 bg-background text-muted-foreground hover:border-border hover:bg-muted/50 hover:text-foreground'
+          ? 'border-[#64b5f6] bg-[#64b5f6] text-white shadow-[0_4px_10px_rgba(100,181,246,0.3)]'
+          : 'border-dashed border-[#ffd1dc] bg-transparent text-[#7f8c8d] hover:border-solid hover:border-[#64b5f6] hover:text-[#64b5f6] dark:border-[#3b2d35] dark:text-[#94a3b8]'
       )}
       title={props.option.label}
     >
@@ -113,10 +114,10 @@ function FilterChip(props: {
       {(props.option.suffix || props.option.count != null) && (
         <span
           className={cn(
-            'rounded-md px-1.5 py-0.5 text-[10px]',
+            'rounded-full px-1.5 py-0.5 text-[10px] font-black',
             props.active
-              ? 'bg-background text-foreground'
-              : 'bg-muted text-muted-foreground'
+              ? 'bg-white/20 text-white'
+              : 'bg-[#f0f8ff] text-[#2196f3] group-hover:bg-[#64b5f6]/10 dark:bg-[#1a2436] dark:text-[#42a5f5]'
           )}
         >
           {props.option.suffix ?? props.option.count}
@@ -130,16 +131,17 @@ function FilterSection(props: FilterSectionProps) {
   return (
     <Collapsible
       defaultOpen
-      className='border-border/70 border-b pb-3 last:border-b-0'
+      // 内部换成虚线分割
+      className='border-b-2 border-dashed border-[#ffd1dc] dark:border-[#3b2d35] py-3 first:pt-0 last:border-b-0'
     >
       <CollapsibleTrigger className='group flex w-full items-center justify-between py-2.5 text-left'>
-        <span className='text-foreground text-sm font-semibold'>
+        <span className='text-[#2c3e50] dark:text-[#e2e8f0] text-[13.5px] font-black tracking-wide'>
           {props.title}
         </span>
-        <ChevronDown className='text-muted-foreground size-4 transition-transform group-data-[panel-open]:rotate-180' />
+        <ChevronDown className='text-[#7f8c8d] size-4 transition-transform group-data-[panel-open]:rotate-180 dark:text-[#94a3b8]' />
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className='flex flex-wrap gap-1.5'>
+        <div className='flex flex-wrap gap-2 pt-1 pb-2'>
           {props.options.map((option) => (
             <FilterChip
               key={option.value}
@@ -244,11 +246,19 @@ export function PricingSidebar(props: PricingSidebarProps) {
   ]
 
   return (
-    <aside className={cn('rounded-xl border p-3', props.className)}>
-      <div className='mb-2.5 flex items-center justify-between gap-2'>
+    <aside 
+      className={cn(
+        // 与卡片高度一致的容器风格：大圆角，粗边框，硬阴影
+        'rounded-[1.75rem] border-[3px] border-[#ffd1dc] bg-white p-4 sm:p-5 transition-all',
+        'shadow-[3px_3px_0px_#ffd1dc]',
+        'dark:bg-[#151d2a] dark:border-[#3b2d35] dark:shadow-[3px_3px_0px_#3b2d35]',
+        props.className
+      )}
+    >
+      <div className='mb-4 flex items-start justify-between gap-2'>
         <div>
-          <h2 className='text-foreground text-sm font-bold'>{t('Filter')}</h2>
-          <p className='text-muted-foreground mt-1 text-xs'>
+          <h2 className='text-[#2c3e50] dark:text-[#e2e8f0] text-[16px] font-black tracking-tight'>{t('Filter')}</h2>
+          <p className='text-[#7f8c8d] dark:text-[#94a3b8] mt-1 text-[12px] font-bold leading-relaxed'>
             {t('Refine models by provider, group, type, and tags.')}
           </p>
         </div>
@@ -258,7 +268,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
           size='sm'
           onClick={props.onClearFilters}
           disabled={!props.hasActiveFilters}
-          className='h-7 gap-1.5 px-2 text-xs'
+          className='h-8 gap-1.5 rounded-full px-3 text-[12px] font-bold text-[#64b5f6] hover:bg-[#f0f8ff] hover:text-[#2196f3] dark:hover:bg-[#1a2436] dark:hover:text-[#42a5f5]'
         >
           <RotateCcw className='size-3.5' />
           {t('Reset')}
@@ -266,7 +276,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
       </div>
 
       {props.hasActiveFilters && (
-        <Badge variant='secondary' className='mb-3'>
+        <Badge variant='secondary' className='mb-4 rounded-md font-bold bg-[#ffb3c6]/20 text-[#ff758f] border-none'>
           {t('Filters active')}
         </Badge>
       )}

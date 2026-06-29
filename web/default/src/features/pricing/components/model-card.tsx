@@ -16,19 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { memo } from 'react'
+import { memo, type MouseEvent, type ReactNode } from 'react'
 import { ChevronRight, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { StatusBadge } from '@/components/status-badge'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import {
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
-import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
@@ -53,16 +51,13 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const showRechargePrice = props.showRechargePrice ?? false
   const isTokenBased = isTokenBasedModel(props.model)
   const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
-  const tags = parseTags(props.model.tags)
   const groups = props.model.enable_groups || []
-  const endpoints = props.model.supported_endpoint_types || []
   const modelIconKey = props.model.icon || props.model.vendor_icon
-  const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 28) : null
+  const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 32) : null
   const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
   const isDynamicPricing =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
-  const hasCachedPrice = isTokenBased && props.model.cache_ratio != null
   const dynamicSummary = isDynamicPricing
     ? getDynamicPricingSummary(props.model, {
         tokenUnit,
@@ -74,194 +69,132 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     : null
 
   const primaryGroup = groups[0]
-  const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
-  const hiddenCount =
-    Math.max(groups.length - 1, 0) +
-    Math.max(endpoints.length - 2, 0) +
-    Math.max(tags.length - 2, 0)
 
-  const handleCopy = (e: React.MouseEvent) => {
+  const handleCopy = (e: MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
     copyToClipboard(props.model.model_name || '')
+  }
+
+  let pricingContent: ReactNode = (
+    <span className='text-[#7f8c8d] dark:text-[#94a3b8] font-medium'>
+      <span className='text-[#2c3e50] dark:text-white font-mono font-black'>
+        {formatRequestPrice(
+          props.model,
+          showRechargePrice,
+          priceRate,
+          usdExchangeRate
+        )}
+      </span>{' '}
+      / {t('request')}
+    </span>
+  )
+
+  if (dynamicSummary) {
+    pricingContent = (
+      <span className='text-muted-foreground text-xs'>
+        {t('Dynamic Pricing')}
+      </span>
+    )
+  } else if (isTokenBased) {
+    pricingContent = (
+      <>
+        <span className='text-[#7f8c8d] dark:text-[#94a3b8] font-medium'>
+          {t('Input')}{' '}
+          <span className='text-[#2c3e50] dark:text-white font-mono font-black'>
+            {formatPrice(
+              props.model,
+              'input',
+              tokenUnit,
+              showRechargePrice,
+              priceRate,
+              usdExchangeRate
+            )}
+          </span>
+          /{tokenUnitLabel}
+        </span>
+        <span className='text-[#7f8c8d] dark:text-[#94a3b8] font-medium'>
+          {t('Output')}{' '}
+          <span className='text-[#2c3e50] dark:text-white font-mono font-black'>
+            {formatPrice(
+              props.model,
+              'output',
+              tokenUnit,
+              showRechargePrice,
+              priceRate,
+              usdExchangeRate
+            )}
+          </span>
+          /{tokenUnitLabel}
+        </span>
+      </>
+    )
   }
 
   return (
     <div
       className={cn(
-        'group relative flex flex-col rounded-xl border p-3 transition-colors sm:p-5',
-        'hover:bg-muted/20'
+        'group relative flex flex-col rounded-[1.75rem] border-[3px] border-[#ffd1dc] bg-white p-4 transition-all duration-300 sm:p-6',
+        'shadow-[3px_3px_0px_#ffd1dc] hover:-translate-y-1',
+        'dark:bg-[#151d2a] dark:border-[#3b2d35] dark:shadow-[3px_3px_0px_#3b2d35]'
       )}
     >
-      {/* Header: icon + name + price + actions */}
-      <div className='flex items-start justify-between gap-2.5 sm:gap-3'>
-        <div className='flex min-w-0 items-start gap-2.5 sm:gap-3'>
-          <div className='bg-muted/40 flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-10 sm:rounded-xl'>
+      <div className='flex items-start justify-between gap-4'>
+        <div className='flex min-w-0 items-start gap-3'>
+          <div className='bg-[#f0f8ff] dark:bg-[#1a2436] flex size-11 shrink-0 items-center justify-center rounded-2xl'>
             {modelIcon || (
-              <span className='text-muted-foreground text-sm font-bold'>
+              <span className='text-[#64b5f6] text-lg font-black'>
                 {initial}
               </span>
             )}
           </div>
           <div className='min-w-0'>
-            <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
+            <h3 className='text-foreground truncate font-mono text-[17px] leading-tight font-black'>
               {props.model.model_name}
             </h3>
-            <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs sm:mt-1 sm:gap-x-3'>
-              {dynamicSummary ? (
-                dynamicSummary.isSpecialExpression ? (
-                  <span className='min-w-0'>
-                    <span className='text-amber-700 dark:text-amber-300'>
-                      {t('Special billing expression')}
-                    </span>
-                    <code className='text-muted-foreground/70 mt-0.5 line-clamp-1 block font-mono text-[11px] break-all'>
-                      {dynamicSummary.rawExpression}
-                    </code>
-                  </span>
-                ) : dynamicSummary.primaryEntries.length > 0 ? (
-                  <>
-                    {dynamicSummary.primaryEntries.map((entry) => (
-                      <span
-                        key={entry.key}
-                        className='text-muted-foreground whitespace-nowrap'
-                      >
-                        {t(entry.shortLabel)}{' '}
-                        <span className='text-foreground font-mono font-semibold'>
-                          {entry.formatted}
-                        </span>
-                        /{tokenUnitLabel}
-                      </span>
-                    ))}
-                  </>
-                ) : (
-                  <span className='text-muted-foreground text-xs'>
-                    {t('Dynamic Pricing')}
-                  </span>
-                )
-              ) : isTokenBased ? (
-                <>
-                  <span className='text-muted-foreground whitespace-nowrap'>
-                    {t('Input')}{' '}
-                    <span className='text-foreground font-mono font-semibold'>
-                      {formatPrice(
-                        props.model,
-                        'input',
-                        tokenUnit,
-                        showRechargePrice,
-                        priceRate,
-                        usdExchangeRate
-                      )}
-                    </span>
-                    /{tokenUnitLabel}
-                  </span>
-                  <span className='text-muted-foreground whitespace-nowrap'>
-                    {t('Output')}{' '}
-                    <span className='text-foreground font-mono font-semibold'>
-                      {formatPrice(
-                        props.model,
-                        'output',
-                        tokenUnit,
-                        showRechargePrice,
-                        priceRate,
-                        usdExchangeRate
-                      )}
-                    </span>
-                    /{tokenUnitLabel}
-                  </span>
-                  {hasCachedPrice && (
-                    <span className='text-muted-foreground/60 whitespace-nowrap'>
-                      {t('Cached')}{' '}
-                      <span className='font-mono'>
-                        {formatPrice(
-                          props.model,
-                          'cache',
-                          tokenUnit,
-                          showRechargePrice,
-                          priceRate,
-                          usdExchangeRate
-                        )}
-                      </span>
-                    </span>
-                  )}
-                </>
-              ) : (
-                <span className='text-muted-foreground whitespace-nowrap'>
-                  <span className='text-foreground font-mono font-semibold'>
-                    {formatRequestPrice(
-                      props.model,
-                      showRechargePrice,
-                      priceRate,
-                      usdExchangeRate
-                    )}
-                  </span>{' '}
-                  / {t('request')}
-                </span>
-              )}
+            <div className='mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]'>
+              {pricingContent}
             </div>
           </div>
         </div>
 
-        <div className='flex shrink-0 items-center gap-1.5'>
+        <div className='flex min-w-[5rem] shrink-0 flex-col items-stretch gap-2'>
           <button
             type='button'
             onClick={props.onClick}
-            className='text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors sm:px-2.5 sm:py-1.5'
+            className='text-[#64b5f6] border-2 border-[#64b5f6] hover:bg-[#64b5f6] hover:text-white inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-bold transition-all hover:-translate-y-0.5'
           >
             {t('Details')}
-            <ChevronRight className='size-3.5' />
+            <ChevronRight className='size-4' />
           </button>
+
           <button
             type='button'
             onClick={handleCopy}
-            className='text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border p-1.5 transition-colors'
+            className='text-[#ff758f] border-2 border-dashed border-[#ffb3c6] dark:border-[#ff758f]/50 hover:bg-[#ffb3c6] hover:border-solid hover:border-[#ffb3c6] hover:text-white inline-flex items-center justify-center gap-1.5 rounded-full px-4 py-1.5 text-[13px] font-bold transition-all hover:-translate-y-0.5'
             title={t('Copy')}
           >
             <Copy className='size-3.5' />
+            <span>{t('Copy')}</span>
           </button>
         </div>
       </div>
 
-      {/* Description */}
-      <p className='text-muted-foreground mt-2 line-clamp-1 flex-1 text-[13px] leading-relaxed sm:mt-4 sm:line-clamp-2 sm:min-h-[2.5rem]'>
+      <p className='text-[#7f8c8d] dark:text-[#94a3b8] mt-3 line-clamp-2 flex-1 text-[14px] leading-relaxed font-medium'>
         {props.model.description || t('No description available.')}
       </p>
 
-      {/* Footer: left metadata and right performance summary share row alignment */}
-      <div className='mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 sm:mt-4'>
-        <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
+      <div className='mt-4 border-t-2 border-dashed border-[#ffd1dc] dark:border-[#3b2d35] pt-3 flex items-center justify-between'>
+        <div className='flex flex-wrap items-center gap-x-3 gap-y-1'>
           {primaryGroup && (
-            <span className='text-muted-foreground text-xs font-medium'>
-              {primaryGroup} {t('Groups')}
+            <span className='text-[#ff758f] text-xs font-black'>
+              {primaryGroup}
             </span>
           )}
-          <span className='text-muted-foreground text-xs font-medium'>
+          <span className='text-[#7f8c8d] text-xs font-bold'>
             {isTokenBased ? t('Token-based') : t('Per Request')}
           </span>
-          {isDynamicPricing && (
-            <StatusBadge
-              label={t('Dynamic Pricing')}
-              variant='warning'
-              copyable={false}
-              size='sm'
-            />
-          )}
         </div>
-        <ModelPerfBadge perf={props.perf} className='row-span-2 self-start' />
-
-        <div className='flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 sm:gap-x-3 sm:gap-y-1'>
-          {bottomTags.map((item) => (
-            <span key={item} className='text-muted-foreground/70 text-xs'>
-              {item}
-            </span>
-          ))}
-          <span className='text-muted-foreground/50 text-xs'>
-            {tokenUnitLabel}
-          </span>
-          {hiddenCount > 0 && (
-            <span className='text-muted-foreground/40 text-xs'>
-              +{hiddenCount}
-            </span>
-          )}
-        </div>
+        <ModelPerfBadge perf={props.perf} />
       </div>
     </div>
   )
