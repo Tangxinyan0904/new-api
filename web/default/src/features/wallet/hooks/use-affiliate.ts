@@ -5,93 +5,109 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useEffect, useCallback } from 'react'
 import i18next from 'i18next'
 import { toast } from 'sonner'
-import { getSelf } from '@/lib/api'
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { getAffiliateCode, transferAffiliateQuota } from '../api'
-import { generateAffiliateLink } from '../lib'
 
-// ============================================================================
-// Affiliate Hook
-// ============================================================================
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { getSelf } from '@/lib/api'
+
+import {
+  createAffiliateTransferRequest,
+  getAffiliateCode,
+  getAffiliateRebateSummary,
+} from '../api'
+import { generateAffiliateLink } from '../lib'
+import type { AffiliateRebateSummary } from '../types'
 
 export function useAffiliate() {
   const [affiliateCode, setAffiliateCode] = useState<string>('')
   const [affiliateLink, setAffiliateLink] = useState<string>('')
+  const [rebateSummary, setRebateSummary] =
+    useState<AffiliateRebateSummary | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [transferring, setTransferring] = useState(false)
   const { copyToClipboard } = useCopyToClipboard()
 
-  // Fetch affiliate code
-  const fetchAffiliateCode = useCallback(async () => {
+  const fetchAffiliateData = useCallback(async (background = false) => {
     try {
-      setLoading(true)
-      const response = await getAffiliateCode()
+      if (background) {
+        setRefreshing(true)
+      } else {
+        setLoading(true)
+      }
+      const [codeResponse, summaryResponse] = await Promise.all([
+        getAffiliateCode(),
+        getAffiliateRebateSummary(),
+      ])
 
-      if (response.success && response.data) {
-        setAffiliateCode(response.data)
-        const link = generateAffiliateLink(response.data)
-        setAffiliateLink(link)
+      if (codeResponse.success && codeResponse.data) {
+        setAffiliateCode(codeResponse.data)
+        setAffiliateLink(generateAffiliateLink(codeResponse.data))
+      }
+
+      if (summaryResponse.success && summaryResponse.data) {
+        setRebateSummary(summaryResponse.data)
       }
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('Failed to fetch affiliate code:', error)
+      console.error('Failed to fetch affiliate data:', error)
     } finally {
-      setLoading(false)
+      if (background) {
+        setRefreshing(false)
+      } else {
+        setLoading(false)
+      }
     }
   }, [])
 
-  // Copy affiliate link
+  const refreshAffiliateData = useCallback(
+    () => fetchAffiliateData(true),
+    [fetchAffiliateData]
+  )
+
   const copyAffiliateLink = useCallback(() => {
     copyToClipboard(affiliateLink)
   }, [affiliateLink, copyToClipboard])
 
-  // Transfer affiliate quota to balance
-  const transferQuota = useCallback(async (quota: number): Promise<boolean> => {
+  const transferQuota = useCallback(async (): Promise<boolean> => {
     try {
       setTransferring(true)
-      const response = await transferAffiliateQuota({ quota })
+      const response = await createAffiliateTransferRequest()
 
       if (response.success) {
-        toast.success(response.message || i18next.t('Transfer successful'))
-        await getSelf()
+        toast.success(
+          response.message || i18next.t('Transfer request submitted')
+        )
+        await Promise.all([getSelf(), refreshAffiliateData()])
         return true
       }
 
-      toast.error(response.message || i18next.t('Transfer failed'))
+      toast.error(response.message || i18next.t('Transfer request failed'))
       return false
-    } catch (_error) {
-      toast.error(i18next.t('Transfer failed'))
+    } catch {
+      toast.error(i18next.t('Transfer request failed'))
       return false
     } finally {
       setTransferring(false)
     }
-  }, [])
+  }, [refreshAffiliateData])
 
   useEffect(() => {
-    fetchAffiliateCode()
-  }, [fetchAffiliateCode])
+    fetchAffiliateData()
+  }, [fetchAffiliateData])
 
   return {
     affiliateCode,
     affiliateLink,
+    rebateSummary,
     loading,
+    refreshing,
     transferring,
     copyAffiliateLink,
     transferQuota,
-    refetch: fetchAffiliateCode,
+    refetch: refreshAffiliateData,
   }
 }

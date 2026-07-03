@@ -20,11 +20,12 @@ import { useEffect, useMemo, useState } from 'react'
 import type { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useStatus } from '@/hooks/use-status'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -171,7 +172,7 @@ export function SignUpForm({
       } else {
         toast.error(res?.message || t('Failed to create account'))
       }
-    } catch (_error) {
+    } catch {
       // Errors are handled by global interceptor
     } finally {
       setIsLoading(false)
@@ -215,11 +216,21 @@ export function SignUpForm({
       } else {
         toast.error(res?.message || t('Login failed'))
       }
-    } catch (_error) {
+    } catch {
       toast.error(t('Login failed'))
     } finally {
       setIsWeChatSubmitting(false)
     }
+  }
+
+  function renderVerificationCodeButtonContent() {
+    if (isActive) {
+      return t('Resend ({{seconds}}s)', { seconds: secondsLeft })
+    }
+    if (isSendingCode) {
+      return <Loader2 className='h-4 w-4 animate-spin' />
+    }
+    return t('Send code')
   }
 
   return (
@@ -229,6 +240,18 @@ export function SignUpForm({
         className={cn('grid gap-4', className)}
         {...props}
       >
+        <Alert className='border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100 [&_[data-slot=alert-description]]:text-amber-900 dark:[&_[data-slot=alert-description]]:text-amber-100/90'>
+          <AlertTriangle className='size-4' />
+          <AlertTitle>
+            {t('Invitation rewards are manually reviewed')}
+          </AlertTitle>
+          <AlertDescription>
+            {t(
+              'Invitation rewards are manually reviewed. Please do not abuse the system.'
+            )}
+          </AlertDescription>
+        </Alert>
+
         {/* Username Field */}
         <FormField
           control={form.control}
@@ -322,13 +345,7 @@ export function SignUpForm({
                 }
                 onClick={handleSendVerificationCode}
               >
-                {isActive ? (
-                  t('Resend ({{seconds}}s)', { seconds: secondsLeft })
-                ) : isSendingCode ? (
-                  <Loader2 className='h-4 w-4 animate-spin' />
-                ) : (
-                  t('Send code')
-                )}
+                {renderVerificationCodeButtonContent()}
               </Button>
             </div>
           </>

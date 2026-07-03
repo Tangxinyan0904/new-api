@@ -40,6 +40,8 @@ export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
 }
 export type StripePaymentResponse = ApiResponse<{ pay_link: string }>
 export type AffiliateCodeResponse = ApiResponse<string>
+export type AffiliateRebateSummaryResponse = ApiResponse<AffiliateRebateSummary>
+export type AffiliateTransferRequestResponse = ApiResponse<AffiliateTransferRequestRecord>
 export type AffiliateTransferResponse = ApiResponse
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
 export type WaffoPaymentResponse = ApiResponse<
@@ -212,6 +214,34 @@ export interface AmountRequest {
   amount: number
 }
 
+export interface AffiliateTransferRequestRecord {
+  id: number
+  user_id: number
+  invite_reward_quota: number
+  recharge_rebate_quota: number
+  total_quota: number
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: number
+  reviewed_at?: number
+  reviewed_by?: number
+  reject_reason?: string
+}
+
+export interface AffiliateInvitedUserSummary {
+  id: number
+  display_name: string
+}
+
+export interface AffiliateRebateSummary {
+  invited_users: AffiliateInvitedUserSummary[]
+  invited_count: number
+  total_invited_recharge_quota: number
+  invite_reward_quota: number
+  recharge_rebate_quota: number
+  total_pending_quota: number
+  pending_request?: AffiliateTransferRequestRecord
+  submitted_today: boolean
+}
 /**
  * Affiliate quota transfer request
  */

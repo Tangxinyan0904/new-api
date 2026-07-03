@@ -17,11 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
-import { SectionPageLayout } from '@/components/layout'
+
 import { CopyButton } from '@/components/copy-button'
+import { SectionPageLayout } from '@/components/layout'
+import { useStatus } from '@/hooks/use-status'
 import { getBgColorClass } from '@/lib/colors'
 import { cn } from '@/lib/utils'
-import { useStatus } from '@/hooks/use-status'
+
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
@@ -79,7 +81,7 @@ function ApiKeysApiAddresses() {
       className='border-border/70 bg-muted/20 rounded-lg border p-3'
     >
       <div className='mb-2 text-sm font-medium'>{t('API Addresses')}</div>
-      <div className='grid gap-2'>
+      <div className='grid grid-cols-1 gap-2 lg:grid-cols-2'>
         {apiInfoAddresses.map((item) => {
           const title = item.route || item.description || t('API URL')
           const v1Url = appendApiV1Path(item.url)
@@ -145,9 +147,11 @@ export function ApiKeys() {
           <ApiKeysPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <div className='space-y-4'>
+          <div className='flex h-full min-h-0 flex-col gap-4 overflow-y-auto md:overflow-hidden'>
             <ApiKeysApiAddresses />
-            <ApiKeysTable />
+            <div className='min-h-80 flex-1 md:min-h-0'>
+              <ApiKeysTable />
+            </div>
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

@@ -200,6 +200,17 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
       size: 170,
     },
     {
+      id: 'today_quota',
+      accessorKey: 'today_quota',
+      header: t('Today Usage'),
+      cell: ({ row }) => (
+        <span className='font-medium tabular-nums'>
+          {formatQuota(row.original.today_quota ?? 0)}
+        </span>
+      ),
+      size: 150,
+    },
+    {
       accessorKey: 'group',
       header: t('Group'),
       cell: ({ row }) => (

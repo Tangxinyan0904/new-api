@@ -29,6 +29,8 @@ import type {
   PaymentResponse,
   StripePaymentResponse,
   AffiliateCodeResponse,
+  AffiliateRebateSummaryResponse,
+  AffiliateTransferRequestResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
   CompleteOrderRequest,
@@ -183,6 +185,16 @@ export async function transferAffiliateQuota(
   request: AffiliateTransferRequest
 ): Promise<AffiliateTransferResponse> {
   const res = await api.post('/api/user/aff_transfer', request)
+  return res.data
+}
+
+export async function getAffiliateRebateSummary(): Promise<AffiliateRebateSummaryResponse> {
+  const res = await api.get('/api/user/affiliate/rebate-summary')
+  return res.data
+}
+
+export async function createAffiliateTransferRequest(): Promise<AffiliateTransferRequestResponse> {
+  const res = await api.post('/api/user/affiliate/transfer-request')
   return res.data
 }
 

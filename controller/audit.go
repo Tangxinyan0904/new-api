@@ -46,6 +46,9 @@ var auditContentTemplates = map[string]string{
 	"channel.upstream_apply_all": "Applied upstream model changes to ${count} channels",
 
 	"redemption.create": "Created ${count} redemption codes named ${name} (${quota} each)",
+
+	"affiliate.transfer.approve": "Approved rebate transfer request #${request_id} for user ${target_user_id}: invitation ${invite_reward_quota}, recharge ${recharge_rebate_quota}, total ${total_quota}",
+	"affiliate.transfer.reject":  "Rejected rebate transfer request #${request_id} for user ${target_user_id}: invitation ${invite_reward_quota}, recharge ${recharge_rebate_quota}, total ${total_quota}",
 }
 
 // auditContentEN 按 action 模板渲染英文兜底文本；未登记的 action 退回 action 本身。

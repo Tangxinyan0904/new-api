@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -26,6 +27,7 @@ type Token struct {
 	ModelLimits        string         `json:"model_limits" gorm:"type:text"`
 	AllowIps           *string        `json:"allow_ips" gorm:"default:''"`
 	UsedQuota          int            `json:"used_quota" gorm:"default:0"` // used quota
+	TodayQuota         int            `json:"today_quota" gorm:"-"`
 	Group              string         `json:"group" gorm:"default:''"`
 	CrossGroupRetry    bool           `json:"cross_group_retry"` // 跨分组重试，仅auto分组有效
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
@@ -83,6 +85,55 @@ func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
 	var err error
 	err = DB.Where("user_id = ?", userId).Order("id desc").Limit(num).Offset(startIdx).Find(&tokens).Error
 	return tokens, err
+}
+
+func GetTodayTokenQuotaMap(userId int, tokenIds []int, startTimestamp int64, endTimestamp int64) (map[int]int, error) {
+	result := make(map[int]int, len(tokenIds))
+	if len(tokenIds) == 0 {
+		return result, nil
+	}
+
+	rows := []struct {
+		TokenId int `gorm:"column:token_id"`
+		Quota   int `gorm:"column:quota"`
+	}{}
+
+	err := LOG_DB.Table("logs").
+		Select("token_id, COALESCE(SUM(quota), 0) AS quota").
+		Where("user_id = ? AND token_id IN ? AND type = ? AND created_at >= ? AND created_at <= ?", userId, tokenIds, LogTypeConsume, startTimestamp, endTimestamp).
+		Group("token_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		result[row.TokenId] = row.Quota
+	}
+	return result, nil
+}
+
+func AttachTodayQuotaToTokens(userId int, tokens []*Token) error {
+	ids := make([]int, 0, len(tokens))
+	for _, token := range tokens {
+		if token != nil {
+			ids = append(ids, token.Id)
+		}
+	}
+
+	now := time.Now()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).Unix()
+	quotas, err := GetTodayTokenQuotaMap(userId, ids, start, now.Unix())
+	if err != nil {
+		return err
+	}
+
+	for _, token := range tokens {
+		if token != nil {
+			token.TodayQuota = quotas[token.Id]
+		}
+	}
+	return nil
 }
 
 // sanitizeLikePattern 校验并清洗用户输入的 LIKE 搜索模式。
