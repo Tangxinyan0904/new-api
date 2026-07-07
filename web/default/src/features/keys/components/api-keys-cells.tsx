@@ -166,14 +166,14 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   }, [resolvedFullKey, resolveRealKey, apiKey.id, markKeyCopied, t])
 
   return (
-    <div className='flex max-w-full min-w-0 items-center'>
+    <div className='flex w-full max-w-full min-w-0 items-center gap-2'>
       <Popover open={popoverOpen} onOpenChange={handlePopoverOpen}>
         <PopoverTrigger
           render={
             <Button
               variant='ghost'
               size='sm'
-              className='text-muted-foreground h-7 max-w-full min-w-0 justify-start truncate px-0 font-mono text-xs hover:bg-transparent aria-expanded:bg-transparent'
+              className='text-muted-foreground h-7 min-w-0 flex-1 shrink justify-start truncate px-0 font-mono text-xs hover:bg-transparent aria-expanded:bg-transparent'
             />
           }
         >
@@ -210,7 +210,7 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
             <Button
               variant='outline'
               size='sm'
-              className='h-7 shrink-0 px-2 text-xs'
+              className='h-7 w-24 shrink-0 justify-center px-2 text-xs'
               onClick={handleCopy}
               onFocus={() => {
                 if (!resolvedFullKey) void resolveRealKey(apiKey.id)

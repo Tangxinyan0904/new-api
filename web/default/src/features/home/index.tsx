@@ -25,6 +25,7 @@ import { Footer } from '@/components/layout/components/footer'
 import { RichContent } from '@/components/rich-content'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/context/theme-provider'
+import { DEFAULT_GEOIP_POPUP_MESSAGE } from '@/lib/constants'
 import { isLikelyHtml } from '@/lib/content-format'
 import { useAuthStore } from '@/stores/auth-store'
 
@@ -92,6 +93,11 @@ export function Home() {
     geoIPStatus.mode !== 'full_reject' &&
     !geoIPDismissed
   const geoIPDialogDismissible = geoIPStatus?.mode === 'homepage_notice'
+  const geoIPMessage =
+    !geoIPStatus?.message ||
+    geoIPStatus.message === DEFAULT_GEOIP_POPUP_MESSAGE
+      ? t(DEFAULT_GEOIP_POPUP_MESSAGE)
+      : geoIPStatus.message
 
   const geoIPDialog = (
     <Dialog
@@ -113,10 +119,7 @@ export function Home() {
       }
     >
       <p className='text-muted-foreground text-sm leading-6'>
-        {geoIPStatus?.message ||
-          t(
-            'Your current region is not supported by this service. Please contact the administrator if you believe this is a mistake.'
-          )}
+        {geoIPMessage}
       </p>
     </Dialog>
   )

@@ -39,6 +39,7 @@ import { Input } from '@/components/ui/input'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { DEFAULT_GEOIP_POPUP_MESSAGE } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
 import { downloadGeoIPDatabase } from '../api'
@@ -173,11 +174,21 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
   const [isDownloading, setIsDownloading] = useState(false)
-  const baselineRef = useRef<GeoIPSettings>(normalizeDefaults(defaultValues))
+  const displayDefaults = useMemo<GeoIPSettings>(() => {
+    const popupMessage = defaultValues['geoip.popup_message']
+    return {
+      ...defaultValues,
+      'geoip.popup_message':
+        popupMessage === DEFAULT_GEOIP_POPUP_MESSAGE
+          ? t(DEFAULT_GEOIP_POPUP_MESSAGE)
+          : popupMessage,
+    }
+  }, [defaultValues, t])
+  const baselineRef = useRef<GeoIPSettings>(normalizeDefaults(displayDefaults))
 
   const formDefaults = useMemo(
-    () => buildFormDefaults(defaultValues),
-    [defaultValues]
+    () => buildFormDefaults(displayDefaults),
+    [displayDefaults]
   )
 
   const form = useForm<GeoIPFormInput, unknown, GeoIPFormValues>({
@@ -186,9 +197,9 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
   })
 
   useEffect(() => {
-    baselineRef.current = normalizeDefaults(defaultValues)
-    form.reset(buildFormDefaults(defaultValues))
-  }, [defaultValues, form])
+    baselineRef.current = normalizeDefaults(displayDefaults)
+    form.reset(buildFormDefaults(displayDefaults))
+  }, [displayDefaults, form])
 
   const onSubmit = async (values: GeoIPFormValues) => {
     const normalized = normalizeFormValues(values)

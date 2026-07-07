@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { DEFAULT_GEOIP_POPUP_MESSAGE } from '@/lib/constants'
+
 import { SettingsPage } from '../components/settings-page'
 import type { SecuritySettings } from '../types'
 import {
@@ -46,8 +48,7 @@ const defaultSecuritySettings: SecuritySettings = {
   'geoip.database_path': 'Country.mmdb',
   'geoip.download_url': '',
   'geoip.maxmind_license_key': '',
-  'geoip.popup_message':
-    'Your current region is not supported by this service. Please contact the administrator if you believe this is a mistake.',
+  'geoip.popup_message': DEFAULT_GEOIP_POPUP_MESSAGE,
   'geoip.allow_private_loopback': true,
   'geoip.blocked_countries': ['CN'],
 }
