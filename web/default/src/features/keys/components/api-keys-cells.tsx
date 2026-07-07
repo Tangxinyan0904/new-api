@@ -16,12 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { Check, Loader2 } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { copyToClipboard } from '@/lib/copy-to-clipboard'
+
+import { BadgeCell } from '@/components/data-table'
+import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -33,8 +35,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { BadgeCell } from '@/components/data-table'
-import { StatusBadge } from '@/components/status-badge'
+import { copyToClipboard } from '@/lib/copy-to-clipboard'
+
 import { updateApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import type { ApiKey, ApiKeyFormData } from '../types'

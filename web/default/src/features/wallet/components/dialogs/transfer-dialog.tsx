@@ -8,10 +8,11 @@ License, or (at your option) any later version.
 */
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatQuota } from '@/lib/format'
+
+import { Dialog } from '@/components/dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Dialog } from '@/components/dialog'
+import { formatQuota } from '@/lib/format'
 
 interface TransferDialogProps {
   open: boolean

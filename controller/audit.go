@@ -47,6 +47,9 @@ var auditContentTemplates = map[string]string{
 
 	"redemption.create": "Created ${count} redemption codes named ${name} (${quota} each)",
 
+	"subscription.plan_reset":      "Reset active subscriptions for plan ${plan_id}",
+	"subscription.user_plan_reset": "Reset active plan ${plan_id} subscriptions for user ${target_user_id}",
+
 	"affiliate.transfer.approve": "Approved rebate transfer request #${request_id} for user ${target_user_id}: invitation ${invite_reward_quota}, recharge ${recharge_rebate_quota}, total ${total_quota}",
 	"affiliate.transfer.reject":  "Rejected rebate transfer request #${request_id} for user ${target_user_id}: invitation ${invite_reward_quota}, recharge ${recharge_rebate_quota}, total ${total_quota}",
 }

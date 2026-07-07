@@ -19,9 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 import { memo, type MouseEvent, type ReactNode } from 'react'
 import { ChevronRight, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import {
   getDynamicDisplayGroupRatio,

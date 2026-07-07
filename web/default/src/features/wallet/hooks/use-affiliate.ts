@@ -6,8 +6,8 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { useState, useEffect, useCallback } from 'react'
 import i18next from 'i18next'
+import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
