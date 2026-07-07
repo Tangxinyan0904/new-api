@@ -42,6 +42,14 @@ const defaultSecuritySettings: SecuritySettings = {
   'fetch_setting.allowed_ports': [],
   'fetch_setting.apply_ip_filter_for_domain': false,
   'token_setting.max_user_tokens': 1000,
+  'geoip.mode': 'off',
+  'geoip.database_path': 'Country.mmdb',
+  'geoip.download_url': '',
+  'geoip.maxmind_license_key': '',
+  'geoip.popup_message':
+    'Your current region is not supported by this service. Please contact the administrator if you believe this is a mistake.',
+  'geoip.allow_private_loopback': true,
+  'geoip.blocked_countries': ['CN'],
 }
 
 export function SecuritySettings() {

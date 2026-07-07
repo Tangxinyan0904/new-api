@@ -37,6 +37,7 @@ export type UpdateOptionRequest = {
 export type UpdateOptionResponse = {
   success: boolean
   message: string
+  data?: unknown
 }
 
 export type ConfirmPaymentComplianceResponse = {
@@ -379,7 +380,32 @@ export type SecuritySettings = {
   'fetch_setting.allowed_ports': number[]
   'fetch_setting.apply_ip_filter_for_domain': boolean
   'token_setting.max_user_tokens': number
+  'geoip.mode': GeoIPMode
+  'geoip.database_path': string
+  'geoip.download_url': string
+  'geoip.maxmind_license_key': string
+  'geoip.popup_message': string
+  'geoip.allow_private_loopback': boolean
+  'geoip.blocked_countries': string[]
 }
+
+export type GeoIPMode =
+  | 'off'
+  | 'homepage_notice'
+  | 'homepage_block'
+  | 'homepage_block_api_reject'
+  | 'full_reject'
+
+export type GeoIPSettings = Pick<
+  SecuritySettings,
+  | 'geoip.mode'
+  | 'geoip.database_path'
+  | 'geoip.download_url'
+  | 'geoip.maxmind_license_key'
+  | 'geoip.popup_message'
+  | 'geoip.allow_private_loopback'
+  | 'geoip.blocked_countries'
+>
 
 export type UpstreamChannel = {
   id: number

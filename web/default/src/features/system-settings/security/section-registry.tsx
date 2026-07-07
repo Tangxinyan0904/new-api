@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { RateLimitSection } from '../request-limits/rate-limit-section'
+import { GeoIPSection } from '../request-limits/geoip-section'
 import { SensitiveWordsSection } from '../request-limits/sensitive-words-section'
 import { SSRFSection } from '../request-limits/ssrf-section'
 import { TokenLimitSection } from '../request-limits/token-limit-section'
@@ -74,6 +75,24 @@ const SECURITY_SECTIONS = [
             settings['fetch_setting.allowed_ports'],
           'fetch_setting.apply_ip_filter_for_domain':
             settings['fetch_setting.apply_ip_filter_for_domain'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'geoip',
+    titleKey: 'GeoIP Access Restriction',
+    build: (settings: SecuritySettings) => (
+      <GeoIPSection
+        defaultValues={{
+          'geoip.mode': settings['geoip.mode'],
+          'geoip.database_path': settings['geoip.database_path'],
+          'geoip.download_url': settings['geoip.download_url'],
+          'geoip.maxmind_license_key': settings['geoip.maxmind_license_key'],
+          'geoip.popup_message': settings['geoip.popup_message'],
+          'geoip.allow_private_loopback':
+            settings['geoip.allow_private_loopback'],
+          'geoip.blocked_countries': settings['geoip.blocked_countries'],
         }}
       />
     ),

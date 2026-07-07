@@ -29,6 +29,21 @@ export interface HomePageContentResponse {
   data?: string
 }
 
+export type GeoIPStatus = {
+  enabled: boolean
+  mode: string
+  blocked: boolean
+  country_code: string
+  message: string
+  database_ready: boolean
+}
+
+export interface GeoIPStatusResponse {
+  success: boolean
+  message?: string
+  data?: GeoIPStatus
+}
+
 /**
  * Home page content result from hook
  */

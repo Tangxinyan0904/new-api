@@ -16,18 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Dialog } from '@/components/dialog'
 import { PublicLayout } from '@/components/layout'
 import { Footer } from '@/components/layout/components/footer'
 import { RichContent } from '@/components/rich-content'
+import { Button } from '@/components/ui/button'
 import { useTheme } from '@/context/theme-provider'
 import { isLikelyHtml } from '@/lib/content-format'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { CTA, Features, Hero, HowItWorks, Stats } from './components'
+import { getGeoIPStatus } from './api'
 import { useHomePageContent } from './hooks'
+import type { GeoIPStatus } from './types'
 
 export function Home() {
   const { i18n, t } = useTranslation()
@@ -36,6 +40,8 @@ export function Home() {
   const { auth } = useAuthStore()
   const isAuthenticated = !!auth.user
   const { content, isLoaded, isUrl } = useHomePageContent()
+  const [geoIPStatus, setGeoIPStatus] = useState<GeoIPStatus | null>(null)
+  const [geoIPDismissed, setGeoIPDismissed] = useState(false)
 
   const syncIframePreferences = useCallback(() => {
     try {
@@ -58,12 +64,70 @@ export function Home() {
     }
   }, [isUrl, syncIframePreferences])
 
+  useEffect(() => {
+    let mounted = true
+
+    const loadGeoIPStatus = async () => {
+      try {
+        const response = await getGeoIPStatus()
+        if (mounted && response.success && response.data) {
+          setGeoIPStatus(response.data)
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load GeoIP status:', error)
+      }
+    }
+
+    loadGeoIPStatus()
+
+    return () => {
+      mounted = false
+    }
+  }, [])
+
+  const showGeoIPDialog =
+    !!geoIPStatus?.enabled &&
+    !!geoIPStatus.blocked &&
+    geoIPStatus.mode !== 'full_reject' &&
+    !geoIPDismissed
+  const geoIPDialogDismissible = geoIPStatus?.mode === 'homepage_notice'
+
+  const geoIPDialog = (
+    <Dialog
+      open={showGeoIPDialog}
+      onOpenChange={(open) => {
+        if (!open && geoIPDialogDismissible) {
+          setGeoIPDismissed(true)
+        }
+      }}
+      title={t('GeoIP access notice')}
+      showCloseButton={geoIPDialogDismissible}
+      contentClassName='sm:max-w-md'
+      footer={
+        geoIPDialogDismissible ? (
+          <Button type='button' onClick={() => setGeoIPDismissed(true)}>
+            {t('I understand')}
+          </Button>
+        ) : null
+      }
+    >
+      <p className='text-muted-foreground text-sm leading-6'>
+        {geoIPStatus?.message ||
+          t(
+            'Your current region is not supported by this service. Please contact the administrator if you believe this is a mistake.'
+          )}
+      </p>
+    </Dialog>
+  )
+
   if (!isLoaded) {
     return (
       <PublicLayout showMainContainer={false}>
         <main className='flex min-h-screen items-center justify-center'>
           <div className='text-muted-foreground'>{t('Loading...')}</div>
         </main>
+        {geoIPDialog}
       </PublicLayout>
     )
   }
@@ -80,6 +144,7 @@ export function Home() {
             sandbox='allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts'
             onLoad={syncIframePreferences}
           />
+          {geoIPDialog}
         </PublicLayout>
       )
     }
@@ -95,6 +160,7 @@ export function Home() {
             content={content}
             className='custom-home-content'
           />
+          {geoIPDialog}
         </PublicLayout>
       )
     }
@@ -108,6 +174,7 @@ export function Home() {
             className='custom-home-content'
           />
         </div>
+        {geoIPDialog}
       </PublicLayout>
     )
   }
@@ -120,6 +187,7 @@ export function Home() {
       <HowItWorks />
       <CTA isAuthenticated={isAuthenticated} />
       <Footer />
+      {geoIPDialog}
     </PublicLayout>
   )
 }

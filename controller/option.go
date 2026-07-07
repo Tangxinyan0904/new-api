@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/QuantumNous/new-api/setting/geoip_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
@@ -75,18 +76,34 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+func isSensitiveOptionKey(key string) bool {
+	lowerKey := strings.ToLower(key)
+	return strings.HasSuffix(key, "Token") ||
+		strings.HasSuffix(key, "Secret") ||
+		strings.HasSuffix(key, "Key") ||
+		strings.HasSuffix(lowerKey, "secret") ||
+		strings.HasSuffix(lowerKey, "api_key") ||
+		strings.HasSuffix(lowerKey, "key")
+}
+
+func normalizeGeoIPOptionValue(key string, value string) (string, error) {
+	switch key {
+	case "geoip.mode":
+		return value, geoip_setting.ValidateMode(value)
+	case "geoip.blocked_countries":
+		return geoip_setting.NormalizeBlockedCountriesJSON(value)
+	default:
+		return value, nil
+	}
+}
+
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
 		value := common.Interface2String(v)
-		isSensitiveKey := strings.HasSuffix(k, "Token") ||
-			strings.HasSuffix(k, "Secret") ||
-			strings.HasSuffix(k, "Key") ||
-			strings.HasSuffix(k, "secret") ||
-			strings.HasSuffix(k, "api_key")
-		if isSensitiveKey {
+		if isSensitiveOptionKey(k) {
 			continue
 		}
 		options = append(options, &model.Option{
@@ -137,6 +154,12 @@ func UpdateOption(c *gin.Context) {
 	default:
 		option.Value = fmt.Sprintf("%v", option.Value)
 	}
+	normalizedValue, err := normalizeGeoIPOptionValue(option.Key, option.Value.(string))
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	option.Value = normalizedValue
 	switch option.Key {
 	case "QuotaForInviter", "QuotaForInvitee":
 		if isPositiveOptionValue(option.Value.(string)) && !operation_setting.IsPaymentComplianceConfirmed() {
