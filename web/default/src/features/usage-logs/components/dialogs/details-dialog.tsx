@@ -957,12 +957,12 @@ export function DetailsDialog(props: DetailsDialogProps) {
             <DetailRow
               label={t('Level')}
               value={
-              <StatusBadge
-                label={other.reasoning_effort}
-                variant={reasoningEffortVariant}
-                size='sm'
-                copyable={false}
-              />
+                <StatusBadge
+                  label={other.reasoning_effort}
+                  variant={reasoningEffortVariant}
+                  size='sm'
+                  copyable={false}
+                />
               }
             />
           </DetailSection>

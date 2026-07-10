@@ -37,9 +37,7 @@ export function getCacheHitMetrics(
 ): CacheHitMetrics {
   const normalizedPromptTokens = normalizeTokens(promptTokens)
   const cacheReadTokens = normalizeTokens(other?.cache_tokens)
-  const normalizedCacheWriteTokens = normalizeTokens(
-    other?.cache_write_tokens
-  )
+  const normalizedCacheWriteTokens = normalizeTokens(other?.cache_write_tokens)
   const cacheWrite5m = normalizeTokens(other?.cache_creation_tokens_5m)
   const cacheWrite1h = normalizeTokens(other?.cache_creation_tokens_1h)
 

@@ -788,9 +788,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           return <span className='text-muted-foreground text-xs'>-</span>
         }
 
-        return (
-          <span className='font-mono text-xs'>{reasoningEffort}</span>
-        )
+        return <span className='font-mono text-xs'>{reasoningEffort}</span>
       },
     },
 
