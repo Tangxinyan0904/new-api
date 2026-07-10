@@ -44,7 +44,10 @@ import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { UsageLog } from '../../data/schema'
-import { getCacheHitMetrics } from '../../lib/cache-metrics'
+import {
+  getCacheHitMetrics,
+  isHighCacheHitPercentage,
+} from '../../lib/cache-metrics'
 import {
   parseLogOther,
   getParamOverrideActionLabel,
@@ -422,6 +425,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
   const cacheHitMetrics = getCacheHitMetrics(props.log.prompt_tokens, other)
+  const isHighCacheHit = isHighCacheHitPercentage(cacheHitMetrics.percentage)
   const typeConfig = getLogTypeConfig(props.log.type)
 
   let reasoningEffortVariant: StatusBadgeProps['variant'] = 'green'
@@ -973,7 +977,16 @@ export function DetailsDialog(props: DetailsDialogProps) {
           <DetailSection label={t('Cache Hit')}>
             <DetailRow
               label={t('Hit Rate')}
-              value={cacheHitMetrics.formattedPercentage}
+              value={
+                <span
+                  className={cn(
+                    isHighCacheHit &&
+                      'text-emerald-700 font-medium dark:text-emerald-400'
+                  )}
+                >
+                  {cacheHitMetrics.formattedPercentage}
+                </span>
+              }
               mono
             />
             <DetailRow

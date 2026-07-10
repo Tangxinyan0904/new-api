@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { getCacheHitMetrics } from './cache-metrics'
+import { getCacheHitMetrics, isHighCacheHitPercentage } from './cache-metrics'
 
 describe('getCacheHitMetrics', () => {
   test('uses OpenAI input tokens that already include cache reads', () => {
@@ -120,5 +120,13 @@ describe('getCacheHitMetrics', () => {
       getCacheHitMetrics(100, { cache_tokens: 200 }).formattedPercentage,
       '100.000%'
     )
+  })
+})
+
+describe('isHighCacheHitPercentage', () => {
+  test('highlights percentages at and above ninety percent', () => {
+    assert.equal(isHighCacheHitPercentage(89.999), false)
+    assert.equal(isHighCacheHitPercentage(90), true)
+    assert.equal(isHighCacheHitPercentage(100), true)
   })
 })

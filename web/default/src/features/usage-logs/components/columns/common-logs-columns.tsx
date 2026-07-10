@@ -45,7 +45,10 @@ import { cn } from '@/lib/utils'
 
 import { LOG_TYPE_ALL_VALUE } from '../../constants'
 import type { UsageLog } from '../../data/schema'
-import { getCacheHitMetrics } from '../../lib/cache-metrics'
+import {
+  getCacheHitMetrics,
+  isHighCacheHitPercentage,
+} from '../../lib/cache-metrics'
 import {
   formatModelName,
   getFirstResponseTimeColor,
@@ -621,6 +624,21 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       meta: { mobileTitle: true },
     },
     {
+      id: 'reasoning_effort',
+      header: t('Reasoning Effort'),
+      cell: ({ row }) => {
+        const log = row.original
+        if (!isDisplayableLogType(log.type)) return null
+
+        const reasoningEffort = parseLogOther(log.other)?.reasoning_effort
+        if (!reasoningEffort) {
+          return <span className='text-muted-foreground text-xs'>-</span>
+        }
+
+        return <span className='font-mono text-xs'>{reasoningEffort}</span>
+      },
+    },
+    {
       accessorKey: 'use_time',
       header: t('Timing'),
       cell: ({ row }) => {
@@ -777,42 +795,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
     },
 
     {
-      id: 'reasoning_effort',
-      header: t('Reasoning Effort'),
-      cell: ({ row }) => {
-        const log = row.original
-        if (!isDisplayableLogType(log.type)) return null
-
-        const reasoningEffort = parseLogOther(log.other)?.reasoning_effort
-        if (!reasoningEffort) {
-          return <span className='text-muted-foreground text-xs'>-</span>
-        }
-
-        return <span className='font-mono text-xs'>{reasoningEffort}</span>
-      },
-    },
-
-    {
-      id: 'cache_hit',
-      header: t('Cache Hit'),
-      cell: ({ row }) => {
-        const log = row.original
-        if (!isDisplayableLogType(log.type)) return null
-
-        const metrics = getCacheHitMetrics(
-          log.prompt_tokens,
-          parseLogOther(log.other)
-        )
-
-        return (
-          <span className='font-mono text-xs tabular-nums'>
-            {metrics.formattedPercentage}
-          </span>
-        )
-      },
-    },
-
-    {
       accessorKey: 'quota',
       header: t('Cost'),
       cell: ({ row }) => {
@@ -860,6 +842,32 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
               <span>{quotaDisplay.amount}</span>
             </span>
           </div>
+        )
+      },
+    },
+
+    {
+      id: 'cache_hit',
+      header: t('Cache Hit'),
+      cell: ({ row }) => {
+        const log = row.original
+        if (!isDisplayableLogType(log.type)) return null
+
+        const metrics = getCacheHitMetrics(
+          log.prompt_tokens,
+          parseLogOther(log.other)
+        )
+        const isHighHit = isHighCacheHitPercentage(metrics.percentage)
+
+        return (
+          <span
+            className={cn(
+              'font-mono text-xs tabular-nums',
+              isHighHit && 'text-emerald-700 font-medium dark:text-emerald-400'
+            )}
+          >
+            {metrics.formattedPercentage}
+          </span>
         )
       },
     },

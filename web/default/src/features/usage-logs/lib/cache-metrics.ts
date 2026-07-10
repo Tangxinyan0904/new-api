@@ -26,6 +26,10 @@ export interface CacheHitMetrics {
   formattedPercentage: string
 }
 
+export function isHighCacheHitPercentage(percentage: number): boolean {
+  return Number.isFinite(percentage) && percentage >= 90
+}
+
 function normalizeTokens(value: number | null | undefined): number {
   if (!Number.isFinite(value) || value == null || value < 0) return 0
   return value
