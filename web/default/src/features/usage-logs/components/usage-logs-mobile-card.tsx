@@ -230,6 +230,11 @@ function CommonLogsCard<TData>({
           primaryOnly
         />
         <SummaryField
+          label={t('Reasoning Effort')}
+          cell={cells.get('reasoning_effort')}
+        />
+        <SummaryField label={t('Cache Hit')} cell={cells.get('cache_hit')} />
+        <SummaryField
           label={t('Details')}
           cell={cells.get('content')}
           className='col-span-2 bg-transparent px-0 py-0'
