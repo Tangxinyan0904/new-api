@@ -89,6 +89,8 @@ function SidebarProvider({
   const isMobile = useIsMobile()
   const [openMobile, setOpenMobile] = React.useState(false)
 
+  // This is the internal state of the sidebar.
+  // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen)
   const open = openProp ?? _open
   const setOpen = React.useCallback(
@@ -100,15 +102,18 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
+      // This sets the cookie to keep the sidebar state.
       document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
     },
     [setOpenProp, open]
   )
 
+  // Helper to toggle the sidebar.
   const toggleSidebar = React.useCallback(() => {
     return isMobile ? setOpenMobile((open) => !open) : setOpen((open) => !open)
   }, [isMobile, setOpen, setOpenMobile])
 
+  // Adds a keyboard shortcut to toggle the sidebar.
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (
@@ -124,6 +129,8 @@ function SidebarProvider({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [toggleSidebar])
 
+  // We add a state so that we can do data-state="expanded" or "collapsed".
+  // This makes it easier to style the sidebar with Tailwind classes.
   const state = open ? 'expanded' : 'collapsed'
 
   const contextValue = React.useMemo<SidebarContextProps>(
@@ -200,7 +207,7 @@ function Sidebar({
           data-sidebar='sidebar'
           data-slot='sidebar'
           data-mobile='true'
-          className='bg-white/90 dark:bg-[#151d2a]/90 backdrop-blur-xl border-r-2 border-dashed border-[#ffd1dc] dark:border-[#3b2d35] text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden'
+          className='text-sidebar-foreground w-(--sidebar-width) border-r-2 border-dashed border-[#ffd1dc] bg-white/90 p-0 backdrop-blur-xl dark:border-[#3b2d35] dark:bg-[#151d2a]/90 [&>button]:hidden'
           style={
             {
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
@@ -227,6 +234,7 @@ function Sidebar({
       data-side={side}
       data-slot='sidebar'
     >
+      {/* This is what handles the sidebar gap on desktop */}
       <div
         data-slot='sidebar-gap'
         className={cn(
@@ -243,6 +251,7 @@ function Sidebar({
         data-side={side}
         className={cn(
           'fixed top-[var(--app-header-height,0px)] bottom-0 z-10 hidden h-[calc(100svh-var(--app-header-height,0px))] w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear data-[side=left]:left-0 data-[side=left]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)] data-[side=right]:right-0 data-[side=right]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)] md:flex',
+          // Adjust the padding for floating and inset variants.
           variant === 'floating' || variant === 'inset'
             ? 'p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]'
             : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r-2 group-data-[side=left]:border-dashed group-data-[side=left]:border-[#ffd1dc] dark:group-data-[side=left]:border-[#3b2d35] group-data-[side=right]:border-l-2 group-data-[side=right]:border-dashed group-data-[side=right]:border-[#ffd1dc] dark:group-data-[side=right]:border-[#3b2d35]',
@@ -253,7 +262,7 @@ function Sidebar({
         <div
           data-sidebar='sidebar'
           data-slot='sidebar-inner'
-          className='bg-white/80 dark:bg-[#151d2a]/80 backdrop-blur-md flex size-full flex-col group-data-[variant=floating]:rounded-[1.75rem] group-data-[variant=floating]:border-[3px] group-data-[variant=floating]:border-[#ffd1dc] dark:group-data-[variant=floating]:border-[#3b2d35] group-data-[variant=floating]:shadow-[6px_6px_0px_#f0f8ff] dark:group-data-[variant=floating]:shadow-[6px_6px_0px_rgba(0,0,0,0.2)]'
+          className='flex size-full flex-col bg-white/80 backdrop-blur-md group-data-[variant=floating]:rounded-[1.75rem] group-data-[variant=floating]:border-[3px] group-data-[variant=floating]:border-[#ffd1dc] group-data-[variant=floating]:shadow-[6px_6px_0px_#f0f8ff] dark:bg-[#151d2a]/80 dark:group-data-[variant=floating]:border-[#3b2d35] dark:group-data-[variant=floating]:shadow-[6px_6px_0px_rgba(0,0,0,0.2)]'
         >
           {children}
         </div>
@@ -376,7 +385,10 @@ function SidebarSeparator({
     <Separator
       data-slot='sidebar-separator'
       data-sidebar='separator'
-      className={cn('border-t-2 border-dashed border-[#ffd1dc] dark:border-[#3b2d35] bg-transparent mx-4 w-auto h-0', className)}
+      className={cn(
+        'border-t-2 border-dashed border-[#ffd1dc] dark:border-[#3b2d35] bg-transparent mx-4 w-auto h-0',
+        className
+      )}
       {...props}
     />
   )
@@ -492,7 +504,7 @@ function SidebarMenuItem({ className, ...props }: React.ComponentProps<'li'>) {
 }
 
 const sidebarMenuButtonVariants = cva(
-  'peer/menu-button group/menu-button flex w-full items-center gap-3 overflow-hidden rounded-xl p-2 text-left text-[0.95rem] font-medium text-sidebar-foreground ring-sidebar-ring outline-hidden transition-all duration-300 ease-out group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:p-2! hover:bg-[#f0f8ff] hover:text-[#2196f3] dark:hover:bg-[#1a2436] dark:hover:text-[#42a5f5] hover:-translate-y-px hover:shadow-[0_4px_10px_rgba(100,181,246,0.15)] focus-visible:ring-2 active:scale-95 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-[#f0f8ff] data-open:hover:text-[#2196f3] data-active:bg-gradient-to-br data-active:from-[#64b5f6] data-active:to-[#2196f3] data-active:text-white data-active:font-bold data-active:shadow-[0_6px_16px_-4px_rgba(100,181,246,0.5)] data-active:hover:text-white data-active:hover:-translate-y-1 [&_svg]:size-[1.1rem] [&_svg]:shrink-0 [&>span:last-child]:truncate',
+  'peer/menu-button group/menu-button flex w-full items-center gap-3 overflow-hidden rounded-xl p-2 text-left text-[0.95rem] font-medium text-sidebar-foreground ring-sidebar-ring outline-hidden transition-all duration-300 ease-out group-has-data-[sidebar=menu-action]/menu-item:pr-8 group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:p-2! hover:bg-[#f0f8ff] hover:text-[#2196f3] dark:hover:bg-[#1a2436] dark:hover:text-[#42a5f5] hover:-translate-y-px hover:shadow-[0_4px_10px_rgba(100,181,246,0.15)] focus-visible:ring-2 active:scale-95 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-open:hover:bg-[#f0f8ff] data-open:hover:text-[#2196f3] data-active:bg-gradient-to-br data-active:from-[#64b5f6] data-active:to-[#2196f3] data-active:text-white data-active:font-bold data-active:shadow-[0_6px_16px_-4px_rgba(100,181,246,0.5)] data-active:hover:bg-gradient-to-br data-active:hover:from-[#64b5f6] data-active:hover:to-[#2196f3] data-active:hover:text-white data-active:hover:-translate-y-1 [&_svg]:size-[1.1rem] [&_svg]:shrink-0 [&>span:last-child]:truncate',
   {
     variants: {
       variant: {
@@ -623,6 +635,7 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<'div'> & {
   showIcon?: boolean
 }) {
+  // Random width between 50 to 90%.
   const [width] = React.useState(() => {
     return `${Math.floor(Math.random() * 40) + 50}%`
   })
@@ -697,7 +710,7 @@ function SidebarMenuSubButton({
     props: mergeProps<'a'>(
       {
         className: cn(
-          'flex h-8 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-lg px-3 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-all duration-200 ease-out group-data-[collapsible=icon]:hidden hover:bg-[#f0f8ff] hover:text-[#2196f3] dark:hover:bg-[#1a2436] dark:hover:text-[#42a5f5] hover:-translate-y-px focus-visible:ring-2 active:scale-95 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-[0.85rem] data-[size=sm]:text-xs data-active:bg-[#e0f2fe] data-active:text-[#1e88e5] data-active:font-bold dark:data-active:bg-[#1e3a5f] dark:data-active:text-[#64b5f6] [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground',
+          'flex h-8 min-w-0 -translate-x-px items-center gap-2 overflow-hidden rounded-lg px-3 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-all duration-200 ease-out group-data-[collapsible=icon]:hidden hover:bg-[#f0f8ff] hover:text-[#2196f3] dark:hover:bg-[#1a2436] dark:hover:text-[#42a5f5] hover:-translate-y-px focus-visible:ring-2 active:scale-95 disabled:pointer-events-none disabled:opacity-50 aria-disabled:pointer-events-none aria-disabled:opacity-50 data-[size=md]:text-[0.85rem] data-[size=sm]:text-xs data-active:bg-[#e0f2fe] data-active:text-[#1e88e5] data-active:font-bold dark:data-active:bg-[#1e3a5f] dark:data-active:text-[#64b5f6] data-active:hover:bg-[#e0f2fe] data-active:hover:text-[#1e88e5] dark:data-active:hover:bg-[#1e3a5f] dark:data-active:hover:text-[#64b5f6] [&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-accent-foreground',
           className
         ),
       },

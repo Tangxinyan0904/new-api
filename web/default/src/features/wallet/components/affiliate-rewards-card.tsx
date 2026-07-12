@@ -5,15 +5,26 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
 import { RefreshCw, Share2 } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { CopyButton } from '@/components/copy-button'
 import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { IconBadge } from '@/components/ui/icon-badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -54,7 +65,7 @@ export function AffiliateRewardsCard({
   if (loading) {
     return (
       <Card data-card-hover='false' className='bg-muted/20 py-0'>
-        <CardContent className='space-y-4 p-4 sm:p-5'>
+        <CardContent className='flex flex-col gap-4 p-4 sm:p-5'>
           <div className='flex items-center gap-3'>
             <Skeleton className='size-9 rounded-lg' />
             <div>
@@ -83,17 +94,17 @@ export function AffiliateRewardsCard({
   const hasRewards = totalPending > 0
   const pendingRequest = Boolean(rebateSummary?.pending_request)
   const submittedToday = rebateSummary?.submitted_today ?? false
-  const disabled =
+  const transferDisabled =
     !complianceConfirmed ||
     !hasRewards ||
     pendingRequest ||
     submittedToday ||
     transferring
-  let buttonLabel = t('Request Transfer')
+  let transferLabel = t('Request Transfer')
   if (pendingRequest) {
-    buttonLabel = t('Pending Approval')
+    transferLabel = t('Pending Approval')
   } else if (submittedToday) {
-    buttonLabel = t('Submitted Today')
+    transferLabel = t('Submitted Today')
   }
   const invitedUsers = rebateSummary?.invited_users ?? []
   const promotionCopyValue = [promotionText.trim(), affiliateLink]
@@ -102,12 +113,12 @@ export function AffiliateRewardsCard({
 
   return (
     <Card data-card-hover='false' className='bg-muted/20 py-0'>
-      <CardContent className='space-y-4 p-4 sm:p-5'>
+      <CardContent className='flex flex-col gap-4 p-4 sm:p-5'>
         <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
           <div className='flex min-w-0 items-center gap-3'>
-            <div className='bg-background flex size-9 shrink-0 items-center justify-center rounded-lg border'>
-              <Share2 className='text-muted-foreground size-4' />
-            </div>
+            <IconBadge tone='chart-3' size='title'>
+              <Share2 />
+            </IconBadge>
             <div className='min-w-0'>
               <h3 className='truncate text-sm font-semibold'>
                 {t('Referral Program')}
@@ -123,23 +134,25 @@ export function AffiliateRewardsCard({
             <Button
               type='button'
               variant='outline'
+              size='sm'
               onClick={() => void onRefresh()}
               disabled={refreshing}
               className='h-9 px-3'
-              size='sm'
             >
               <RefreshCw
-                className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`}
+                data-icon='inline-start'
+                className={refreshing ? 'animate-spin' : undefined}
               />
               {refreshing ? t('Refreshing...') : t('Refresh')}
             </Button>
             <Button
-              onClick={onTransfer}
-              disabled={disabled}
-              className='h-9 px-3'
+              type='button'
               size='sm'
+              onClick={onTransfer}
+              disabled={transferDisabled}
+              className='h-9 px-3'
             >
-              {buttonLabel}
+              {transferLabel}
             </Button>
           </div>
         </div>
@@ -169,8 +182,8 @@ export function AffiliateRewardsCard({
         </div>
 
         <div className='grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]'>
-          <div className='bg-background/60 space-y-3 rounded-md border p-3'>
-            <div className='space-y-1.5'>
+          <div className='bg-background/60 flex flex-col gap-3 rounded-md border p-3'>
+            <div className='flex flex-col gap-1.5'>
               <Label htmlFor='affiliate-promotion-text' className='text-xs'>
                 {t('Promotion Text')}
               </Label>
@@ -182,7 +195,7 @@ export function AffiliateRewardsCard({
               />
             </div>
 
-            <div className='space-y-1.5'>
+            <div className='flex flex-col gap-1.5'>
               <Label htmlFor='affiliate-link' className='text-xs'>
                 {t('Your Referral Link')}
               </Label>
@@ -248,8 +261,9 @@ export function AffiliateRewardsCard({
             </div>
           </div>
         </div>
+
         {!complianceConfirmed ? (
-          <p className='text-muted-foreground text-xs lg:col-span-3'>
+          <p className='text-muted-foreground text-xs'>
             {t(
               'Referral reward transfer is disabled until the administrator confirms compliance terms.'
             )}

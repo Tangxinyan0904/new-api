@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMutation } from '@tanstack/react-query'
 import { Check, Loader2 } from 'lucide-react'
-import { useCallback, useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -45,50 +45,6 @@ import {
   type ApiKeyGroupOption,
 } from './api-key-group-combobox'
 import { useApiKeys } from './api-keys-provider'
-
-function CopyButtonContent({
-  isLoading,
-  isCopied,
-  t,
-}: {
-  isLoading: boolean
-  isCopied: boolean
-  t: (key: string) => string
-}) {
-  if (isLoading) {
-    return (
-      <>
-        <Loader2 className='size-3.5 animate-spin' />
-        {t('Loading...')}
-      </>
-    )
-  }
-
-  if (isCopied) {
-    return (
-      <>
-        <Check className='size-3.5 text-green-600' />
-        {t('Copied!')}
-      </>
-    )
-  }
-
-  return t('Copy')
-}
-
-function getCopyTooltipLabel({
-  isLoading,
-  isCopied,
-  t,
-}: {
-  isLoading: boolean
-  isCopied: boolean
-  t: (key: string) => string
-}) {
-  if (isLoading) return t('Loading...')
-  if (isCopied) return t('Copied!')
-  return t('Copy API key')
-}
 
 function getGroupUpdatePayload(
   apiKey: ApiKey,
@@ -153,17 +109,32 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   )
 
   const handleCopy = useCallback(async () => {
-    const realKey = resolvedFullKey
-    if (!realKey) {
-      void resolveRealKey(apiKey.id)
-      toast.info(t('API key is loading, please try again in a moment'))
-      return
-    }
-    if (realKey) {
-      const ok = await copyToClipboard(realKey)
-      if (ok) markKeyCopied(apiKey.id)
-    }
-  }, [resolvedFullKey, resolveRealKey, apiKey.id, markKeyCopied, t])
+    const realKey = resolvedFullKey || (await resolveRealKey(apiKey.id))
+    if (!realKey) return
+
+    const ok = await copyToClipboard(realKey)
+    if (ok) markKeyCopied(apiKey.id)
+  }, [resolvedFullKey, resolveRealKey, apiKey.id, markKeyCopied])
+
+  let copyButtonContent = <>{t('Copy')}</>
+  let copyTooltip = t('Copy API key')
+  if (isLoading) {
+    copyButtonContent = (
+      <>
+        <Loader2 className='size-3.5 animate-spin' />
+        {t('Loading...')}
+      </>
+    )
+    copyTooltip = t('Loading...')
+  } else if (isCopied) {
+    copyButtonContent = (
+      <>
+        <Check className='size-3.5 text-green-600' />
+        {t('Copied!')}
+      </>
+    )
+    copyTooltip = t('Copied!')
+  }
 
   return (
     <div className='flex w-full max-w-full min-w-0 items-center gap-2'>
@@ -212,25 +183,13 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
               size='sm'
               className='h-7 w-24 shrink-0 justify-center px-2 text-xs'
               onClick={handleCopy}
-              onFocus={() => {
-                if (!resolvedFullKey) void resolveRealKey(apiKey.id)
-              }}
-              onPointerEnter={() => {
-                if (!resolvedFullKey) void resolveRealKey(apiKey.id)
-              }}
               disabled={isLoading}
             />
           }
         >
-          <CopyButtonContent
-            isLoading={isLoading}
-            isCopied={isCopied}
-            t={t}
-          />
+          {copyButtonContent}
         </TooltipTrigger>
-        <TooltipContent>
-          {getCopyTooltipLabel({ isLoading, isCopied, t })}
-        </TooltipContent>
+        <TooltipContent>{copyTooltip}</TooltipContent>
       </Tooltip>
     </div>
   )
@@ -262,7 +221,11 @@ export function ApiKeyGroupCell({
     },
   })
 
-  const options = ensureCurrentGroupOption(groupOptions, apiKey, t('User Group'))
+  const options = ensureCurrentGroupOption(
+    groupOptions,
+    apiKey,
+    t('User Group')
+  )
 
   return (
     <ApiKeyGroupCombobox

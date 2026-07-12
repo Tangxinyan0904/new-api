@@ -20,6 +20,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import type { Table as TanstackTable } from '@tanstack/react-table'
 import { Database } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -60,13 +61,10 @@ import { DataTableRowActions } from './data-table-row-actions'
 
 const route = getRouteApi('/_authenticated/keys/')
 const API_KEYS_COLUMN_VISIBILITY_STORAGE_KEY = 'api-keys:column-visibility'
-const API_KEYS_MOBILE_SKELETON_ROWS = [
-  'name',
-  'status',
-  'key',
-  'quota',
-  'actions',
-] as const
+const API_KEYS_MOBILE_SKELETON_IDS = Array.from(
+  { length: 5 },
+  (_, index) => `api-key-mobile-skeleton-${index + 1}`
+)
 
 function isDisabledApiKeyRow(apiKey: ApiKey) {
   return apiKey.status !== API_KEY_STATUS.ENABLED
@@ -75,8 +73,8 @@ function isDisabledApiKeyRow(apiKey: ApiKey) {
 function ApiKeysMobileSkeleton() {
   return (
     <div className='grid grid-cols-1 gap-2'>
-      {API_KEYS_MOBILE_SKELETON_ROWS.map((rowKey) => (
-        <div key={rowKey} className='space-y-2 rounded-lg border px-2.5 py-2.5'>
+      {API_KEYS_MOBILE_SKELETON_IDS.map((id) => (
+        <div key={id} className='space-y-2 rounded-lg border px-2.5 py-2.5'>
           <div className='space-y-1'>
             <Skeleton className='h-4 w-24' />
             <Skeleton className='h-5 w-14 rounded-md' />
@@ -195,7 +193,16 @@ function ApiKeysMobileList({
 export function ApiKeysTable() {
   const { t } = useTranslation()
   const { refreshTrigger } = useApiKeys()
-  const columns = useApiKeysColumns()
+  const [now, setNow] = useState(() => Date.now())
+  const columns = useApiKeysColumns(now)
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNow(Date.now())
+    }, 30_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [])
 
   const {
     globalFilter,

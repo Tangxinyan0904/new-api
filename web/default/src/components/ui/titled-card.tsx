@@ -27,6 +27,7 @@ import {
   CardHeader,
   CardTitle,
 } from './card'
+import { IconBadge, type IconBadgeTone } from './icon-badge'
 
 type TitledCardProps = {
   title: ReactNode
@@ -39,6 +40,7 @@ type TitledCardProps = {
   headerClassName?: string
   contentClassName?: string
   iconClassName?: string
+  iconTone?: IconBadgeTone
   titleClassName?: string
   descriptionClassName?: string
 }
@@ -54,6 +56,7 @@ export function TitledCard({
   headerClassName,
   contentClassName,
   iconClassName,
+  iconTone,
   titleClassName,
   descriptionClassName,
 }: TitledCardProps) {
@@ -61,46 +64,46 @@ export function TitledCard({
     <Card
       data-card-hover={disableHoverEffect ? 'false' : undefined}
       className={cn(
-        'relative gap-0 overflow-hidden py-0',
-        // 3px 醒目边框、1.75rem 大圆角
-        'border-[3px] border-[#ffd1dc] rounded-[1.75rem] bg-white',
-        // 缩小为 3px 偏移量的硬阴影，更加精致
-        'shadow-[3px_3px_0px_#ffd1dc]',
-        'dark:bg-[#151d2a] dark:border-[#3b2d35] dark:shadow-[3px_3px_0px_#3b2d35]',
-        // 悬浮动效：轻微上浮
-        !disableHoverEffect && 'transition-transform duration-200 hover:-translate-y-1',
+        'relative gap-0 overflow-hidden rounded-[1.75rem] border-[3px] border-[#ffd1dc] bg-white py-0 shadow-[3px_3px_0px_#ffd1dc] dark:border-[#3b2d35] dark:bg-[#151d2a] dark:shadow-[3px_3px_0px_#3b2d35]',
+        !disableHoverEffect &&
+          'transition-transform duration-200 hover:-translate-y-1',
         className
       )}
     >
-      {/* 萌系斜角背景修饰块 */}
-      <div className="absolute -right-8 -top-8 z-0 h-24 w-24 rounded-full bg-[#ffb3c6]/25 pointer-events-none" />
-      <div className="absolute -bottom-8 -left-8 z-0 h-24 w-24 rounded-full bg-[#64b5f6]/20 pointer-events-none" />
-
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute -top-8 -right-8 z-0 h-24 w-24 rounded-full bg-[#ffb3c6]/25'
+      />
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute -bottom-8 -left-8 z-0 h-24 w-24 rounded-full bg-[#64b5f6]/20'
+      />
       <CardHeader
         className={cn(
-          // 头部和内容使用虚线分割
-          'relative z-10 border-b-2 border-dashed border-[#ffd1dc] p-4 sm:p-5 dark:border-[#3b2d35]',
+          'relative z-10 border-b-2 border-dashed border-[#ffd1dc] p-4 dark:border-[#3b2d35] sm:p-5',
           headerClassName
         )}
       >
         <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
           <div className='flex min-w-0 items-center gap-3'>
             {icon != null && (
-              <div
+              <IconBadge
+                size='title'
+                tone={iconTone}
                 className={cn(
-                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white',
-                  // 图标区域使用动漫粉渐变
-                  'bg-gradient-to-br from-[#ffb3c6] to-[#ff758f] shadow-[0_4px_10px_rgba(255,117,143,0.4)]',
+                  'size-10 rounded-full sm:size-10',
+                  iconTone == null &&
+                    'bg-gradient-to-br from-[#ffb3c6] to-[#ff758f] text-white shadow-[0_4px_10px_rgba(255,117,143,0.4)]',
                   iconClassName
                 )}
               >
                 {icon}
-              </div>
+              </IconBadge>
             )}
             <div className='min-w-0'>
               <CardTitle
                 className={cn(
-                  'text-lg sm:text-xl font-black tracking-tight text-[#2c3e50] dark:text-[#e2e8f0]',
+                  'text-lg font-black tracking-tight text-[#2c3e50] dark:text-[#e2e8f0] sm:text-xl',
                   titleClassName
                 )}
               >
@@ -109,7 +112,7 @@ export function TitledCard({
               {description != null && (
                 <CardDescription
                   className={cn(
-                    'mt-1 text-sm font-bold text-[#7f8c8d] dark:text-[#94a3b8]', 
+                    'mt-1 text-sm font-bold text-[#7f8c8d] dark:text-[#94a3b8]',
                     descriptionClassName
                   )}
                 >
@@ -119,14 +122,15 @@ export function TitledCard({
             </div>
           </div>
           {action != null && (
-            <div className='w-full shrink-0 sm:w-auto mt-2 sm:mt-0'>{action}</div>
+            <div className='mt-2 w-full shrink-0 sm:mt-0 sm:w-auto'>
+              {action}
+            </div>
           )}
         </div>
       </CardHeader>
-      
-      <CardContent 
+      <CardContent
         className={cn(
-          'relative z-10 p-4 sm:p-5 text-[#2c3e50] dark:text-[#e2e8f0]', 
+          'relative z-10 p-4 text-[#2c3e50] dark:text-[#e2e8f0] sm:p-5',
           contentClassName
         )}
       >

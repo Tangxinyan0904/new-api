@@ -101,7 +101,6 @@ function FilterChip(props: {
       type='button'
       onClick={props.onClick}
       className={cn(
-        // 核心：药丸形状、悬浮动效、粗字体
         'group inline-flex max-w-full items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition-all hover:-translate-y-0.5',
         props.active
           ? 'border-[#64b5f6] bg-[#64b5f6] text-white shadow-[0_4px_10px_rgba(100,181,246,0.3)]'
@@ -133,14 +132,13 @@ function FilterSection(props: FilterSectionProps) {
   return (
     <Collapsible
       defaultOpen
-      // 内部换成虚线分割
-      className='border-b-2 border-dashed border-[#ffd1dc] dark:border-[#3b2d35] py-3 first:pt-0 last:border-b-0'
+      className='border-b-2 border-dashed border-[#ffd1dc] py-3 first:pt-0 last:border-b-0 dark:border-[#3b2d35]'
     >
       <CollapsibleTrigger className='group flex w-full items-center justify-between py-2.5 text-left'>
-        <span className='text-[#2c3e50] dark:text-[#e2e8f0] text-[13.5px] font-black tracking-wide'>
+        <span className='text-[13.5px] font-black tracking-wide text-[#2c3e50] dark:text-[#e2e8f0]'>
           {props.title}
         </span>
-        <ChevronDown className='text-[#7f8c8d] size-4 transition-transform group-data-[panel-open]:rotate-180 dark:text-[#94a3b8]' />
+        <ChevronDown className='size-4 text-[#7f8c8d] transition-transform group-data-[panel-open]:rotate-180 dark:text-[#94a3b8]' />
       </CollapsibleTrigger>
       <CollapsibleContent>
         <div className='flex flex-wrap gap-2 pt-1 pb-2'>
@@ -248,19 +246,19 @@ export function PricingSidebar(props: PricingSidebarProps) {
   ]
 
   return (
-    <aside 
+    <aside
       className={cn(
-        // 与卡片高度一致的容器风格：大圆角，粗边框，硬阴影
-        'rounded-[1.75rem] border-[3px] border-[#ffd1dc] bg-white p-4 sm:p-5 transition-all',
-        'shadow-[3px_3px_0px_#ffd1dc]',
-        'dark:bg-[#151d2a] dark:border-[#3b2d35] dark:shadow-[3px_3px_0px_#3b2d35]',
+        'rounded-[1.75rem] border-[3px] border-[#ffd1dc] bg-white p-4 shadow-[3px_3px_0px_#ffd1dc] transition-all sm:p-5',
+        'dark:border-[#3b2d35] dark:bg-[#151d2a] dark:shadow-[3px_3px_0px_#3b2d35]',
         props.className
       )}
     >
       <div className='mb-4 flex items-start justify-between gap-2'>
         <div>
-          <h2 className='text-[#2c3e50] dark:text-[#e2e8f0] text-[16px] font-black tracking-tight'>{t('Filter')}</h2>
-          <p className='text-[#7f8c8d] dark:text-[#94a3b8] mt-1 text-[12px] font-bold leading-relaxed'>
+          <h2 className='text-[16px] font-black tracking-tight text-[#2c3e50] dark:text-[#e2e8f0]'>
+            {t('Filter')}
+          </h2>
+          <p className='mt-1 text-[12px] leading-relaxed font-bold text-[#7f8c8d] dark:text-[#94a3b8]'>
             {t('Refine models by provider, group, type, and tags.')}
           </p>
         </div>
@@ -278,7 +276,10 @@ export function PricingSidebar(props: PricingSidebarProps) {
       </div>
 
       {props.hasActiveFilters && (
-        <Badge variant='secondary' className='mb-4 rounded-md font-bold bg-[#ffb3c6]/20 text-[#ff758f] border-none'>
+        <Badge
+          variant='secondary'
+          className='mb-4 rounded-md border-none bg-[#ffb3c6]/20 font-bold text-[#ff758f]'
+        >
           {t('Filters active')}
         </Badge>
       )}
