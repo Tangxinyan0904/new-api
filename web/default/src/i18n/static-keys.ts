@@ -271,6 +271,7 @@ export const STATIC_I18N_KEYS = [
 
   // CC Switch dialog
   'Import to CC Switch',
+  'One-click import to CC Switch',
   'Open CC Switch',
   'Primary Model',
   'Haiku Model',

@@ -335,6 +335,9 @@ export function ApiKeysTable() {
         ],
       }}
       mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}
+      getColumnClassName={(columnId, part) =>
+        columnId === 'actions' && part === 'cell' ? 'py-0' : undefined
+      }
       getRowClassName={(row) =>
         isDisabledApiKeyRow(row.original) ? DISABLED_ROW_DESKTOP : undefined
       }

@@ -641,6 +641,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         return <span className='font-mono text-xs'>{reasoningEffort}</span>
       },
+      size: 75,
     },
     {
       accessorKey: 'is_stream',
@@ -665,6 +666,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         )
       },
       meta: { label: t('Stream') },
+      size: 50,
     },
     {
       accessorKey: 'prompt_tokens',
@@ -712,6 +714,32 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
           </div>
         )
       },
+    },
+    {
+      id: 'cache_hit',
+      header: t('Cache Hit'),
+      cell: ({ row }) => {
+        const log = row.original
+        if (!isDisplayableLogType(log.type)) return null
+
+        const metrics = getCacheHitMetrics(
+          log.prompt_tokens,
+          parseLogOther(log.other)
+        )
+        const isHighHit = isHighCacheHitPercentage(metrics.percentage)
+
+        return (
+          <span
+            className={cn(
+              'font-mono text-xs tabular-nums',
+              isHighHit && 'text-emerald-700 font-medium dark:text-emerald-400'
+            )}
+          >
+            {metrics.formattedPercentage}
+          </span>
+        )
+      },
+      size: 75,
     },
     {
       accessorKey: 'quota',
@@ -764,33 +792,6 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         )
       },
     },
-
-    {
-      id: 'cache_hit',
-      header: t('Cache Hit'),
-      cell: ({ row }) => {
-        const log = row.original
-        if (!isDisplayableLogType(log.type)) return null
-
-        const metrics = getCacheHitMetrics(
-          log.prompt_tokens,
-          parseLogOther(log.other)
-        )
-        const isHighHit = isHighCacheHitPercentage(metrics.percentage)
-
-        return (
-          <span
-            className={cn(
-              'font-mono text-xs tabular-nums',
-              isHighHit && 'text-emerald-700 font-medium dark:text-emerald-400'
-            )}
-          >
-            {metrics.formattedPercentage}
-          </span>
-        )
-      },
-    },
-
     {
       accessorKey: 'use_time',
       header: t('Timing'),

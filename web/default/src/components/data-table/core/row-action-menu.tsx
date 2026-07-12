@@ -33,6 +33,7 @@ type DataTableRowActionMenuProps = {
   contentClassName?: string
   modal?: boolean
   onOpenChange?: (open: boolean) => void
+  triggerSize?: React.ComponentProps<typeof Button>['size']
 }
 
 export function DataTableRowActionMenu(props: DataTableRowActionMenuProps) {
@@ -42,7 +43,7 @@ export function DataTableRowActionMenu(props: DataTableRowActionMenuProps) {
         render={
           <Button
             variant='ghost'
-            size='icon'
+            size={props.triggerSize ?? 'icon'}
             className='data-popup-open:bg-muted'
             aria-label={props.ariaLabel}
           />

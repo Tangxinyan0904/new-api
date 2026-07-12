@@ -8,8 +8,12 @@ Make the per-key CC Switch import entry directly visible while keeping the exist
 
 The existing row-action component becomes a two-row vertical group:
 
-- Top row: keep the current enable/disable button, edit button, and overflow menu in their existing order and visual treatment.
-- Bottom row: add one full-width outline button with the existing `ArrowRightLeft` icon and the label `One-click import to CC Switch`.
+- Top row: keep the current enable/disable button, edit button, and overflow menu in their existing order and visual treatment. Normalize the overflow trigger to the same 32px `icon-sm` size as the other two controls so it does not increase the row height.
+- Bottom row: add one full-width 24px-high outline button with the existing `ArrowRightLeft` icon and the label `One-click import to CC Switch`.
+
+Keep no vertical gap between the two rows. On desktop, remove vertical padding only from the Actions table cell so the 32px top controls plus the 24px bottom button fit inside the table's existing 60px minimum row height. Other cells retain their current padding and height behavior.
+
+Match the shared table's exact `max-width: 640px` mobile query when switching the top action row from mobile right alignment to desktop left alignment: keep right alignment through 640px and switch at 641px. Disable the outline button's default hover translation and scaling for this compact second row so it cannot overlap the top controls.
 
 The shared row-action component is used by both the desktop table and mobile cards, so the same two-row layout applies to both views. The button width is determined by the action group and must not be placed in the API Key cell or the global toolbar.
 
@@ -47,6 +51,7 @@ Locale writes must go through the project's `add-missing-keys.mjs` workflow, fol
 This is an approved layout relocation of an existing action, so no new component test is required. Verify:
 
 - The button is visible below the unchanged top action row on desktop and mobile.
+- The desktop action group fits within the existing 60px row height and does not make other cells taller.
 - The overflow menu no longer contains CC Switch and has no duplicate separators.
 - The loading state prevents duplicate imports while the real key resolves.
 - Clicking the button opens the existing dialog for the selected API key.
