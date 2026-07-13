@@ -378,9 +378,16 @@ func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 				return errors.New("insufficient invitation reward quota")
 			}
 		}
-		return tx.Model(&User{}).
+		res = tx.Model(&User{}).
 			Where("id = ?", request.UserId).
-			Update("quota", gorm.Expr("quota + ?", request.TotalQuota)).Error
+			Update("quota", gorm.Expr("quota + ?", request.TotalQuota))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return errors.New("transfer recipient does not exist")
+		}
+		return nil
 	})
 }
 

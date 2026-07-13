@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/glebarez/sqlite"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -48,8 +50,21 @@ func TestCreateAffiliateTransferRequestMinimumQuotaBoundary(t *testing.T) {
 	assert.Equal(t, minimumQuota, request.TotalQuota)
 }
 
-func TestAffiliateTransferRequestConcurrentTerminalTransition(t *testing.T) {
-	setupAffiliateTransferRequestFixture(t)
+func TestAffiliateTransferRequestMultiConnectionConcurrentTerminalTransition(t *testing.T) {
+	concurrentDB, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := concurrentDB.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(4)
+	sqlDB.SetMaxIdleConns(4)
+	require.NoError(t, concurrentDB.AutoMigrate(&AffiliateTransferRequest{}, &User{}))
+
+	originalDB := DB
+	DB = concurrentDB
+	t.Cleanup(func() {
+		DB = originalDB
+		require.NoError(t, sqlDB.Close())
+	})
 
 	owner := User{
 		Username: "concurrent-affiliate-owner",
@@ -69,35 +84,52 @@ func TestAffiliateTransferRequestConcurrentTerminalTransition(t *testing.T) {
 	}
 	require.NoError(t, DB.Create(&request).Error)
 
+	type terminalResult struct {
+		status string
+		err    error
+	}
 	start := make(chan struct{})
-	results := make(chan error, 2)
+	results := make(chan terminalResult, 2)
+	var ready sync.WaitGroup
+	ready.Add(2)
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
+		ready.Done()
 		<-start
-		results <- ApproveAffiliateTransferRequest(request.Id, 91)
+		results <- terminalResult{
+			status: AffiliateTransferStatusApproved,
+			err:    ApproveAffiliateTransferRequest(request.Id, 91),
+		}
 	}()
 	go func() {
 		defer wg.Done()
+		ready.Done()
 		<-start
-		results <- RejectAffiliateTransferRequest(request.Id, 92, "rejected")
+		results <- terminalResult{
+			status: AffiliateTransferStatusRejected,
+			err:    RejectAffiliateTransferRequest(request.Id, 92, "rejected"),
+		}
 	}()
+	ready.Wait()
 	close(start)
 	wg.Wait()
 	close(results)
 
 	successes := 0
-	for err := range results {
-		if err == nil {
+	succeededStatus := ""
+	for result := range results {
+		if result.err == nil {
 			successes++
+			succeededStatus = result.status
 		}
 	}
-	assert.Equal(t, 1, successes)
+	require.Equal(t, 1, successes)
 
 	var storedRequest AffiliateTransferRequest
 	require.NoError(t, DB.First(&storedRequest, request.Id).Error)
-	assert.Contains(t, []string{AffiliateTransferStatusApproved, AffiliateTransferStatusRejected}, storedRequest.Status)
+	assert.Equal(t, succeededStatus, storedRequest.Status)
 
 	var storedOwner User
 	require.NoError(t, DB.First(&storedOwner, owner.Id).Error)
@@ -142,6 +174,27 @@ func TestApproveAffiliateTransferRequestRollsBackWhenInviteQuotaInsufficient(t *
 	require.NoError(t, DB.First(&storedOwner, owner.Id).Error)
 	assert.Equal(t, 100, storedOwner.AffQuota)
 	assert.Equal(t, 50, storedOwner.Quota)
+}
+
+func TestApproveAffiliateTransferRequestRollsBackWhenRecipientDoesNotExist(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	request := AffiliateTransferRequest{
+		UserId:              999999,
+		RechargeRebateQuota: 300,
+		TotalQuota:          300,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           100,
+	}
+	require.NoError(t, DB.Create(&request).Error)
+
+	require.Error(t, ApproveAffiliateTransferRequest(request.Id, 99))
+
+	var storedRequest AffiliateTransferRequest
+	require.NoError(t, DB.First(&storedRequest, request.Id).Error)
+	assert.Equal(t, AffiliateTransferStatusPending, storedRequest.Status)
+	assert.Zero(t, storedRequest.ReviewedAt)
+	assert.Zero(t, storedRequest.ReviewedBy)
 }
 
 func TestRejectAffiliateTransferRequestForfeitsNewRequest(t *testing.T) {
