@@ -11,10 +11,9 @@ import (
 
 func clearAffiliateTransferRequestFixture(t *testing.T) {
 	t.Helper()
-	db := DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped()
-	require.NoError(t, db.Delete(&AffiliateTransferRequest{}).Error)
-	require.NoError(t, db.Delete(&TopUp{}).Error)
-	require.NoError(t, db.Delete(&User{}).Error)
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&AffiliateTransferRequest{}).Error)
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&TopUp{}).Error)
+	require.NoError(t, DB.Session(&gorm.Session{AllowGlobalUpdate: true}).Unscoped().Delete(&User{}).Error)
 }
 
 func setupAffiliateTransferRequestFixture(t *testing.T) {
@@ -66,6 +65,37 @@ func TestRejectAffiliateTransferRequestForfeitsNewRequest(t *testing.T) {
 	assert.Equal(t, 0, summary.RechargeRebateQuota)
 }
 
+func TestRejectAffiliateTransferRequestRollsBackWhenInviteQuotaInsufficient(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	owner := User{Username: "rollback-affiliate-owner", Password: "password", AffCode: "rollback-owner-code", AffQuota: 100, Quota: 50}
+	require.NoError(t, DB.Create(&owner).Error)
+	request := AffiliateTransferRequest{
+		UserId:              owner.Id,
+		InviteRewardQuota:   200,
+		RechargeRebateQuota: 300,
+		TotalQuota:          500,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           100,
+	}
+	require.NoError(t, DB.Create(&request).Error)
+
+	require.Error(t, RejectAffiliateTransferRequest(request.Id, 99, "insufficient reward balance"))
+
+	var storedRequest AffiliateTransferRequest
+	require.NoError(t, DB.First(&storedRequest, request.Id).Error)
+	assert.Equal(t, AffiliateTransferStatusPending, storedRequest.Status)
+	assert.Zero(t, storedRequest.RejectedQuotaForfeitedAt)
+	assert.Zero(t, storedRequest.ReviewedAt)
+	assert.Zero(t, storedRequest.ReviewedBy)
+	assert.Empty(t, storedRequest.RejectReason)
+
+	var storedOwner User
+	require.NoError(t, DB.First(&storedOwner, owner.Id).Error)
+	assert.Equal(t, 100, storedOwner.AffQuota)
+	assert.Equal(t, 50, storedOwner.Quota)
+}
+
 func TestAffiliateRebateSummaryDoesNotForfeitLegacyRejection(t *testing.T) {
 	setupAffiliateTransferRequestFixture(t)
 
@@ -82,16 +112,121 @@ func TestAffiliateRebateSummaryDoesNotForfeitLegacyRejection(t *testing.T) {
 		CompleteTime:    common.GetTimestamp(),
 		Status:          common.TopUpStatusSuccess,
 	}).Error)
-	require.NoError(t, DB.Create(&AffiliateTransferRequest{
+	legacyRequest := AffiliateTransferRequest{
 		UserId:              owner.Id,
 		InviteRewardQuota:   200,
 		RechargeRebateQuota: 300,
 		TotalQuota:          500,
 		Status:              AffiliateTransferStatusRejected,
 		CreatedAt:           common.GetTimestamp(),
-	}).Error)
+	}
+	require.NoError(t, DB.Create(&legacyRequest).Error)
+	result := DB.Model(&AffiliateTransferRequest{}).
+		Where("id = ?", legacyRequest.Id).
+		UpdateColumn("rejected_quota_forfeited_at", nil)
+	require.NoError(t, result.Error)
+	require.Equal(t, int64(1), result.RowsAffected)
 
 	summary, err := GetAffiliateRebateSummary(owner.Id)
 	require.NoError(t, err)
 	assert.Equal(t, 300, summary.RechargeRebateQuota)
+}
+
+func TestAffiliateTransferRequestDetailUsesForfeitureMarkerForPriorConsumption(t *testing.T) {
+	tests := []struct {
+		name             string
+		marked           bool
+		wantSecondSource bool
+	}{
+		{
+			name:             "marked rejection consumes the earlier source",
+			marked:           true,
+			wantSecondSource: true,
+		},
+		{
+			name: "legacy rejection leaves the earlier source available",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupAffiliateTransferRequestFixture(t)
+
+			owner := User{Username: "detail-affiliate-owner", Password: "password", AffCode: "detail-owner-code"}
+			require.NoError(t, DB.Create(&owner).Error)
+			firstInvitee := User{Username: "detail-first-invitee", Password: "password", DisplayName: "First Invitee", AffCode: "detail-first-code", InviterId: owner.Id}
+			require.NoError(t, DB.Create(&firstInvitee).Error)
+			secondInvitee := User{Username: "detail-second-user", Password: "password", DisplayName: "Second Invitee", AffCode: "detail-second-code", InviterId: owner.Id}
+			require.NoError(t, DB.Create(&secondInvitee).Error)
+
+			firstTopUp := TopUp{
+				UserId:          firstInvitee.Id,
+				Amount:          6000,
+				TradeNo:         "detail-first-topup",
+				PaymentMethod:   "first-method",
+				PaymentProvider: PaymentProviderCreem,
+				CompleteTime:    100,
+				Status:          common.TopUpStatusSuccess,
+			}
+			require.NoError(t, DB.Create(&firstTopUp).Error)
+			secondTopUp := TopUp{
+				UserId:          secondInvitee.Id,
+				Amount:          6000,
+				TradeNo:         "detail-second-topup",
+				PaymentMethod:   "second-method",
+				PaymentProvider: PaymentProviderCreem,
+				CompleteTime:    200,
+				Status:          common.TopUpStatusSuccess,
+			}
+			require.NoError(t, DB.Create(&secondTopUp).Error)
+
+			previousRequest := AffiliateTransferRequest{
+				UserId:              owner.Id,
+				RechargeRebateQuota: 300,
+				TotalQuota:          300,
+				Status:              AffiliateTransferStatusRejected,
+				CreatedAt:           300,
+			}
+			if tt.marked {
+				previousRequest.RejectedQuotaForfeitedAt = 225
+			}
+			require.NoError(t, DB.Create(&previousRequest).Error)
+			if !tt.marked {
+				result := DB.Model(&AffiliateTransferRequest{}).
+					Where("id = ?", previousRequest.Id).
+					UpdateColumn("rejected_quota_forfeited_at", nil)
+				require.NoError(t, result.Error)
+				require.Equal(t, int64(1), result.RowsAffected)
+			}
+
+			currentRequest := AffiliateTransferRequest{
+				UserId:              owner.Id,
+				RechargeRebateQuota: 300,
+				TotalQuota:          300,
+				Status:              AffiliateTransferStatusPending,
+				CreatedAt:           300,
+			}
+			require.NoError(t, DB.Create(&currentRequest).Error)
+
+			detail, err := GetAffiliateTransferRequestDetail(currentRequest.Id)
+			require.NoError(t, err)
+			require.Len(t, detail.RechargeSources, 1)
+			assert.Equal(t, 6000, detail.TotalInvitedRechargeQuota)
+
+			wantInviteeId := firstInvitee.Id
+			wantPaymentMethod := firstTopUp.PaymentMethod
+			wantCompleteTime := firstTopUp.CompleteTime
+			if tt.wantSecondSource {
+				wantInviteeId = secondInvitee.Id
+				wantPaymentMethod = secondTopUp.PaymentMethod
+				wantCompleteTime = secondTopUp.CompleteTime
+			}
+			source := detail.RechargeSources[0]
+			assert.Equal(t, wantInviteeId, source.InvitedUserId)
+			assert.Equal(t, wantPaymentMethod, source.PaymentMethod)
+			assert.Equal(t, wantCompleteTime, source.CompleteTime)
+			assert.Equal(t, 6000, source.CreditedQuota)
+			assert.Equal(t, 300, source.RebateQuota)
+		})
+	}
 }
