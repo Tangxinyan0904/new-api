@@ -17,16 +17,17 @@ const (
 )
 
 type AffiliateTransferRequest struct {
-	Id                  int    `json:"id"`
-	UserId              int    `json:"user_id" gorm:"index"`
-	InviteRewardQuota   int    `json:"invite_reward_quota"`
-	RechargeRebateQuota int    `json:"recharge_rebate_quota"`
-	TotalQuota          int    `json:"total_quota"`
-	Status              string `json:"status" gorm:"type:varchar(32);index"`
-	CreatedAt           int64  `json:"created_at" gorm:"index"`
-	ReviewedAt          int64  `json:"reviewed_at"`
-	ReviewedBy          int    `json:"reviewed_by" gorm:"index"`
-	RejectReason        string `json:"reject_reason" gorm:"type:varchar(255)"`
+	Id                       int    `json:"id"`
+	UserId                   int    `json:"user_id" gorm:"index"`
+	InviteRewardQuota        int    `json:"invite_reward_quota"`
+	RechargeRebateQuota      int    `json:"recharge_rebate_quota"`
+	TotalQuota               int    `json:"total_quota"`
+	Status                   string `json:"status" gorm:"type:varchar(32);index"`
+	CreatedAt                int64  `json:"created_at" gorm:"index"`
+	ReviewedAt               int64  `json:"reviewed_at"`
+	ReviewedBy               int    `json:"reviewed_by" gorm:"index"`
+	RejectReason             string `json:"reject_reason" gorm:"type:varchar(255)"`
+	RejectedQuotaForfeitedAt int64  `json:"-" gorm:"column:rejected_quota_forfeited_at"`
 }
 
 type AffiliateInvitedUserSummary struct {
@@ -130,7 +131,7 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 	grossRechargeRebateQuota := int(decimal.NewFromInt(int64(totalRechargeQuota)).Mul(decimal.NewFromFloat(AffiliateRechargeRebateRate)).IntPart())
 	var requestedRechargeRebateQuota int
 	if err := tx.Model(&AffiliateTransferRequest{}).
-		Where("user_id = ? AND status <> ?", userId, AffiliateTransferStatusRejected).
+		Where("user_id = ? AND (status <> ? OR rejected_quota_forfeited_at > ?)", userId, AffiliateTransferStatusRejected, 0).
 		Select("COALESCE(SUM(recharge_rebate_quota), 0)").
 		Scan(&requestedRechargeRebateQuota).Error; err != nil {
 		return nil, err
@@ -276,7 +277,7 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 	if len(invitedIds) > 0 && requestRechargeRebateQuota > 0 {
 		var previousRechargeRebateQuota int
 		if err := DB.Model(&AffiliateTransferRequest{}).
-			Where("user_id = ? AND status <> ? AND (created_at < ? OR (created_at = ? AND id < ?))", item.UserId, AffiliateTransferStatusRejected, item.CreatedAt, item.CreatedAt, item.Id).
+			Where("user_id = ? AND (status <> ? OR rejected_quota_forfeited_at > ?) AND (created_at < ? OR (created_at = ? AND id < ?))", item.UserId, AffiliateTransferStatusRejected, 0, item.CreatedAt, item.CreatedAt, item.Id).
 			Select("COALESCE(SUM(recharge_rebate_quota), 0)").
 			Scan(&previousRechargeRebateQuota).Error; err != nil {
 			return nil, err
@@ -369,17 +370,41 @@ func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 func RejectAffiliateTransferRequest(requestId int, reviewerId int, reason string) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var request AffiliateTransferRequest
-		if err := tx.Set("gorm:query_option", "FOR UPDATE").First(&request, "id = ?", requestId).Error; err != nil {
+		if err := lockForUpdate(tx).First(&request, "id = ?", requestId).Error; err != nil {
 			return err
 		}
 		if request.Status != AffiliateTransferStatusPending {
 			return errors.New("request is not pending")
 		}
-		return tx.Model(&request).Updates(map[string]interface{}{
-			"status":        AffiliateTransferStatusRejected,
-			"reviewed_at":   common.GetTimestamp(),
-			"reviewed_by":   reviewerId,
-			"reject_reason": strings.TrimSpace(reason),
-		}).Error
+
+		now := common.GetTimestamp()
+		res := tx.Model(&AffiliateTransferRequest{}).
+			Where("id = ? AND status = ?", request.Id, AffiliateTransferStatusPending).
+			Updates(map[string]interface{}{
+				"status":                      AffiliateTransferStatusRejected,
+				"reviewed_at":                 now,
+				"reviewed_by":                 reviewerId,
+				"reject_reason":               strings.TrimSpace(reason),
+				"rejected_quota_forfeited_at": now,
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return errors.New("request is not pending")
+		}
+
+		if request.InviteRewardQuota > 0 {
+			res = tx.Model(&User{}).
+				Where("id = ? AND aff_quota >= ?", request.UserId, request.InviteRewardQuota).
+				Update("aff_quota", gorm.Expr("aff_quota - ?", request.InviteRewardQuota))
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected != 1 {
+				return errors.New("insufficient invitation reward quota")
+			}
+		}
+		return nil
 	})
 }
