@@ -1,6 +1,7 @@
 package model
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -23,6 +24,124 @@ func setupAffiliateTransferRequestFixture(t *testing.T) {
 	t.Cleanup(func() {
 		clearAffiliateTransferRequestFixture(t)
 	})
+}
+
+func TestCreateAffiliateTransferRequestMinimumQuotaBoundary(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	minimumQuota := int(common.QuotaPerUnit)
+	owner := User{
+		Username: "minimum-affiliate-owner",
+		Password: "password",
+		AffCode:  "minimum-affiliate-owner-code",
+		AffQuota: minimumQuota - 1,
+	}
+	require.NoError(t, DB.Create(&owner).Error)
+
+	request, err := CreateAffiliateTransferRequest(owner.Id)
+	require.Error(t, err)
+	assert.Nil(t, request)
+
+	require.NoError(t, DB.Model(&owner).Update("aff_quota", minimumQuota).Error)
+	request, err = CreateAffiliateTransferRequest(owner.Id)
+	require.NoError(t, err)
+	assert.Equal(t, minimumQuota, request.TotalQuota)
+}
+
+func TestAffiliateTransferRequestConcurrentTerminalTransition(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	owner := User{
+		Username: "concurrent-affiliate-owner",
+		Password: "password",
+		AffCode:  "concurrent-affiliate-owner-code",
+		AffQuota: 200,
+		Quota:    50,
+	}
+	require.NoError(t, DB.Create(&owner).Error)
+	request := AffiliateTransferRequest{
+		UserId:              owner.Id,
+		InviteRewardQuota:   200,
+		RechargeRebateQuota: 300,
+		TotalQuota:          500,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           common.GetTimestamp(),
+	}
+	require.NoError(t, DB.Create(&request).Error)
+
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		results <- ApproveAffiliateTransferRequest(request.Id, 91)
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		results <- RejectAffiliateTransferRequest(request.Id, 92, "rejected")
+	}()
+	close(start)
+	wg.Wait()
+	close(results)
+
+	successes := 0
+	for err := range results {
+		if err == nil {
+			successes++
+		}
+	}
+	assert.Equal(t, 1, successes)
+
+	var storedRequest AffiliateTransferRequest
+	require.NoError(t, DB.First(&storedRequest, request.Id).Error)
+	assert.Contains(t, []string{AffiliateTransferStatusApproved, AffiliateTransferStatusRejected}, storedRequest.Status)
+
+	var storedOwner User
+	require.NoError(t, DB.First(&storedOwner, owner.Id).Error)
+	assert.Zero(t, storedOwner.AffQuota)
+	if storedRequest.Status == AffiliateTransferStatusApproved {
+		assert.Equal(t, 550, storedOwner.Quota)
+	} else {
+		assert.Equal(t, 50, storedOwner.Quota)
+	}
+}
+
+func TestApproveAffiliateTransferRequestRollsBackWhenInviteQuotaInsufficient(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	owner := User{
+		Username: "approval-rollback-affiliate-owner",
+		Password: "password",
+		AffCode:  "approval-rollback-owner-code",
+		AffQuota: 100,
+		Quota:    50,
+	}
+	require.NoError(t, DB.Create(&owner).Error)
+	request := AffiliateTransferRequest{
+		UserId:              owner.Id,
+		InviteRewardQuota:   200,
+		RechargeRebateQuota: 300,
+		TotalQuota:          500,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           100,
+	}
+	require.NoError(t, DB.Create(&request).Error)
+
+	require.Error(t, ApproveAffiliateTransferRequest(request.Id, 99))
+
+	var storedRequest AffiliateTransferRequest
+	require.NoError(t, DB.First(&storedRequest, request.Id).Error)
+	assert.Equal(t, AffiliateTransferStatusPending, storedRequest.Status)
+	assert.Zero(t, storedRequest.ReviewedAt)
+	assert.Zero(t, storedRequest.ReviewedBy)
+
+	var storedOwner User
+	require.NoError(t, DB.First(&storedOwner, owner.Id).Error)
+	assert.Equal(t, 100, storedOwner.AffQuota)
+	assert.Equal(t, 50, storedOwner.Quota)
 }
 
 func TestRejectAffiliateTransferRequestForfeitsNewRequest(t *testing.T) {

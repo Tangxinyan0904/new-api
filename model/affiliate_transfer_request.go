@@ -176,6 +176,11 @@ func GetAffiliateRebateSummary(userId int) (*AffiliateRebateSummary, error) {
 func CreateAffiliateTransferRequest(userId int) (*AffiliateTransferRequest, error) {
 	var created AffiliateTransferRequest
 	err := DB.Transaction(func(tx *gorm.DB) error {
+		var user User
+		if err := lockForUpdate(tx).Select("id").First(&user, "id = ?", userId).Error; err != nil {
+			return err
+		}
+
 		var pendingCount int64
 		if err := tx.Model(&AffiliateTransferRequest{}).Where("user_id = ? AND status = ?", userId, AffiliateTransferStatusPending).Count(&pendingCount).Error; err != nil {
 			return err
@@ -340,30 +345,42 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var request AffiliateTransferRequest
-		if err := tx.Set("gorm:query_option", "FOR UPDATE").First(&request, "id = ?", requestId).Error; err != nil {
+		if err := lockForUpdate(tx).First(&request, "id = ?", requestId).Error; err != nil {
 			return err
 		}
 		if request.Status != AffiliateTransferStatusPending {
 			return errors.New("request is not pending")
 		}
+
+		res := tx.Model(&AffiliateTransferRequest{}).
+			Where("id = ? AND status = ?", request.Id, AffiliateTransferStatusPending).
+			Updates(map[string]interface{}{
+				"status":        AffiliateTransferStatusApproved,
+				"reviewed_at":   common.GetTimestamp(),
+				"reviewed_by":   reviewerId,
+				"reject_reason": "",
+			})
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return errors.New("request is not pending")
+		}
+
 		if request.InviteRewardQuota > 0 {
-			res := tx.Model(&User{}).Where("id = ? AND aff_quota >= ?", request.UserId, request.InviteRewardQuota).Update("aff_quota", gorm.Expr("aff_quota - ?", request.InviteRewardQuota))
+			res = tx.Model(&User{}).
+				Where("id = ? AND aff_quota >= ?", request.UserId, request.InviteRewardQuota).
+				Update("aff_quota", gorm.Expr("aff_quota - ?", request.InviteRewardQuota))
 			if res.Error != nil {
 				return res.Error
 			}
-			if res.RowsAffected == 0 {
+			if res.RowsAffected != 1 {
 				return errors.New("insufficient invitation reward quota")
 			}
 		}
-		if err := tx.Model(&User{}).Where("id = ?", request.UserId).Update("quota", gorm.Expr("quota + ?", request.TotalQuota)).Error; err != nil {
-			return err
-		}
-		return tx.Model(&request).Updates(map[string]interface{}{
-			"status":        AffiliateTransferStatusApproved,
-			"reviewed_at":   common.GetTimestamp(),
-			"reviewed_by":   reviewerId,
-			"reject_reason": "",
-		}).Error
+		return tx.Model(&User{}).
+			Where("id = ?", request.UserId).
+			Update("quota", gorm.Expr("quota + ?", request.TotalQuota)).Error
 	})
 }
 
