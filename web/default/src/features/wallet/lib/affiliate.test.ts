@@ -19,7 +19,64 @@ For commercial licensing, please contact support@quantumnous.com
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
-import { getAffiliateTransferActionState } from './affiliate'
+import {
+  getAffiliateTransferActionState,
+  markAffiliateTransferSubmitted,
+} from './affiliate.ts'
+
+describe('markAffiliateTransferSubmitted', () => {
+  const summary = {
+    invited_users: [{ id: 7, display_name: 'Affiliate user' }],
+    invited_count: 1,
+    total_invited_recharge_quota: 6_000,
+    invite_reward_quota: 200,
+    recharge_rebate_quota: 300,
+    total_pending_quota: 500,
+    submitted_today: false,
+  }
+
+  test('marks the summary submitted and attaches the created request', () => {
+    const createdRequest = {
+      id: 19,
+      user_id: 8,
+      invite_reward_quota: 200,
+      recharge_rebate_quota: 300,
+      total_quota: 500,
+      status: 'pending' as const,
+      created_at: 1_234,
+    }
+
+    assert.deepEqual(markAffiliateTransferSubmitted(summary, createdRequest), {
+      ...summary,
+      pending_request: createdRequest,
+      submitted_today: true,
+    })
+  })
+
+  test('preserves an existing pending request when no response data is available', () => {
+    const pendingRequest = {
+      id: 18,
+      user_id: 8,
+      invite_reward_quota: 100,
+      recharge_rebate_quota: 200,
+      total_quota: 300,
+      status: 'pending' as const,
+      created_at: 1_000,
+    }
+    const summaryWithPendingRequest = {
+      ...summary,
+      pending_request: pendingRequest,
+    }
+
+    assert.deepEqual(
+      markAffiliateTransferSubmitted(summaryWithPendingRequest),
+      {
+        ...summaryWithPendingRequest,
+        submitted_today: true,
+      }
+    )
+  })
+})
 
 describe('getAffiliateTransferActionState', () => {
   test('disables transfers below the configured minimum', () => {

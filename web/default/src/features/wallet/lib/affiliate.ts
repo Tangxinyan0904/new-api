@@ -20,6 +20,22 @@ For commercial licensing, please contact support@quantumnous.com
 // Affiliate Functions
 // ============================================================================
 
+import type {
+  AffiliateRebateSummary,
+  AffiliateTransferRequestRecord,
+} from '../types'
+
+export function markAffiliateTransferSubmitted(
+  summary: AffiliateRebateSummary,
+  createdRequest?: AffiliateTransferRequestRecord
+): AffiliateRebateSummary {
+  return {
+    ...summary,
+    ...(createdRequest ? { pending_request: createdRequest } : {}),
+    submitted_today: true,
+  }
+}
+
 interface AffiliateTransferActionStateInput {
   totalPendingQuota: number
   minimumQuota: number

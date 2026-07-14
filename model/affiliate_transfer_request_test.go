@@ -28,6 +28,51 @@ func setupAffiliateTransferRequestFixture(t *testing.T) {
 	})
 }
 
+type affiliateRejectionFixture struct {
+	owner   User
+	request AffiliateTransferRequest
+}
+
+func createAffiliateRejectionFixture(t *testing.T, db *gorm.DB, prefix string) affiliateRejectionFixture {
+	t.Helper()
+
+	owner := User{
+		Username: prefix + "-owner",
+		Password: "password",
+		AffCode:  prefix + "-owner-code",
+		AffQuota: 400,
+		Quota:    50,
+	}
+	require.NoError(t, db.Create(&owner).Error)
+	invitee := User{
+		Username:  prefix + "-invitee",
+		Password:  "password",
+		AffCode:   prefix + "-invitee-code",
+		InviterId: owner.Id,
+	}
+	require.NoError(t, db.Create(&invitee).Error)
+	require.NoError(t, db.Create(&TopUp{
+		UserId:          invitee.Id,
+		Amount:          6000,
+		TradeNo:         prefix + "-topup",
+		PaymentMethod:   PaymentMethodCreem,
+		PaymentProvider: PaymentProviderCreem,
+		CompleteTime:    common.GetTimestamp(),
+		Status:          common.TopUpStatusSuccess,
+	}).Error)
+	request := AffiliateTransferRequest{
+		UserId:              owner.Id,
+		InviteRewardQuota:   200,
+		RechargeRebateQuota: 300,
+		TotalQuota:          500,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           common.GetTimestamp(),
+	}
+	require.NoError(t, db.Create(&request).Error)
+
+	return affiliateRejectionFixture{owner: owner, request: request}
+}
+
 func TestListUserAffiliateTransferRequestsScopesOrdersAndPaginates(t *testing.T) {
 	setupAffiliateTransferRequestFixture(t)
 
@@ -291,6 +336,102 @@ func TestRejectAffiliateTransferRequestForfeitsNewRequest(t *testing.T) {
 	assert.Positive(t, request.RejectedQuotaForfeitedAt)
 
 	summary, err := GetAffiliateRebateSummary(owner.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 0, summary.RechargeRebateQuota)
+}
+
+func TestRejectAffiliateTransferRequestOnlyForfeitsOnce(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+	fixture := createAffiliateRejectionFixture(t, DB, "sequential-rejection")
+
+	firstErr := RejectAffiliateTransferRequest(fixture.request.Id, 91, "first rejection")
+	secondErr := RejectAffiliateTransferRequest(fixture.request.Id, 92, "second rejection")
+
+	require.NoError(t, firstErr)
+	require.Error(t, secondErr)
+	assert.ErrorContains(t, secondErr, "request is not pending")
+
+	var storedOwner User
+	require.NoError(t, DB.First(&storedOwner, fixture.owner.Id).Error)
+	assert.Equal(t, 200, storedOwner.AffQuota)
+	assert.Equal(t, 50, storedOwner.Quota)
+
+	var storedRequest AffiliateTransferRequest
+	require.NoError(t, DB.First(&storedRequest, fixture.request.Id).Error)
+	assert.Equal(t, AffiliateTransferStatusRejected, storedRequest.Status)
+	assert.Equal(t, 91, storedRequest.ReviewedBy)
+	assert.Equal(t, "first rejection", storedRequest.RejectReason)
+	assert.Positive(t, storedRequest.RejectedQuotaForfeitedAt)
+
+	summary, err := GetAffiliateRebateSummary(fixture.owner.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 0, summary.RechargeRebateQuota)
+}
+
+func TestRejectAffiliateTransferRequestConcurrentCallsOnlyForfeitOnce(t *testing.T) {
+	concurrentDB, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	sqlDB, err := concurrentDB.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(4)
+	sqlDB.SetMaxIdleConns(4)
+	require.NoError(t, concurrentDB.AutoMigrate(&AffiliateTransferRequest{}, &User{}, &TopUp{}))
+
+	originalDB := DB
+	DB = concurrentDB
+	t.Cleanup(func() {
+		DB = originalDB
+		require.NoError(t, sqlDB.Close())
+	})
+
+	fixture := createAffiliateRejectionFixture(t, concurrentDB, "concurrent-rejection")
+	type rejectionAttempt struct {
+		reviewerId int
+		reason     string
+	}
+	attempts := []rejectionAttempt{
+		{reviewerId: 91, reason: "first concurrent rejection"},
+		{reviewerId: 92, reason: "second concurrent rejection"},
+	}
+	start := make(chan struct{})
+	results := make(chan error, len(attempts))
+	var ready sync.WaitGroup
+	ready.Add(len(attempts))
+	var wg sync.WaitGroup
+	wg.Add(len(attempts))
+	for _, attempt := range attempts {
+		go func(attempt rejectionAttempt) {
+			defer wg.Done()
+			ready.Done()
+			<-start
+			results <- RejectAffiliateTransferRequest(fixture.request.Id, attempt.reviewerId, attempt.reason)
+		}(attempt)
+	}
+	ready.Wait()
+	close(start)
+	wg.Wait()
+	close(results)
+
+	successes := 0
+	for result := range results {
+		if result == nil {
+			successes++
+		}
+	}
+	require.Equal(t, 1, successes)
+
+	var storedOwner User
+	require.NoError(t, DB.First(&storedOwner, fixture.owner.Id).Error)
+	assert.Equal(t, 200, storedOwner.AffQuota)
+	assert.Equal(t, 50, storedOwner.Quota)
+
+	var storedRequest AffiliateTransferRequest
+	require.NoError(t, DB.First(&storedRequest, fixture.request.Id).Error)
+	assert.Equal(t, AffiliateTransferStatusRejected, storedRequest.Status)
+	assert.Contains(t, []int{91, 92}, storedRequest.ReviewedBy)
+	assert.Positive(t, storedRequest.RejectedQuotaForfeitedAt)
+
+	summary, err := GetAffiliateRebateSummary(fixture.owner.Id)
 	require.NoError(t, err)
 	assert.Equal(t, 0, summary.RechargeRebateQuota)
 }

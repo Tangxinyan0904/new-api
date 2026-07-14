@@ -18,7 +18,7 @@ import {
   getAffiliateCode,
   getAffiliateRebateSummary,
 } from '../api'
-import { generateAffiliateLink } from '../lib'
+import { generateAffiliateLink, markAffiliateTransferSubmitted } from '../lib'
 import type { AffiliateRebateSummary } from '../types'
 
 export function useAffiliate() {
@@ -78,10 +78,15 @@ export function useAffiliate() {
       const response = await createAffiliateTransferRequest()
 
       if (response.success) {
+        setRebateSummary((currentSummary) =>
+          currentSummary
+            ? markAffiliateTransferSubmitted(currentSummary, response.data)
+            : currentSummary
+        )
         toast.success(
           response.message || i18next.t('Transfer request submitted')
         )
-        await Promise.all([getSelf(), refreshAffiliateData()])
+        void Promise.allSettled([getSelf(), refreshAffiliateData()])
         return true
       }
 
