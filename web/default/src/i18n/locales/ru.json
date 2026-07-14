@@ -714,6 +714,7 @@
     "Callback Payment Method": "Способ оплаты (callback)",
     "Callback URL format": "Формат URL обратного вызова",
     "Cancel": "Отмена",
+    "Cancel auto refresh": "Отменить автообновление",
     "Cancelled": "Отменено",
     "Cancelled at": "Отменено",
     "Capabilities": "Возможности",
