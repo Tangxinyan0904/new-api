@@ -9,6 +9,54 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestGetPageQueryNormalizesPage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name     string
+		target   string
+		expected int
+	}{
+		{
+			name:     "negative page falls back to first page",
+			target:   "/?p=-1",
+			expected: 1,
+		},
+		{
+			name:     "zero page falls back to first page",
+			target:   "/?p=0",
+			expected: 1,
+		},
+		{
+			name:     "missing page falls back to first page",
+			target:   "/",
+			expected: 1,
+		},
+		{
+			name:     "invalid page falls back to first page",
+			target:   "/?p=invalid",
+			expected: 1,
+		},
+		{
+			name:     "positive page is preserved",
+			target:   "/?p=3",
+			expected: 3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodGet, tt.target, nil)
+
+			pageInfo := GetPageQuery(ctx)
+
+			assert.Equal(t, tt.expected, pageInfo.Page)
+		})
+	}
+}
+
 func TestGetPageQueryNormalizesPageSize(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
