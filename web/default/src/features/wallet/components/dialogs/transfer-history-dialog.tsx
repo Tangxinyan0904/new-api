@@ -22,7 +22,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
-import { StatusBadge, type StatusVariant } from '@/components/status-badge'
+import { StatusBadge } from '@/components/status-badge'
 import { Button } from '@/components/ui/button'
 import {
   Empty,
@@ -34,7 +34,10 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 
 import { getAffiliateTransferHistory, isApiSuccess } from '../../api'
-import type { AffiliateTransferHistoryItem } from '../../types'
+import {
+  getAffiliateTransferHistoryViewState,
+  getAffiliateTransferStatusConfig,
+} from '../../lib/transfer-history'
 
 const PAGE_SIZE = 10
 const LOADING_RECORD_KEYS = ['record-1', 'record-2', 'record-3']
@@ -46,15 +49,6 @@ const LOADING_FIELD_KEYS = [
   'status',
   'reviewed',
 ]
-
-const TRANSFER_STATUS_CONFIG: Record<
-  AffiliateTransferHistoryItem['status'],
-  { labelKey: 'Approved' | 'Rejected' | 'Pending'; variant: StatusVariant }
-> = {
-  approved: { labelKey: 'Approved', variant: 'success' },
-  rejected: { labelKey: 'Rejected', variant: 'danger' },
-  pending: { labelKey: 'Pending', variant: 'warning' },
-}
 
 interface TransferHistoryDialogProps {
   open: boolean
@@ -82,6 +76,12 @@ export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
 
   const records = data?.items ?? []
   const totalPages = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
+  const viewState = getAffiliateTransferHistoryViewState({
+    isLoading,
+    isError,
+    recordCount: records.length,
+    page,
+  })
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -103,7 +103,7 @@ export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
       bodyClassName='flex h-full min-h-0 flex-col gap-3'
     >
       <div className='min-h-0 flex-1 overflow-y-auto pr-1'>
-        {isLoading && (
+        {viewState.display === 'loading' && (
           <div className='flex flex-col gap-3' aria-busy='true'>
             {LOADING_RECORD_KEYS.map((recordKey) => (
               <div key={recordKey} className='rounded-md border p-3 sm:p-4'>
@@ -119,7 +119,7 @@ export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
             ))}
           </div>
         )}
-        {!isLoading && isError && (
+        {viewState.display === 'fatal-error' && (
           <div
             className='flex min-h-48 flex-col items-center justify-center gap-3 text-center'
             role='alert'
@@ -127,12 +127,30 @@ export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
             <p className='text-muted-foreground text-sm'>
               {t('Failed to load transfer history')}
             </p>
-            <Button variant='outline' size='sm' onClick={() => void refetch()}>
-              {t('Retry')}
-            </Button>
+            <div className='flex flex-wrap items-center justify-center gap-2'>
+              {viewState.showPreviousPageAction ? (
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => setPage((currentPage) => currentPage - 1)}
+                >
+                  <ChevronLeft data-icon='inline-start' aria-hidden='true' />
+                  {t('Previous page')}
+                </Button>
+              ) : null}
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={() => void refetch()}
+              >
+                {t('Retry')}
+              </Button>
+            </div>
           </div>
         )}
-        {!isLoading && !isError && records.length === 0 && (
+        {viewState.display === 'empty' && (
           <Empty className='min-h-48'>
             <EmptyHeader>
               <EmptyTitle>{t('No transfer records found.')}</EmptyTitle>
@@ -142,10 +160,12 @@ export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
             </EmptyHeader>
           </Empty>
         )}
-        {!isLoading && !isError && records.length > 0 && (
+        {viewState.display === 'records' && (
           <div className='flex flex-col gap-3'>
             {records.map((record) => {
-              const statusConfig = TRANSFER_STATUS_CONFIG[record.status]
+              const statusConfig = getAffiliateTransferStatusConfig(
+                record.status
+              )
               return (
                 <article
                   key={record.id}
@@ -225,7 +245,7 @@ export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
         )}
       </div>
 
-      {!isLoading && !isError && records.length > 0 ? (
+      {viewState.showPagination ? (
         <div className='grid shrink-0 grid-cols-[2rem_minmax(0,1fr)_2rem] items-center gap-2 border-t pt-3'>
           <Button
             type='button'
