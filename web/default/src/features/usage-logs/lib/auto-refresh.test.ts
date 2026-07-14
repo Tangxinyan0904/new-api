@@ -24,6 +24,7 @@ import {
   AUTO_REFRESH_SECONDS,
   INITIAL_AUTO_REFRESH_STATE,
   getUsageLogRefreshQueryKeys,
+  getUsageLogRefreshScopeKey,
   reduceAutoRefreshState,
   type AutoRefreshState,
 } from './auto-refresh.ts'
@@ -359,5 +360,32 @@ describe('getUsageLogRefreshQueryKeys', () => {
     assert.deepEqual(getUsageLogRefreshQueryKeys('task', false), [
       ['logs', 'task', false],
     ])
+  })
+})
+
+describe('getUsageLogRefreshScopeKey', () => {
+  test('changes when any applied query identity changes', () => {
+    const baseScope = getUsageLogRefreshScopeKey(
+      'common',
+      false,
+      '{"page":1,"pageSize":20}'
+    )
+
+    assert.equal(
+      baseScope,
+      getUsageLogRefreshScopeKey('common', false, '{"page":1,"pageSize":20}')
+    )
+    assert.notEqual(
+      baseScope,
+      getUsageLogRefreshScopeKey('common', true, '{"page":1,"pageSize":20}')
+    )
+    assert.notEqual(
+      baseScope,
+      getUsageLogRefreshScopeKey('common', false, '{"page":2,"pageSize":20}')
+    )
+    assert.notEqual(
+      baseScope,
+      getUsageLogRefreshScopeKey('drawing', false, '{"page":1,"pageSize":20}')
+    )
   })
 })

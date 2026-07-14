@@ -140,3 +140,11 @@ export function getUsageLogRefreshQueryKeys(
 
   return [logsQueryKey, ['usage-logs-stats', isAdmin] as const] as const
 }
+
+export function getUsageLogRefreshScopeKey(
+  category: LogCategory,
+  isAdmin: boolean,
+  scopeKey: string
+): string {
+  return JSON.stringify([category, isAdmin, scopeKey])
+}
