@@ -128,8 +128,8 @@ export function AffiliateRewardsCard({
               </p>
             </div>
           </div>
-          <div className='flex shrink-0 flex-col gap-1.5'>
-            <div className='flex items-center gap-2'>
+          <div className='flex w-full min-w-0 shrink-0 flex-col gap-1.5 sm:w-auto'>
+            <div className='flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto'>
               <Button
                 type='button'
                 variant='outline'
@@ -149,13 +149,21 @@ export function AffiliateRewardsCard({
                 size='sm'
                 onClick={onTransfer}
                 disabled={transferDisabled}
+                aria-describedby={
+                  actionState.showMinimum
+                    ? 'affiliate-transfer-minimum-message'
+                    : undefined
+                }
                 className='h-9 px-3'
               >
                 {t(actionState.labelKey)}
               </Button>
             </div>
             {actionState.showMinimum ? (
-              <p className='text-muted-foreground text-xs leading-4 sm:max-w-64 sm:text-right'>
+              <p
+                id='affiliate-transfer-minimum-message'
+                className='text-muted-foreground text-xs leading-4 sm:max-w-64 sm:text-right'
+              >
                 {t('Minimum transfer amount is {{amount}}.', {
                   amount: formatQuota(minimumTransferQuota),
                 })}
