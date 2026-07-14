@@ -44,6 +44,7 @@ import { getDefaultTimeRange } from '../lib/utils'
 import type { CommonLogFilters } from '../types'
 import { CommonLogsStats } from './common-logs-stats'
 import { CompactDateTimeRangePicker } from './compact-date-time-range-picker'
+import { LogRefreshActions } from './log-refresh-actions'
 import {
   LogsFilterField,
   LogsFilterInput,
@@ -439,6 +440,13 @@ export function CommonLogsFilterBar<TData>(
       hasAdvancedActiveFilters={hasExpandedFilters}
       advancedFilterCount={expandedFilterCount}
       hasActiveFilters={hasAdditionalFilters}
+      refreshActions={
+        <LogRefreshActions
+          logCategory='common'
+          isAdminView={isAdmin}
+          scopeKey={JSON.stringify(searchParams)}
+        />
+      }
       onSearch={handleApply}
       searchLoading={fetchingLogs > 0}
       onReset={handleReset}

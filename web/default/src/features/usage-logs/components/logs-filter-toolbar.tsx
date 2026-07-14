@@ -46,6 +46,7 @@ interface LogsFilterToolbarProps<TData> {
   mobileFilterCount?: number
   stats?: ReactNode
   actionStart?: ReactNode
+  refreshActions?: ReactNode
   hasActiveFilters: boolean
   hasAdvancedActiveFilters?: boolean
   advancedFilterCount?: number
@@ -151,16 +152,16 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
             )}
           >
             {!mobilePanelCollapsed && props.stats}
-            <div className='flex items-center justify-end gap-1.5'>
+            <div className='flex flex-wrap items-center justify-end gap-1.5'>
               <Button
                 type='button'
                 variant='ghost'
                 size='icon'
-                onClick={() => setMobilePanelCollapsed((collapsed) => !collapsed)}
-                aria-expanded={!mobilePanelCollapsed}
-                aria-label={
-                  mobilePanelCollapsed ? t('Expand') : t('Collapse')
+                onClick={() =>
+                  setMobilePanelCollapsed((collapsed) => !collapsed)
                 }
+                aria-expanded={!mobilePanelCollapsed}
+                aria-label={mobilePanelCollapsed ? t('Expand') : t('Collapse')}
                 className='text-muted-foreground hover:text-foreground mr-auto size-7'
               >
                 <ChevronDown
@@ -189,6 +190,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
                   )}
                 </Button>
               </DrawerTrigger>
+              {props.refreshActions}
               <Button
                 type='button'
                 onClick={props.onSearch}
@@ -278,6 +280,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
           >
             {t('Reset')}
           </Button>
+          {props.refreshActions}
           <Button
             type='button'
             onClick={props.onSearch}
