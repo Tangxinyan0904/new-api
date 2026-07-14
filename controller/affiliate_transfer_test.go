@@ -8,8 +8,86 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestListSelfAffiliateTransferRequestsReturnsOnlyCurrentUserHistory(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}))
+
+	requests := []model.AffiliateTransferRequest{
+		{
+			Id:                       51,
+			UserId:                   301,
+			InviteRewardQuota:        100,
+			RechargeRebateQuota:      200,
+			TotalQuota:               300,
+			Status:                   model.AffiliateTransferStatusApproved,
+			CreatedAt:                1000,
+			ReviewedAt:               1100,
+			ReviewedBy:               1,
+			RejectedQuotaForfeitedAt: 0,
+		},
+		{
+			Id:                       52,
+			UserId:                   999,
+			InviteRewardQuota:        900,
+			RechargeRebateQuota:      900,
+			TotalQuota:               1800,
+			Status:                   model.AffiliateTransferStatusRejected,
+			CreatedAt:                2000,
+			ReviewedAt:               2100,
+			ReviewedBy:               2,
+			RejectReason:             "other user",
+			RejectedQuotaForfeitedAt: 2200,
+		},
+		{
+			Id:                       53,
+			UserId:                   301,
+			InviteRewardQuota:        400,
+			RechargeRebateQuota:      500,
+			TotalQuota:               900,
+			Status:                   model.AffiliateTransferStatusRejected,
+			CreatedAt:                3000,
+			ReviewedAt:               3100,
+			ReviewedBy:               3,
+			RejectReason:             "invalid request",
+			RejectedQuotaForfeitedAt: 3200,
+		},
+	}
+	require.NoError(t, db.Create(&requests).Error)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/affiliate/transfer-requests/self?p=1&page_size=10&user_id=999", nil)
+	ctx.Set("id", 301)
+
+	ListSelfAffiliateTransferRequests(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Total int                                          `json:"total"`
+			Items []*model.AffiliateTransferRequestHistoryItem `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.True(t, response.Success)
+	assert.Equal(t, 2, response.Data.Total)
+	require.Len(t, response.Data.Items, 2)
+	assert.Equal(t, 53, response.Data.Items[0].Id)
+	assert.Equal(t, 900, response.Data.Items[0].TotalQuota)
+	assert.Equal(t, model.AffiliateTransferStatusRejected, response.Data.Items[0].Status)
+	assert.Equal(t, 51, response.Data.Items[1].Id)
+	assert.Equal(t, 300, response.Data.Items[1].TotalQuota)
+
+	raw := recorder.Body.String()
+	assert.NotContains(t, raw, "user_id")
+	assert.NotContains(t, raw, "reviewed_by")
+	assert.NotContains(t, raw, "rejected_quota_forfeited_at")
+}
 
 func TestApproveAffiliateTransferRequestRecordsDetailedAudit(t *testing.T) {
 	db := setupModelListControllerTestDB(t)

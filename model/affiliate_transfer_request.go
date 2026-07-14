@@ -30,6 +30,17 @@ type AffiliateTransferRequest struct {
 	RejectedQuotaForfeitedAt int64  `json:"-" gorm:"column:rejected_quota_forfeited_at"`
 }
 
+type AffiliateTransferRequestHistoryItem struct {
+	Id                  int    `json:"id"`
+	InviteRewardQuota   int    `json:"invite_reward_quota"`
+	RechargeRebateQuota int    `json:"recharge_rebate_quota"`
+	TotalQuota          int    `json:"total_quota"`
+	Status              string `json:"status"`
+	CreatedAt           int64  `json:"created_at"`
+	ReviewedAt          int64  `json:"reviewed_at"`
+	RejectReason        string `json:"reject_reason"`
+}
+
 type AffiliateInvitedUserSummary struct {
 	Id          int    `json:"id"`
 	DisplayName string `json:"display_name"`
@@ -239,6 +250,26 @@ func ListAffiliateTransferRequests(status string, pageInfo *common.PageInfo) ([]
 	if err := baseQuery.
 		Select("affiliate_transfer_requests.*, users.username, users.display_name").
 		Order("affiliate_transfer_requests.id desc").
+		Limit(pageInfo.GetPageSize()).
+		Offset(pageInfo.GetStartIdx()).
+		Scan(&items).Error; err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+func ListUserAffiliateTransferRequests(userId int, pageInfo *common.PageInfo) ([]*AffiliateTransferRequestHistoryItem, int64, error) {
+	baseQuery := DB.Model(&AffiliateTransferRequest{}).Where("user_id = ?", userId)
+
+	var total int64
+	if err := baseQuery.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	items := make([]*AffiliateTransferRequestHistoryItem, 0)
+	if err := baseQuery.
+		Select("id, invite_reward_quota, recharge_rebate_quota, total_quota, status, created_at, reviewed_at, reject_reason").
+		Order("id desc").
 		Limit(pageInfo.GetPageSize()).
 		Offset(pageInfo.GetStartIdx()).
 		Scan(&items).Error; err != nil {

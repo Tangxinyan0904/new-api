@@ -28,6 +28,64 @@ func setupAffiliateTransferRequestFixture(t *testing.T) {
 	})
 }
 
+func TestListUserAffiliateTransferRequestsScopesOrdersAndPaginates(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	requests := []AffiliateTransferRequest{
+		{
+			Id:                  41,
+			UserId:              101,
+			InviteRewardQuota:   100,
+			RechargeRebateQuota: 200,
+			TotalQuota:          300,
+			Status:              AffiliateTransferStatusApproved,
+			CreatedAt:           1000,
+		},
+		{
+			Id:                  42,
+			UserId:              202,
+			InviteRewardQuota:   900,
+			RechargeRebateQuota: 900,
+			TotalQuota:          1800,
+			Status:              AffiliateTransferStatusRejected,
+			CreatedAt:           2000,
+		},
+		{
+			Id:                  43,
+			UserId:              101,
+			InviteRewardQuota:   400,
+			RechargeRebateQuota: 500,
+			TotalQuota:          900,
+			Status:              AffiliateTransferStatusPending,
+			CreatedAt:           3000,
+		},
+	}
+	require.NoError(t, DB.Create(&requests).Error)
+
+	items, total, err := ListUserAffiliateTransferRequests(101, &common.PageInfo{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, total)
+	require.Len(t, items, 2)
+	assert.Equal(t, 43, items[0].Id)
+	assert.Equal(t, 900, items[0].TotalQuota)
+	assert.Equal(t, AffiliateTransferStatusPending, items[0].Status)
+	assert.Equal(t, 41, items[1].Id)
+	assert.Equal(t, 300, items[1].TotalQuota)
+	assert.Equal(t, AffiliateTransferStatusApproved, items[1].Status)
+
+	secondPage, total, err := ListUserAffiliateTransferRequests(101, &common.PageInfo{Page: 2, PageSize: 1})
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, total)
+	require.Len(t, secondPage, 1)
+	assert.Equal(t, 41, secondPage[0].Id)
+
+	empty, total, err := ListUserAffiliateTransferRequests(303, &common.PageInfo{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	assert.Zero(t, total)
+	assert.NotNil(t, empty)
+	assert.Empty(t, empty)
+}
+
 func TestCreateAffiliateTransferRequestMinimumQuotaBoundary(t *testing.T) {
 	setupAffiliateTransferRequestFixture(t)
 

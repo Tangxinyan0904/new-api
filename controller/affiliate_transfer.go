@@ -43,6 +43,18 @@ func ListAffiliateTransferRequests(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+func ListSelfAffiliateTransferRequests(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	items, total, err := model.ListUserAffiliateTransferRequests(c.GetInt("id"), pageInfo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
+
 func GetAffiliateTransferRequestDetail(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
