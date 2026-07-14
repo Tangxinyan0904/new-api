@@ -35,6 +35,8 @@ interface AffiliateTransferStatusConfig {
   variant: 'success' | 'danger' | 'warning' | 'neutral'
 }
 
+const AFFILIATE_TRANSFER_HISTORY_QUERY_KEY = 'affiliate-transfer-history'
+
 const TRANSFER_STATUS_CONFIG: Partial<
   Record<string, AffiliateTransferStatusConfig>
 > = {
@@ -46,6 +48,18 @@ const TRANSFER_STATUS_CONFIG: Partial<
 const UNKNOWN_TRANSFER_STATUS_CONFIG: AffiliateTransferStatusConfig = {
   labelKey: 'Unknown',
   variant: 'neutral',
+}
+
+export function getAffiliateTransferHistoryQueryPrefix(userId: number) {
+  return [AFFILIATE_TRANSFER_HISTORY_QUERY_KEY, userId] as const
+}
+
+export function getAffiliateTransferHistoryQueryKey(
+  userId: number | undefined,
+  page: number,
+  pageSize: number
+) {
+  return [AFFILIATE_TRANSFER_HISTORY_QUERY_KEY, userId, page, pageSize] as const
 }
 
 export function getAffiliateTransferHistoryViewState(

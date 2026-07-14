@@ -16,9 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
@@ -32,9 +32,12 @@ import {
 } from '@/components/ui/empty'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatQuota, formatTimestamp } from '@/lib/format'
+import { useAuthStore } from '@/stores/auth-store'
 
 import { getAffiliateTransferHistory, isApiSuccess } from '../../api'
 import {
+  getAffiliateTransferHistoryQueryKey,
+  getAffiliateTransferHistoryQueryPrefix,
   getAffiliateTransferHistoryViewState,
   getAffiliateTransferStatusConfig,
 } from '../../lib/transfer-history'
@@ -57,10 +60,25 @@ interface TransferHistoryDialogProps {
 
 export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const userId = useAuthStore((s) => s.auth.user?.id)
   const [page, setPage] = useState(1)
 
+  useEffect(() => {
+    setPage(1)
+
+    if (userId === undefined) {
+      return
+    }
+
+    const queryPrefix = getAffiliateTransferHistoryQueryPrefix(userId)
+    return () => {
+      queryClient.removeQueries({ queryKey: queryPrefix })
+    }
+  }, [queryClient, userId])
+
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['affiliate-transfer-history', page, PAGE_SIZE],
+    queryKey: getAffiliateTransferHistoryQueryKey(userId, page, PAGE_SIZE),
     queryFn: async () => {
       const response = await getAffiliateTransferHistory(page, PAGE_SIZE)
       if (!isApiSuccess(response) || !response.data) {
@@ -70,7 +88,7 @@ export function TransferHistoryDialog(props: TransferHistoryDialogProps) {
       }
       return response.data
     },
-    enabled: props.open,
+    enabled: props.open && userId !== undefined,
     staleTime: 0,
   })
 

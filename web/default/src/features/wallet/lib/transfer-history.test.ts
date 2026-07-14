@@ -19,10 +19,49 @@ For commercial licensing, please contact support@quantumnous.com
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
+import { QueryClient } from '@tanstack/react-query'
+
 import {
+  getAffiliateTransferHistoryQueryKey,
+  getAffiliateTransferHistoryQueryPrefix,
   getAffiliateTransferHistoryViewState,
   getAffiliateTransferStatusConfig,
 } from './transfer-history'
+
+describe('affiliate transfer history query keys', () => {
+  test('isolates cached history by user and removes one user by prefix', () => {
+    const queryClient = new QueryClient()
+    const userAKey = getAffiliateTransferHistoryQueryKey(101, 1, 10)
+    const userBKey = getAffiliateTransferHistoryQueryKey(202, 1, 10)
+    const userAHistory = { items: [{ id: 1 }], total: 1 }
+
+    queryClient.setQueryData(userAKey, userAHistory)
+
+    assert.deepEqual(queryClient.getQueryData(userAKey), userAHistory)
+    assert.equal(queryClient.getQueryData(userBKey), undefined)
+
+    queryClient.removeQueries({
+      queryKey: getAffiliateTransferHistoryQueryPrefix(101),
+    })
+
+    assert.equal(queryClient.getQueryData(userAKey), undefined)
+  })
+
+  test('keeps page number and page size as separate cache dimensions', () => {
+    const queryClient = new QueryClient()
+    const firstPageKey = getAffiliateTransferHistoryQueryKey(101, 1, 10)
+    const secondPageKey = getAffiliateTransferHistoryQueryKey(101, 2, 10)
+    const largerPageKey = getAffiliateTransferHistoryQueryKey(101, 1, 20)
+
+    queryClient.setQueryData(firstPageKey, 'first-page')
+    queryClient.setQueryData(secondPageKey, 'second-page')
+    queryClient.setQueryData(largerPageKey, 'larger-page')
+
+    assert.equal(queryClient.getQueryData(firstPageKey), 'first-page')
+    assert.equal(queryClient.getQueryData(secondPageKey), 'second-page')
+    assert.equal(queryClient.getQueryData(largerPageKey), 'larger-page')
+  })
+})
 
 describe('getAffiliateTransferHistoryViewState', () => {
   test('keeps cached records and pagination visible after a request error', () => {
