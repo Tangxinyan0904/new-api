@@ -32,6 +32,7 @@ import type {
   AffiliateCodeResponse,
   AffiliateRebateSummaryResponse,
   AffiliateTransferRequestResponse,
+  AffiliateTransferHistoryResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
   CompleteOrderRequest,
@@ -196,6 +197,20 @@ export async function getAffiliateRebateSummary(): Promise<AffiliateRebateSummar
 
 export async function createAffiliateTransferRequest(): Promise<AffiliateTransferRequestResponse> {
   const res = await api.post('/api/user/affiliate/transfer-request')
+  return res.data
+}
+
+export async function getAffiliateTransferHistory(
+  page: number,
+  pageSize: number
+): Promise<AffiliateTransferHistoryResponse> {
+  const params = new URLSearchParams({
+    p: page.toString(),
+    page_size: pageSize.toString(),
+  })
+  const res = await api.get(
+    `/api/user/affiliate/transfer-requests/self?${params.toString()}`
+  )
   return res.data
 }
 

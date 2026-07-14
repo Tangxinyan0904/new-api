@@ -30,6 +30,7 @@ import { BillingHistoryDialog } from './components/dialogs/billing-history-dialo
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
+import { TransferHistoryDialog } from './components/dialogs/transfer-history-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
@@ -70,6 +71,7 @@ export function Wallet(props: WalletProps) {
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  const [transferHistoryOpen, setTransferHistoryOpen] = useState(false)
   const [billingDialogOpen, setBillingDialogOpen] = useState(false)
   const [redemptionCode, setRedemptionCode] = useState('')
   const [creemDialogOpen, setCreemDialogOpen] = useState(false)
@@ -331,6 +333,7 @@ export function Wallet(props: WalletProps) {
               minimumTransferQuota={minimumTransferQuota}
               onRefresh={refreshAffiliateData}
               onTransfer={() => setTransferDialogOpen(true)}
+              onOpenTransferHistory={() => setTransferHistoryOpen(true)}
               complianceConfirmed={
                 topupInfo?.payment_compliance_confirmed !== false
               }
@@ -363,6 +366,11 @@ export function Wallet(props: WalletProps) {
           rebateSummary?.total_pending_quota ?? user?.aff_quota ?? 0
         }
         transferring={transferring}
+      />
+
+      <TransferHistoryDialog
+        open={transferHistoryOpen}
+        onOpenChange={setTransferHistoryOpen}
       />
 
       <BillingHistoryDialog

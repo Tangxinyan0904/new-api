@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { RefreshCw, Share2 } from 'lucide-react'
+import { History, RefreshCw, Share2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -41,6 +41,7 @@ interface AffiliateRewardsCardProps {
   minimumTransferQuota: number
   onRefresh: () => void | Promise<void>
   onTransfer: () => void
+  onOpenTransferHistory: () => void
   complianceConfirmed?: boolean
   loading?: boolean
   refreshing?: boolean
@@ -57,6 +58,7 @@ export function AffiliateRewardsCard({
   minimumTransferQuota,
   onRefresh,
   onTransfer,
+  onOpenTransferHistory,
   complianceConfirmed = true,
   loading,
   refreshing,
@@ -157,6 +159,16 @@ export function AffiliateRewardsCard({
                 className='h-9 px-3'
               >
                 {t(actionState.labelKey)}
+              </Button>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={onOpenTransferHistory}
+                className='h-9 px-3'
+              >
+                <History data-icon='inline-start' />
+                {t('Transfer History')}
               </Button>
             </div>
             {actionState.showMinimum ? (

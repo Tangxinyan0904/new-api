@@ -41,8 +41,11 @@ export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
 export type StripePaymentResponse = ApiResponse<{ pay_link: string }>
 export type AffiliateCodeResponse = ApiResponse<string>
 export type AffiliateRebateSummaryResponse = ApiResponse<AffiliateRebateSummary>
-export type AffiliateTransferRequestResponse = ApiResponse<AffiliateTransferRequestRecord>
+export type AffiliateTransferRequestResponse =
+  ApiResponse<AffiliateTransferRequestRecord>
 export type AffiliateTransferResponse = ApiResponse
+export type AffiliateTransferHistoryResponse =
+  ApiResponse<AffiliateTransferHistoryPage>
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
 export type WaffoPaymentResponse = ApiResponse<
   { payment_url?: string } | string
@@ -225,6 +228,24 @@ export interface AffiliateTransferRequestRecord {
   reviewed_at?: number
   reviewed_by?: number
   reject_reason?: string
+}
+
+export interface AffiliateTransferHistoryItem {
+  id: number
+  invite_reward_quota: number
+  recharge_rebate_quota: number
+  total_quota: number
+  status: 'pending' | 'approved' | 'rejected'
+  created_at: number
+  reviewed_at: number
+  reject_reason: string
+}
+
+export interface AffiliateTransferHistoryPage {
+  page: number
+  page_size: number
+  total: number
+  items: AffiliateTransferHistoryItem[]
 }
 
 export interface AffiliateInvitedUserSummary {
