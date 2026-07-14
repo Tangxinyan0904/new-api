@@ -31,12 +31,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { formatQuota } from '@/lib/format'
 
+import { getAffiliateTransferActionState } from '../lib/affiliate'
 import type { AffiliateRebateSummary, UserWalletData } from '../types'
 
 interface AffiliateRewardsCardProps {
   user: UserWalletData | null
   affiliateLink: string
   rebateSummary: AffiliateRebateSummary | null
+  minimumTransferQuota: number
   onRefresh: () => void | Promise<void>
   onTransfer: () => void
   complianceConfirmed?: boolean
@@ -52,6 +54,7 @@ export function AffiliateRewardsCard({
   user,
   affiliateLink,
   rebateSummary,
+  minimumTransferQuota,
   onRefresh,
   onTransfer,
   complianceConfirmed = true,
@@ -91,21 +94,16 @@ export function AffiliateRewardsCard({
     rebateSummary?.invite_reward_quota ?? user?.aff_quota ?? 0
   const rechargeRebate = rebateSummary?.recharge_rebate_quota ?? 0
   const totalPending = rebateSummary?.total_pending_quota ?? inviteReward
-  const hasRewards = totalPending > 0
   const pendingRequest = Boolean(rebateSummary?.pending_request)
   const submittedToday = rebateSummary?.submitted_today ?? false
+  const actionState = getAffiliateTransferActionState({
+    totalPendingQuota: totalPending,
+    minimumQuota: minimumTransferQuota,
+    pendingRequest,
+    submittedToday,
+  })
   const transferDisabled =
-    !complianceConfirmed ||
-    !hasRewards ||
-    pendingRequest ||
-    submittedToday ||
-    transferring
-  let transferLabel = t('Request Transfer')
-  if (pendingRequest) {
-    transferLabel = t('Pending Approval')
-  } else if (submittedToday) {
-    transferLabel = t('Submitted Today')
-  }
+    !complianceConfirmed || transferring || actionState.disabled
   const invitedUsers = rebateSummary?.invited_users ?? []
   const promotionCopyValue = [promotionText.trim(), affiliateLink]
     .filter(Boolean)
@@ -130,30 +128,39 @@ export function AffiliateRewardsCard({
               </p>
             </div>
           </div>
-          <div className='flex shrink-0 items-center gap-2'>
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              onClick={() => void onRefresh()}
-              disabled={refreshing}
-              className='h-9 px-3'
-            >
-              <RefreshCw
-                data-icon='inline-start'
-                className={refreshing ? 'animate-spin' : undefined}
-              />
-              {refreshing ? t('Refreshing...') : t('Refresh')}
-            </Button>
-            <Button
-              type='button'
-              size='sm'
-              onClick={onTransfer}
-              disabled={transferDisabled}
-              className='h-9 px-3'
-            >
-              {transferLabel}
-            </Button>
+          <div className='flex shrink-0 flex-col gap-1.5'>
+            <div className='flex items-center gap-2'>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={() => void onRefresh()}
+                disabled={refreshing}
+                className='h-9 px-3'
+              >
+                <RefreshCw
+                  data-icon='inline-start'
+                  className={refreshing ? 'animate-spin' : undefined}
+                />
+                {refreshing ? t('Refreshing...') : t('Refresh')}
+              </Button>
+              <Button
+                type='button'
+                size='sm'
+                onClick={onTransfer}
+                disabled={transferDisabled}
+                className='h-9 px-3'
+              >
+                {t(actionState.labelKey)}
+              </Button>
+            </div>
+            {actionState.showMinimum ? (
+              <p className='text-muted-foreground text-xs leading-4 sm:max-w-64 sm:text-right'>
+                {t('Minimum transfer amount is {{amount}}.', {
+                  amount: formatQuota(minimumTransferQuota),
+                })}
+              </p>
+            ) : null}
           </div>
         </div>
 

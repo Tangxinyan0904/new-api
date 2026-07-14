@@ -2662,6 +2662,7 @@
     "Minimum top-up amount must be at least 1": "Minimum top-up amount must be at least 1",
     "Minimum top-up quantity": "Minimum top-up quantity",
     "Minimum topup amount: {{amount}}": "Minimum topup amount: {{amount}}",
+    "Minimum transfer amount is {{amount}}.": "Minimum transfer amount is {{amount}}.",
     "Minimum Trust Level": "Minimum Trust Level",
     "Minimum:": "Minimum:",
     "Minor blips in the last 30 days": "Minor blips in the last 30 days",

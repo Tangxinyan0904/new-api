@@ -2633,6 +2633,7 @@
     "Minimum top-up amount must be at least 1": "Le montant minimum de recharge doit être d'au moins 1",
     "Minimum top-up quantity": "Quantité minimale de recharge",
     "Minimum topup amount: {{amount}}": "Montant minimum de recharge : {{amount}}",
+    "Minimum transfer amount is {{amount}}.": "Le montant minimum du transfert est de {{amount}}.",
     "Minimum Trust Level": "Niveau de confiance minimum",
     "Minimum:": "Minimum :",
     "Minor blips in the last 30 days": "Légères perturbations sur les 30 derniers jours",

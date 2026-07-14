@@ -2667,6 +2667,7 @@
     "Minimum top-up amount must be at least 1": "最低充值金额至少为 1",
     "Minimum top-up quantity": "最低充值数量",
     "Minimum topup amount: {{amount}}": "最低充值金额：{{amount}}",
+    "Minimum transfer amount is {{amount}}.": "最低划转金额为 {{amount}}。",
     "Minimum Trust Level": "最低信任级别",
     "Minimum:": "最低：",
     "Minor blips in the last 30 days": "近 30 天内有轻微抖动",

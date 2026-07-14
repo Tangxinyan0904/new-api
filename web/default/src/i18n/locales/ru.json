@@ -2633,6 +2633,7 @@
     "Minimum top-up amount must be at least 1": "Минимальная сумма пополнения — не менее 1",
     "Minimum top-up quantity": "Минимальное количество пополнения",
     "Minimum topup amount: {{amount}}": "Минимальная сумма пополнения: {{amount}}",
+    "Minimum transfer amount is {{amount}}.": "Минимальная сумма перевода: {{amount}}.",
     "Minimum Trust Level": "Минимальный уровень доверия",
     "Minimum:": "Минимум:",
     "Minor blips in the last 30 days": "Небольшие сбои за последние 30 дней",
