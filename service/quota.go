@@ -454,50 +454,74 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 	return nil
 }
 
+type quotaNotifyFunc func(int, string, dto.UserSetting, dto.Notify) error
+
+func sendWalletQuotaNotify(relayInfo *relaycommon.RelayInfo, remainingQuota int, notify quotaNotifyFunc) error {
+	if relayInfo == nil {
+		return errors.New("relay info is missing")
+	}
+
+	userSetting := relayInfo.UserSetting
+	threshold := common.QuotaRemindThreshold
+	if userSetting.QuotaWarningThreshold != 0 {
+		threshold = int(userSetting.QuotaWarningThreshold)
+	}
+
+	notifyType := userSetting.NotifyType
+	if notifyType == "" {
+		notifyType = dto.NotifyTypeEmail
+	}
+	if remainingQuota >= threshold {
+		if notifyType == dto.NotifyTypeEmail {
+			return model.RearmQuotaWarningEmail(relayInfo.UserId)
+		}
+		return nil
+	}
+
+	claimed := false
+	if notifyType == dto.NotifyTypeEmail {
+		var err error
+		claimed, err = model.TryClaimQuotaWarningEmail(relayInfo.UserId)
+		if err != nil {
+			return err
+		}
+		if !claimed {
+			return nil
+		}
+	}
+
+	prompt := "您的额度即将用尽"
+	topUpLink := PaymentReturnURL("/console/topup")
+	formattedRemainingQuota := logger.FormatQuota(remainingQuota)
+
+	var content string
+	var values []interface{}
+	if notifyType == dto.NotifyTypeBark {
+		content = "{{value}}，剩余额度：{{value}}，请及时充值"
+		values = []interface{}{prompt, formattedRemainingQuota}
+	} else if notifyType == dto.NotifyTypeGotify {
+		content = "{{value}}，当前剩余额度为 {{value}}，请及时充值。"
+		values = []interface{}{prompt, formattedRemainingQuota}
+	} else {
+		content = "{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>"
+		values = []interface{}{prompt, formattedRemainingQuota, topUpLink, topUpLink}
+	}
+
+	err := notify(relayInfo.UserId, relayInfo.UserEmail, userSetting, dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt, content, values))
+	if err == nil || !claimed {
+		return err
+	}
+	if releaseErr := model.ReleaseQuotaWarningEmail(relayInfo.UserId); releaseErr != nil {
+		return errors.Join(err, fmt.Errorf("failed to release quota warning email state: %w", releaseErr))
+	}
+	return err
+}
+
 func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {
+	remainingQuota := relayInfo.UserQuota - (quota + preConsumedQuota)
 	gopool.Go(func() {
-		userSetting := relayInfo.UserSetting
-		threshold := common.QuotaRemindThreshold
-		if userSetting.QuotaWarningThreshold != 0 {
-			threshold = int(userSetting.QuotaWarningThreshold)
-		}
-
-		//noMoreQuota := userCache.Quota-(quota+preConsumedQuota) <= 0
-		quotaTooLow := false
-		consumeQuota := quota + preConsumedQuota
-		if relayInfo.UserQuota-consumeQuota < threshold {
-			quotaTooLow = true
-		}
-		if quotaTooLow {
-			prompt := "您的额度即将用尽"
-			topUpLink := PaymentReturnURL("/console/topup")
-
-			// 根据通知方式生成不同的内容格式
-			var content string
-			var values []interface{}
-
-			notifyType := userSetting.NotifyType
-			if notifyType == "" {
-				notifyType = dto.NotifyTypeEmail
-			}
-
-			if notifyType == dto.NotifyTypeBark {
-				// Bark推送使用简短文本，不支持HTML
-				content = "{{value}}，剩余额度：{{value}}，请及时充值"
-				values = []interface{}{prompt, logger.FormatQuota(relayInfo.UserQuota)}
-			} else if notifyType == dto.NotifyTypeGotify {
-				content = "{{value}}，当前剩余额度为 {{value}}，请及时充值。"
-				values = []interface{}{prompt, logger.FormatQuota(relayInfo.UserQuota)}
-			} else {
-				// 默认内容格式，适用于Email和Webhook（支持HTML）
-				content = "{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>"
-				values = []interface{}{prompt, logger.FormatQuota(relayInfo.UserQuota), topUpLink, topUpLink}
-			}
-
-			err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt, content, values))
-			if err != nil {
-				common.SysError(fmt.Sprintf("failed to send quota notify to user %d: %s", relayInfo.UserId, err.Error()))
-			}
+		if err := sendWalletQuotaNotify(relayInfo, remainingQuota, NotifyUser); err != nil {
+			common.SysError(fmt.Sprintf("failed to send quota notify to user %d: %s", relayInfo.UserId, err.Error()))
 		}
 	})
 }
