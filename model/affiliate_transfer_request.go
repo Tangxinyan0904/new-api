@@ -374,7 +374,8 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 }
 
 func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
-	return DB.Transaction(func(tx *gorm.DB) error {
+	userId := 0
+	err := DB.Transaction(func(tx *gorm.DB) error {
 		var request AffiliateTransferRequest
 		if err := lockForUpdate(tx).First(&request, "id = ?", requestId).Error; err != nil {
 			return err
@@ -382,6 +383,7 @@ func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 		if request.Status != AffiliateTransferStatusPending {
 			return errors.New("request is not pending")
 		}
+		userId = request.UserId
 
 		res := tx.Model(&AffiliateTransferRequest{}).
 			Where("id = ? AND status = ?", request.Id, AffiliateTransferStatusPending).
@@ -420,6 +422,10 @@ func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 		}
 		return nil
 	})
+	if err == nil {
+		rearmQuotaWarningEmailAfterCredit(userId)
+	}
+	return err
 }
 
 func RejectAffiliateTransferRequest(requestId int, reviewerId int, reason string) error {

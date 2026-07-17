@@ -23,13 +23,13 @@ func decodeUserSettingRecord(raw string) (userSettingRecord, error) {
 	return record, nil
 }
 
-func updateQuotaWarningEmailState(userId int, sent bool) (bool, error) {
+func updateQuotaWarningEmailState(userId int, sent bool, requireRecoveredBalance bool) (bool, error) {
 	changed := false
 	settingValue := ""
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User
 		if err := lockForUpdate(tx).
-			Select("id", "setting").
+			Select("id", "quota", "setting").
 			Where("id = ?", userId).
 			First(&user).Error; err != nil {
 			return err
@@ -41,6 +41,15 @@ func updateQuotaWarningEmailState(userId int, sent bool) (bool, error) {
 		}
 		if record.QuotaWarningEmailSent == sent {
 			return nil
+		}
+		if requireRecoveredBalance {
+			threshold := common.QuotaRemindThreshold
+			if record.QuotaWarningThreshold != 0 {
+				threshold = int(record.QuotaWarningThreshold)
+			}
+			if user.Quota < threshold {
+				return nil
+			}
 		}
 		record.QuotaWarningEmailSent = sent
 		settingBytes, err := common.Marshal(record)
@@ -68,10 +77,26 @@ func updateQuotaWarningEmailState(userId int, sent bool) (bool, error) {
 }
 
 func TryClaimQuotaWarningEmail(userId int) (bool, error) {
-	return updateQuotaWarningEmailState(userId, true)
+	return updateQuotaWarningEmailState(userId, true, false)
 }
 
 func ReleaseQuotaWarningEmail(userId int) error {
-	_, err := updateQuotaWarningEmailState(userId, false)
+	_, err := updateQuotaWarningEmailState(userId, false, false)
 	return err
+}
+
+func RearmQuotaWarningEmail(userId int) error {
+	_, err := updateQuotaWarningEmailState(userId, false, false)
+	return err
+}
+
+func RearmQuotaWarningEmailIfRecovered(userId int) error {
+	_, err := updateQuotaWarningEmailState(userId, false, true)
+	return err
+}
+
+func rearmQuotaWarningEmailAfterCredit(userId int) {
+	if err := RearmQuotaWarningEmailIfRecovered(userId); err != nil {
+		common.SysLog("failed to rearm quota warning email: " + err.Error())
+	}
 }

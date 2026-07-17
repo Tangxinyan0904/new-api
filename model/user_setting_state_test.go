@@ -131,3 +131,44 @@ func TestQuotaWarningEmailMalformedSettingIsNotOverwritten(t *testing.T) {
 	require.NoError(t, DB.Model(&User{}).Where("id = ?", user.Id).Select("setting").Scan(&raw).Error)
 	assert.Equal(t, "{malformed", raw)
 }
+
+func TestQuotaWarningEmailRearmOnQuotaRecovery(t *testing.T) {
+	tests := []struct {
+		name       string
+		userId     int
+		startQuota int
+		credit     int
+		wantArmed  bool
+	}{
+		{name: "partial credit remains latched", userId: 305, startQuota: 40, credit: 9, wantArmed: false},
+		{name: "exact threshold rearms", userId: 306, startQuota: 40, credit: 10, wantArmed: true},
+		{name: "above threshold rearms", userId: 307, startQuota: 40, credit: 11, wantArmed: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			user := setupQuotaWarningEmailTestUser(t, tt.userId, tt.startQuota)
+			claimed, err := TryClaimQuotaWarningEmail(user.Id)
+			require.NoError(t, err)
+			require.True(t, claimed)
+
+			require.NoError(t, IncreaseUserQuota(user.Id, tt.credit, true))
+
+			claimed, err = TryClaimQuotaWarningEmail(user.Id)
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantArmed, claimed)
+		})
+	}
+}
+
+func TestQuotaWarningEmailExplicitRearm(t *testing.T) {
+	user := setupQuotaWarningEmailTestUser(t, 308, 40)
+	claimed, err := TryClaimQuotaWarningEmail(user.Id)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	require.NoError(t, RearmQuotaWarningEmail(user.Id))
+	claimed, err = TryClaimQuotaWarningEmail(user.Id)
+	require.NoError(t, err)
+	assert.True(t, claimed)
+}

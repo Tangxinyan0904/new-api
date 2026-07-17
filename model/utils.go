@@ -108,6 +108,9 @@ func batchUpdate() {
 	}
 	for key := range userIDs {
 		updateUserQuotaUsedQuotaAndRequestCount(key, userQuotaStore[key], usedQuotaStore[key], requestCountStore[key])
+		if userQuotaStore[key] > 0 {
+			rearmQuotaWarningEmailAfterCredit(key)
+		}
 	}
 	common.SysLog("batch update finished")
 }

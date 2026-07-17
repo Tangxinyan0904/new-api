@@ -117,6 +117,7 @@ func userCheckinWithTransaction(checkin *Checkin, userId int, quotaAwarded int) 
 	go func() {
 		_ = cacheIncrUserQuota(userId, int64(quotaAwarded))
 	}()
+	rearmQuotaWarningEmailAfterCredit(userId)
 
 	return checkin, nil
 }

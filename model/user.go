@@ -1083,7 +1083,11 @@ func IncreaseUserQuota(id int, quota int, db bool) (err error) {
 		addNewRecord(BatchUpdateTypeUserQuota, id, quota)
 		return nil
 	}
-	return increaseUserQuota(id, quota)
+	if err := increaseUserQuota(id, quota); err != nil {
+		return err
+	}
+	rearmQuotaWarningEmailAfterCredit(id)
+	return nil
 }
 
 func increaseUserQuota(id int, quota int) (err error) {
