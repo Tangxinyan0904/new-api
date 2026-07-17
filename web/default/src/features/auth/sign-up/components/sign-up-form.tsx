@@ -46,6 +46,7 @@ import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { shouldShowVerificationEmailReminder } from '@/features/auth/lib/email-verification-reminder'
 import {
   getAffiliateCode,
   saveAffiliateCode,
@@ -80,6 +81,7 @@ export function SignUpForm({
     secondsLeft,
     isActive,
     sendCode,
+    lastSuccessfullySentEmail,
   } = useEmailVerification({
     turnstileToken,
     validateTurnstile,
@@ -106,6 +108,10 @@ export function SignUpForm({
     true
   const hasWeChatLogin = Boolean(status?.wechat_login)
   const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
+  const showVerificationEmailReminder = shouldShowVerificationEmailReminder(
+    emailValue || '',
+    lastSuccessfullySentEmail
+  )
 
   const wechatQrCodeUrl = useMemo(() => {
     return (
@@ -349,6 +355,16 @@ export function SignUpForm({
                 {renderVerificationCodeButtonContent()}
               </Button>
             </div>
+            {showVerificationEmailReminder && (
+              <Alert variant='destructive'>
+                <AlertTriangle className='size-4' />
+                <AlertDescription className='font-medium'>
+                  {t(
+                    "Didn't receive the email? Check your spam or junk folder. Your email provider may have filtered it."
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
           </>
         )}
 

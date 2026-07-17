@@ -24,6 +24,7 @@ import { useCountdown } from '@/hooks/use-countdown'
 
 import { sendEmailVerification } from '../api'
 import { EMAIL_VERIFICATION_COUNTDOWN } from '../constants'
+import { normalizeVerificationEmail } from '../lib/email-verification-reminder'
 
 interface UseEmailVerificationOptions {
   turnstileToken?: string
@@ -35,6 +36,9 @@ interface UseEmailVerificationOptions {
  */
 export function useEmailVerification(options?: UseEmailVerificationOptions) {
   const [isSending, setIsSending] = useState(false)
+  const [lastSuccessfullySentEmail, setLastSuccessfullySentEmail] = useState<
+    string | null
+  >(null)
   const {
     secondsLeft,
     isActive,
@@ -60,6 +64,7 @@ export function useEmailVerification(options?: UseEmailVerificationOptions) {
       const res = await sendEmailVerification(email, options?.turnstileToken)
       if (res?.success) {
         startCountdown()
+        setLastSuccessfullySentEmail(normalizeVerificationEmail(email))
         toast.success(i18next.t('Verification email sent'))
         return true
       }
@@ -80,5 +85,6 @@ export function useEmailVerification(options?: UseEmailVerificationOptions) {
     secondsLeft,
     isActive,
     sendCode,
+    lastSuccessfullySentEmail,
   }
 }
