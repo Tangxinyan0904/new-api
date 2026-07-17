@@ -1372,6 +1372,7 @@
     "Deterministic sampling seed (best-effort)": "盡量保證可復現的採樣種子",
     "Developer Friendly": "開發者友好",
     "Device Type Preference": "設備類型偏好",
+    "Didn't receive the email? Check your spam or junk folder. Your email provider may have filtered it.": "未收到郵件？請檢查垃圾郵件匣，郵件可能已被電子郵件服務商攔截。",
     "Dify": "Dify",
     "Dify channels only support chatflow and agent, and agent does not support images": "Dify 渠道僅支援 chatflow 和 agent，agent 不支援圖像",
     "Digest:": "摘要：",

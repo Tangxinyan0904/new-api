@@ -1369,6 +1369,7 @@
     "Deterministic sampling seed (best-effort)": "Сид детерминированного сэмплирования (по возможности)",
     "Developer Friendly": "Удобно для разработчиков",
     "Device Type Preference": "Предпочтения типа устройства",
+    "Didn't receive the email? Check your spam or junk folder. Your email provider may have filtered it.": "Не получили письмо? Проверьте папку «Спам» или «Нежелательная почта». Почтовый сервис мог отфильтровать его.",
     "Dify": "Dify",
     "Dify channels only support chatflow and agent, and agent does not support images": "Каналы Dify поддерживают только chatflow и agent, а agent не поддерживает изображения",
     "Digest:": "Дайджест:",

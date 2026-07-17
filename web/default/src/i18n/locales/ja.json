@@ -1369,6 +1369,7 @@
     "Deterministic sampling seed (best-effort)": "可能な限り再現性のあるサンプリングシード",
     "Developer Friendly": "開発者向け",
     "Device Type Preference": "優先デバイスタイプ",
+    "Didn't receive the email? Check your spam or junk folder. Your email provider may have filtered it.": "メールが届かない場合は、迷惑メールフォルダーを確認してください。メールサービス側で振り分けられている可能性があります。",
     "Dify": "Dify",
     "Dify channels only support chatflow and agent, and agent does not support images": "Dify チャネルは chatflow と agent のみサポートしており、agent は画像をサポートしていません",
     "Digest:": "ダイジェスト：",
