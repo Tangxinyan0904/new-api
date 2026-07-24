@@ -175,10 +175,7 @@ export function ApiKeyGroupCombobox({
           )}
         </span>
         <ChevronsUpDown
-          className={cn(
-            'h-4 w-4 shrink-0 opacity-50',
-            compact && 'opacity-70'
-          )}
+          className={cn('h-4 w-4 shrink-0 opacity-50', compact && 'opacity-70')}
         />
       </PopoverTrigger>
       <PopoverContent
@@ -213,11 +210,11 @@ export function ApiKeyGroupCombobox({
                     )}
                   />
                   <span className='min-w-0 flex-1'>
-                    <span className='block truncate font-medium'>
+                    <span className='block font-medium break-words whitespace-normal'>
                       {option.label}
                     </span>
                     {option.desc && (
-                      <span className='text-muted-foreground block truncate text-xs'>
+                      <span className='text-muted-foreground block text-xs break-words whitespace-normal'>
                         {option.desc}
                       </span>
                     )}

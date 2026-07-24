@@ -288,6 +288,7 @@ export function ApiKeysTable() {
     initialColumnVisibility: {
       model_limits: false,
       allow_ips: false,
+      created_time: false,
       expired_time: false,
     },
     columnVisibilityStorageKey: API_KEYS_COLUMN_VISIBILITY_STORAGE_KEY,

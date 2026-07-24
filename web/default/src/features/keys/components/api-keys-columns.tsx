@@ -225,7 +225,7 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         <ApiKeyGroupCell apiKey={row.original} groupOptions={groupOptions} />
       ),
       enableSorting: false,
-      size: 220,
+      size: 400,
       meta: { mobileHidden: true },
     },
     {
