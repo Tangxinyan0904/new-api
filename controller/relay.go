@@ -142,6 +142,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 	}
 
+	newAPIError = service.CheckDistillationRateLimit(c, relayInfo)
+	if newAPIError != nil {
+		return
+	}
+
 	tokens, err := service.EstimateRequestToken(c, meta, relayInfo)
 	if err != nil {
 		newAPIError = types.NewError(err, types.ErrorCodeCountTokenFailed)
