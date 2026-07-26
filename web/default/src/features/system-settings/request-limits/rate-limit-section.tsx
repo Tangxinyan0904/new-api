@@ -98,7 +98,9 @@ export function RateLimitSection(props: RateLimitSectionProps) {
       toast.success(t('Rate limits saved successfully'))
     },
     onError: (error: Error) => {
-      toast.error(error.message || t('Failed to save rate limits'))
+      toast.error(
+        error.message ? t(error.message) : t('Failed to save rate limits')
+      )
     },
   })
 

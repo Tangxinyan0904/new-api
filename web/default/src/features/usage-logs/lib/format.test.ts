@@ -29,10 +29,7 @@ test('renders the distillation penalty clear audit action', () => {
       },
     },
     (key, params) =>
-      key.replace(
-        '{{target_user_id}}',
-        String(params?.target_user_id ?? '')
-      )
+      key.replace('{{target_user_id}}', String(params?.target_user_id ?? ''))
   )
 
   expect(content).toBe('Cleared distillation penalty for user 51')
