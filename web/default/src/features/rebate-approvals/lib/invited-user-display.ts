@@ -20,9 +20,16 @@ import { formatTimestamp } from '@/lib/format'
 
 import type { RebateApprovalInvitedUser } from '../types'
 
+export interface InvitedUserAuditPresentation {
+  displayName: string
+  createdAt: string
+  lastLoginAt: string
+  isDeleted: boolean
+}
+
 export function getInvitedUserAuditPresentation(
   user: RebateApprovalInvitedUser
-) {
+): InvitedUserAuditPresentation {
   return {
     displayName: user.display_name || user.username || '***',
     createdAt: formatTimestamp(user.created_at),

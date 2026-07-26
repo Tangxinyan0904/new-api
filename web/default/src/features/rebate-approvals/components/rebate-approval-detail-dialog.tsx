@@ -1,12 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatQuota, formatTimestamp } from '@/lib/format'
-import { cn } from '@/lib/utils'
+
 import { Dialog } from '@/components/dialog'
 import { Label } from '@/components/ui/label'
+import { formatQuota, formatTimestamp } from '@/lib/format'
+import { cn } from '@/lib/utils'
+
 import { getRebateTransferRequestDetail } from '../api'
 import type { RebateApprovalDetail } from '../types'
+import { RebateInvitedUserList } from './rebate-invited-user-list'
 
 interface RebateApprovalDetailDialogProps {
   requestId: number
@@ -38,10 +41,7 @@ function DetailRow(props: {
   )
 }
 
-function DetailSection(props: {
-  label: string
-  children: React.ReactNode
-}) {
+function DetailSection(props: { label: string; children: React.ReactNode }) {
   return (
     <div className='min-w-0 space-y-1.5'>
       <Label className='text-xs font-semibold'>{props.label}</Label>
@@ -90,7 +90,11 @@ function DetailContent({ detail }: { detail: RebateApprovalDetail }) {
       </DetailSection>
 
       <DetailSection label={t('Recharge Rebate Sources')}>
-        <DetailRow label={t('Invited Users')} value={detail.invited_count} mono />
+        <DetailRow
+          label={t('Invited Users')}
+          value={detail.invited_count}
+          mono
+        />
         <DetailRow
           label={t('Invited Recharge')}
           value={formatQuota(detail.total_invited_recharge_quota)}
@@ -98,6 +102,8 @@ function DetailContent({ detail }: { detail: RebateApprovalDetail }) {
         />
         <DetailRow label={t('Source Records')} value={sourceCount} mono />
       </DetailSection>
+
+      <RebateInvitedUserList users={detail.invited_users ?? []} />
 
       <div className='min-w-0 space-y-2'>
         <Label className='text-xs font-semibold'>{t('Source Details')}</Label>
@@ -196,7 +202,9 @@ export function RebateApprovalDetailDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t('Rebate Request Details')}
-      description={t('View the pending amount sources for this rebate transfer request.')}
+      description={t(
+        'View the pending amount sources for this rebate transfer request.'
+      )}
       contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-2xl'
       contentHeight='min(70dvh, 680px)'
       bodyClassName='pr-2 sm:pr-4'
