@@ -601,3 +601,71 @@ func TestAffiliateTransferRequestDetailUsesForfeitureMarkerForPriorConsumption(t
 		})
 	}
 }
+
+func TestAffiliateTransferRequestDetailIncludesAllInvitedUsers(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	owner := User{
+		Username: "audit-owner",
+		Password: "password",
+		AffCode:  "audit-owner-code",
+	}
+	require.NoError(t, DB.Create(&owner).Error)
+	request := AffiliateTransferRequest{
+		UserId:    owner.Id,
+		Status:    AffiliateTransferStatusPending,
+		CreatedAt: 200,
+	}
+	require.NoError(t, DB.Create(&request).Error)
+
+	older := User{
+		Username:    "audit-older",
+		Password:    "password",
+		DisplayName: "Older User",
+		Email:       "older@example.com",
+		AffCode:     "audit-older-code",
+		InviterId:   owner.Id,
+		CreatedAt:   100,
+		LastLoginAt: 150,
+	}
+	newerNeverLoggedIn := User{
+		Username:  "audit-newer",
+		Password:  "password",
+		AffCode:   "audit-newer-code",
+		InviterId: owner.Id,
+		CreatedAt: 300,
+	}
+	deletedAtSameTime := User{
+		Username:    "audit-deleted",
+		Password:    "password",
+		DisplayName: "Deleted User",
+		AffCode:     "audit-deleted-code",
+		InviterId:   owner.Id,
+		CreatedAt:   300,
+		LastLoginAt: 350,
+	}
+	require.NoError(t, DB.Create(&older).Error)
+	require.NoError(t, DB.Create(&newerNeverLoggedIn).Error)
+	require.NoError(t, DB.Create(&deletedAtSameTime).Error)
+	require.NoError(t, DB.Delete(&deletedAtSameTime).Error)
+
+	detail, err := GetAffiliateTransferRequestDetail(request.Id)
+	require.NoError(t, err)
+	require.Len(t, detail.InvitedUsers, 3)
+	assert.Equal(t, 3, detail.InvitedCount)
+	assert.Equal(t, deletedAtSameTime.Id, detail.InvitedUsers[0].Id)
+	assert.Equal(t, newerNeverLoggedIn.Id, detail.InvitedUsers[1].Id)
+	assert.Equal(t, older.Id, detail.InvitedUsers[2].Id)
+	assert.Equal(t, "audit-older", detail.InvitedUsers[2].Username)
+	assert.Equal(t, "Older User", detail.InvitedUsers[2].DisplayName)
+	assert.Equal(t, int64(100), detail.InvitedUsers[2].CreatedAt)
+	assert.Equal(t, int64(150), detail.InvitedUsers[2].LastLoginAt)
+	assert.Zero(t, detail.InvitedUsers[1].LastLoginAt)
+	assert.True(t, detail.InvitedUsers[0].IsDeleted)
+	assert.False(t, detail.InvitedUsers[1].IsDeleted)
+
+	payload, err := common.Marshal(detail)
+	require.NoError(t, err)
+	assert.NotContains(t, string(payload), "password")
+	assert.NotContains(t, string(payload), "older@example.com")
+}
