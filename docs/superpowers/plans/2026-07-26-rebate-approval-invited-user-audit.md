@@ -189,27 +189,50 @@ git commit -m "feat: expose invited users in rebate detail"
 
 - [ ] **Step 1: Write failing display-model tests**
 
-Add deterministic tests for the two user-visible fallback rules:
+Add deterministic tests for the user-visible audit presentation rules:
 
 ```ts
-import { describe, expect, it } from 'vitest'
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
 import { formatTimestamp } from '@/lib/format'
-import {
-  getInvitedUserDisplayName,
-  getInvitedUserLastLogin,
-} from './invited-user-display'
+import { getInvitedUserAuditPresentation } from './invited-user-display'
 
 describe('invited user display', () => {
-  it('falls back from display name to username to a neutral placeholder', () => {
-    expect(getInvitedUserDisplayName({ display_name: 'Visible', username: 'user' })).toBe('Visible')
-    expect(getInvitedUserDisplayName({ display_name: '', username: 'user' })).toBe('user')
-    expect(getInvitedUserDisplayName({ display_name: '', username: '' })).toBe('***')
+  test('formats active users with display-name fallback and timestamps', () => {
+    assert.deepEqual(
+      getInvitedUserAuditPresentation({
+        id: 1,
+        username: 'user',
+        display_name: '',
+        created_at: 1_700_000_000,
+        last_login_at: 1_700_000_100,
+        is_deleted: false,
+      }),
+      {
+        displayName: 'user',
+        createdAt: formatTimestamp(1_700_000_000),
+        lastLoginAt: formatTimestamp(1_700_000_100),
+        isDeleted: false,
+      }
+    )
   })
 
-  it('shows a dash when the user has never logged in', () => {
-    expect(getInvitedUserLastLogin(0)).toBe('-')
-    expect(getInvitedUserLastLogin(1_700_000_000)).toBe(
-      formatTimestamp(1_700_000_000)
+  test('shows a neutral name and dash for a deleted user who never logged in', () => {
+    assert.deepEqual(
+      getInvitedUserAuditPresentation({
+        id: 2,
+        username: '',
+        display_name: '',
+        created_at: 1_700_000_000,
+        last_login_at: 0,
+        is_deleted: true,
+      }),
+      {
+        displayName: '***',
+        createdAt: formatTimestamp(1_700_000_000),
+        lastLoginAt: '-',
+        isDeleted: true,
+      }
     )
   })
 })
@@ -229,16 +252,17 @@ Expected: the test fails because `invited-user-display.ts` does not exist.
 
 ```ts
 import { formatTimestamp } from '@/lib/format'
+import type { RebateApprovalInvitedUser } from '../types'
 
-export function getInvitedUserDisplayName(user: {
-  display_name: string
-  username: string
-}): string {
-  return user.display_name || user.username || '***'
-}
-
-export function getInvitedUserLastLogin(lastLoginAt: number): string {
-  return lastLoginAt === 0 ? '-' : formatTimestamp(lastLoginAt)
+export function getInvitedUserAuditPresentation(
+  user: RebateApprovalInvitedUser
+) {
+  return {
+    displayName: user.display_name || user.username || '***',
+    createdAt: formatTimestamp(user.created_at),
+    lastLoginAt: formatTimestamp(user.last_login_at),
+    isDeleted: user.is_deleted,
+  }
 }
 ```
 
@@ -287,29 +311,34 @@ export interface RebateApprovalDetail extends RebateApprovalRequest {
 Create `RebateInvitedUserList` that accepts `users: RebateApprovalInvitedUser[]`, calls its own `useTranslation()`, and renders:
 
 ```tsx
-<div className='min-w-0 space-y-2'>
+<div className='flex min-w-0 flex-col gap-2'>
   <Label className='text-xs font-semibold'>{t('Invited User Details')}</Label>
   {props.users.length === 0 ? (
-    <div className='text-muted-foreground bg-muted/30 rounded-md border p-3 text-sm'>
-      {t('No invited users found.')}
-    </div>
+    <Empty className='rounded-md border py-4'>
+      <EmptyHeader>
+        <EmptyTitle>{t('No invited users found.')}</EmptyTitle>
+      </EmptyHeader>
+    </Empty>
   ) : (
-    <div className='space-y-2'>
-      {props.users.map((user) => (
-        <div key={user.id} className='bg-background min-w-0 rounded-md border p-3'>
+    <div className='flex flex-col gap-2'>
+      {props.users.map((user) => {
+        const presentation = getInvitedUserAuditPresentation(user)
+        return (
+        <div key={user.id} className='bg-background min-w-0 rounded-md border p-3 [contain-intrinsic-size:auto_112px] [content-visibility:auto]'>
           <div className='mb-2 flex min-w-0 items-center justify-between gap-2'>
             <div className='min-w-0 truncate text-sm font-medium'>
-              {getInvitedUserDisplayName(user)}
+              {presentation.displayName}
             </div>
-            {user.is_deleted && <Badge variant='destructive'>{t('Deleted')}</Badge>}
+            {presentation.isDeleted && <Badge variant='destructive'>{t('Deleted')}</Badge>}
           </div>
           <div className='grid gap-1.5 text-xs sm:grid-cols-2'>
             <AuditField label={t('User ID')} value={user.id} mono />
-            <AuditField label={t('Created At')} value={formatTimestamp(user.created_at)} mono />
-            <AuditField label={t('Last Login')} value={getInvitedUserLastLogin(user.last_login_at)} mono />
+            <AuditField label={t('Created At')} value={presentation.createdAt} mono />
+            <AuditField label={t('Last Login')} value={presentation.lastLoginAt} mono />
           </div>
         </div>
-      ))}
+        )
+      })}
     </div>
   )}
 </div>
