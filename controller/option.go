@@ -291,8 +291,17 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
-	case "ModelRequestRateLimitGroup":
-		err = setting.CheckModelRequestRateLimitGroup(option.Value.(string))
+	case "ModelRequestRateLimitCount",
+		"ModelRequestRateLimitDurationMinutes",
+		"ModelRequestRateLimitSuccessCount",
+		"ModelRequestRateLimitGroup",
+		"ModelRequestRateLimitUser",
+		"ModelRequestRateLimitDistillationEnabled",
+		"ModelRequestRateLimitDistillationThreshold",
+		"ModelRequestRateLimitDistillationRPM",
+		"ModelRequestRateLimitDistillationPenaltyMinutes",
+		"ModelRequestRateLimitDistillationObservationMinutes":
+		err = setting.ValidateModelRequestRateLimitOption(option.Key, option.Value.(string))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,

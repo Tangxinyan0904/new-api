@@ -140,6 +140,13 @@ func InitOptionMap() {
 	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
 	common.OptionMap["ModelRequestRateLimitGroup"] = setting.ModelRequestRateLimitGroup2JSONString()
+	common.OptionMap["ModelRequestRateLimitUser"] = setting.ModelRequestRateLimitUser2JSONString()
+	distillationRateLimitSettings := setting.GetDistillationRateLimitSettings()
+	common.OptionMap["ModelRequestRateLimitDistillationEnabled"] = strconv.FormatBool(distillationRateLimitSettings.Enabled)
+	common.OptionMap["ModelRequestRateLimitDistillationThreshold"] = strconv.Itoa(distillationRateLimitSettings.Threshold)
+	common.OptionMap["ModelRequestRateLimitDistillationRPM"] = strconv.Itoa(distillationRateLimitSettings.RPM)
+	common.OptionMap["ModelRequestRateLimitDistillationPenaltyMinutes"] = strconv.Itoa(distillationRateLimitSettings.PenaltyMinutes)
+	common.OptionMap["ModelRequestRateLimitDistillationObservationMinutes"] = strconv.Itoa(distillationRateLimitSettings.ObservationMinutes)
 	common.OptionMap["geoip.mode"] = geoip_setting.Mode
 	common.OptionMap["geoip.database_path"] = geoip_setting.DatabasePath
 	common.OptionMap["geoip.download_url"] = geoip_setting.DownloadURL
@@ -356,6 +363,8 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.CheckSensitiveOnPromptEnabled = boolValue
 		case "ModelRequestRateLimitEnabled":
 			setting.ModelRequestRateLimitEnabled = boolValue
+		case "ModelRequestRateLimitDistillationEnabled":
+			err = setting.UpdateDistillationRateLimitOption(key, value)
 		case "StopOnSensitiveEnabled":
 			setting.StopOnSensitiveEnabled = boolValue
 		case "SMTPSSLEnabled":
@@ -542,6 +551,13 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.ModelRequestRateLimitSuccessCount, _ = strconv.Atoi(value)
 	case "ModelRequestRateLimitGroup":
 		err = setting.UpdateModelRequestRateLimitGroupByJSONString(value)
+	case "ModelRequestRateLimitUser":
+		err = setting.UpdateModelRequestRateLimitUserByJSONString(value)
+	case "ModelRequestRateLimitDistillationThreshold",
+		"ModelRequestRateLimitDistillationRPM",
+		"ModelRequestRateLimitDistillationPenaltyMinutes",
+		"ModelRequestRateLimitDistillationObservationMinutes":
+		err = setting.UpdateDistillationRateLimitOption(key, value)
 	case "RetryTimes":
 		common.RetryTimes, _ = strconv.Atoi(value)
 	case "DataExportInterval":
