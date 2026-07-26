@@ -212,6 +212,8 @@ func SetApiRouter(router *gin.Engine) {
 		rateLimitRoute.Use(middleware.RootAuth())
 		{
 			rateLimitRoute.PUT("", controller.UpdateRateLimitSettings)
+			rateLimitRoute.GET("/distillation/penalties", controller.ListDistillationPenalties)
+			rateLimitRoute.DELETE("/distillation/penalties/:user_id", controller.ClearDistillationPenalty)
 		}
 
 		// Custom OAuth provider management (root only)

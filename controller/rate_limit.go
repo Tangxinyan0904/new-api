@@ -1,8 +1,13 @@
 package controller
 
 import (
+	"errors"
+	"strconv"
+	"time"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
 )
@@ -68,6 +73,34 @@ func UpdateRateLimitSettings(c *gin.Context) {
 
 	recordManageAudit(c, "option.update", map[string]interface{}{
 		"key": "rate-limit",
+	})
+	common.ApiSuccess(c, nil)
+}
+
+func ListDistillationPenalties(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	items, total, err := model.ListDistillationPenalties(c.Query("keyword"), pageInfo, time.Now().Unix())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func ClearDistillationPenalty(c *gin.Context) {
+	userID, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil || userID <= 0 {
+		common.ApiError(c, errors.New("user ID must be positive"))
+		return
+	}
+	if err := service.ClearDistillationRateLimitState(c.Request.Context(), userID); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	recordManageAuditFor(c, userID, "rate_limit.distillation_clear", map[string]interface{}{
+		"target_user_id": userID,
 	})
 	common.ApiSuccess(c, nil)
 }
