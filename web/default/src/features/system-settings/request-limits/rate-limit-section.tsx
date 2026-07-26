@@ -17,11 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Code2, Palette } from 'lucide-react'
+import { CodeIcon, PaintBoardIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import * as z from 'zod'
+import { toast } from 'sonner'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -44,74 +46,57 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
+import { saveRateLimitSettings } from './api'
+import { createRateLimitSchema } from './rate-limit-schema'
 import { RateLimitVisualEditor } from './rate-limit-visual-editor'
-
-const isValidJSON = (value: string | undefined) => {
-  if (!value || value.trim() === '') return true
-  try {
-    const parsed = JSON.parse(value)
-    if (typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return false
-    }
-    for (const [, val] of Object.entries(parsed)) {
-      if (!Array.isArray(val) || val.length !== 2) return false
-      if (typeof val[0] !== 'number' || typeof val[1] !== 'number') return false
-      if (val[0] < 0 || val[1] < 1) return false
-      if (val[0] > 2147483647 || val[1] > 2147483647) return false
-    }
-    return true
-  } catch {
-    return false
-  }
-}
-
-const createRateLimitSchema = (t: (key: string) => string) =>
-  z.object({
-    ModelRequestRateLimitEnabled: z.boolean(),
-    ModelRequestRateLimitDurationMinutes: z.number().min(0),
-    ModelRequestRateLimitCount: z.number().min(0).max(100000000),
-    ModelRequestRateLimitSuccessCount: z.number().min(1).max(100000000),
-    ModelRequestRateLimitGroup: z
-      .string()
-      .optional()
-      .refine(isValidJSON, {
-        message: t('Invalid JSON format or values out of allowed range'),
-      }),
-  })
-
-type RateLimitFormValues = z.infer<ReturnType<typeof createRateLimitSchema>>
+import type { RateLimitFormValues } from './types'
+import { UserRateLimitEditor } from './user-rate-limit-editor'
 
 type RateLimitSectionProps = {
   defaultValues: RateLimitFormValues
 }
 
-export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
+function parseInteger(value: string, fallback: number): number {
+  const parsed = Number.parseInt(value, 10)
+  return Number.isNaN(parsed) ? fallback : parsed
+}
+
+export function RateLimitSection(props: RateLimitSectionProps) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const queryClient = useQueryClient()
   const [useVisualEditor, setUseVisualEditor] = useState(true)
-
-  const rateLimitSchema = createRateLimitSchema(t)
-
   const form = useForm<RateLimitFormValues>({
-    resolver: zodResolver(rateLimitSchema),
-    mode: 'onChange', // Enable real-time validation
-    defaultValues,
+    resolver: zodResolver(createRateLimitSchema(t)),
+    mode: 'onChange',
+    defaultValues: props.defaultValues,
+  })
+  const defaultMaxRequests = useWatch({
+    control: form.control,
+    name: 'ModelRequestRateLimitCount',
+  })
+  const defaultMaxSuccess = useWatch({
+    control: form.control,
+    name: 'ModelRequestRateLimitSuccessCount',
   })
 
   useEffect(() => {
-    form.reset(defaultValues)
-  }, [defaultValues, form])
+    form.reset(props.defaultValues)
+  }, [form, props.defaultValues])
 
-  const onSubmit = async (values: RateLimitFormValues) => {
-    const updates = Object.entries(values).filter(
-      ([key, value]) =>
-        value !== defaultValues[key as keyof RateLimitFormValues]
-    )
+  const saveMutation = useMutation({
+    mutationFn: saveRateLimitSettings,
+    onSuccess: async (_data, values) => {
+      form.reset(values)
+      await queryClient.invalidateQueries({ queryKey: ['system-options'] })
+      toast.success(t('Rate limits saved successfully'))
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || t('Failed to save rate limits'))
+    },
+  })
 
-    for (const [key, value] of updates) {
-      await updateOption.mutateAsync({ key, value: value ?? '' })
-    }
+  const onSubmit = (values: RateLimitFormValues) => {
+    saveMutation.mutate(values)
   }
 
   return (
@@ -120,8 +105,9 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={saveMutation.isPending}
             saveLabel='Save rate limits'
+            savingLabel='Saving rate limits...'
           />
           <FormField
             control={form.control}
@@ -160,8 +146,8 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                         min={0}
                         step={1}
                         {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 0)
+                        onChange={(event) =>
+                          field.onChange(parseInteger(event.target.value, 0))
                         }
                       />
                       <span className='text-muted-foreground text-sm'>
@@ -188,11 +174,11 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                       <Input
                         type='number'
                         min={0}
-                        max={100000000}
+                        max={2147483647}
                         step={1}
                         {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 0)
+                        onChange={(event) =>
+                          field.onChange(parseInteger(event.target.value, 0))
                         }
                       />
                       <span className='text-muted-foreground text-sm'>
@@ -219,11 +205,11 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                       <Input
                         type='number'
                         min={1}
-                        max={100000000}
+                        max={2147483647}
                         step={1}
                         {...field}
-                        onChange={(e) =>
-                          field.onChange(parseInt(e.target.value) || 1)
+                        onChange={(event) =>
+                          field.onChange(parseInteger(event.target.value, 1))
                         }
                       />
                       <span className='text-muted-foreground text-sm'>
@@ -244,32 +230,27 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
             control={form.control}
             name='ModelRequestRateLimitGroup'
             render={({ field }) => (
-              <FormItem>
-                <div className='flex items-center justify-between'>
+              <FormItem data-settings-form-span='full'>
+                <div className='flex flex-wrap items-center justify-between gap-2'>
                   <FormLabel>{t('Group-based rate limits')}</FormLabel>
                   <Button
                     type='button'
                     variant='outline'
                     size='sm'
-                    onClick={() => setUseVisualEditor(!useVisualEditor)}
+                    onClick={() => setUseVisualEditor((current) => !current)}
                   >
-                    {useVisualEditor ? (
-                      <>
-                        <Code2 className='mr-2 h-4 w-4' />
-                        {t('JSON Mode')}
-                      </>
-                    ) : (
-                      <>
-                        <Palette className='mr-2 h-4 w-4' />
-                        {t('Visual Mode')}
-                      </>
-                    )}
+                    <HugeiconsIcon
+                      icon={useVisualEditor ? CodeIcon : PaintBoardIcon}
+                      strokeWidth={2}
+                      data-icon='inline-start'
+                    />
+                    {useVisualEditor ? t('JSON Mode') : t('Visual Mode')}
                   </Button>
                 </div>
                 <FormControl>
                   {useVisualEditor ? (
                     <RateLimitVisualEditor
-                      value={field.value || ''}
+                      value={field.value}
                       onChange={field.onChange}
                     />
                   ) : (
@@ -283,9 +264,9 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                 </FormControl>
                 {!useVisualEditor && (
                   <FormDescription>
-                    <div className='space-y-1 text-xs'>
+                    <div className='flex flex-col gap-1 text-xs'>
                       <p className='font-semibold'>{t('Format:')}</p>
-                      <ul className='list-inside list-disc space-y-0.5 pl-2'>
+                      <ul className='flex list-inside list-disc flex-col gap-0.5 pl-2'>
                         <li>
                           {t('JSON object:')}{' '}
                           {`{"groupName": [maxRequests, maxSuccess]}`}
@@ -308,6 +289,24 @@ export function RateLimitSection({ defaultValues }: RateLimitSectionProps) {
                     </div>
                   </FormDescription>
                 )}
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='ModelRequestRateLimitUser'
+            render={({ field }) => (
+              <FormItem data-settings-form-span='full'>
+                <FormControl>
+                  <UserRateLimitEditor
+                    value={field.value}
+                    onChange={field.onChange}
+                    defaultMaxRequests={defaultMaxRequests}
+                    defaultMaxSuccess={defaultMaxSuccess}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}
