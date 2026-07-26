@@ -1325,7 +1325,7 @@
     "Delete stale instance": "刪除失聯實例",
     "Delete stale instance \"{{name}}\"? If it has reported again, it will not be deleted.": "刪除失聯實例「{{name}}」？如果它已重新上報，將不會被刪除。",
     "Delete stale instances": "刪除失聯實例",
-    "Deleted": "已註銷",
+    "Deleted": "已刪除",
     "Deleted \"{{name}}\"": "已刪除「{{name}}」",
     "Deleted ({{id}})": "已刪除({{id}})",
     "Deleted {{count}} failed models": "已刪除 {{count}} 個失敗模型",

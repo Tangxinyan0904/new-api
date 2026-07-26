@@ -23,6 +23,8 @@ import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
 
+import zh from '@/i18n/locales/zh.json'
+
 import { RebateInvitedUserList } from './rebate-invited-user-list'
 
 async function renderInvitedUserList(
@@ -87,5 +89,9 @@ describe('RebateInvitedUserList', () => {
     const markup = await renderInvitedUserList([])
 
     assert.match(markup, /No invited users found\./)
+  })
+
+  test('uses the requested deleted wording in Chinese', () => {
+    assert.equal(zh.translation.Deleted, '已删除')
   })
 })
