@@ -36,6 +36,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 
@@ -47,6 +48,8 @@ import {
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
 import { saveRateLimitSettings } from './api'
+import { DistillationPenaltiesTable } from './distillation-penalties-table'
+import { DistillationSettings } from './distillation-settings'
 import { createRateLimitSchema } from './rate-limit-schema'
 import { RateLimitVisualEditor } from './rate-limit-visual-editor'
 import type { RateLimitFormValues } from './types'
@@ -77,6 +80,10 @@ export function RateLimitSection(props: RateLimitSectionProps) {
   const defaultMaxSuccess = useWatch({
     control: form.control,
     name: 'ModelRequestRateLimitSuccessCount',
+  })
+  const distillationEnabled = useWatch({
+    control: form.control,
+    name: 'ModelRequestRateLimitDistillationEnabled',
   })
 
   useEffect(() => {
@@ -311,7 +318,14 @@ export function RateLimitSection(props: RateLimitSectionProps) {
               </FormItem>
             )}
           />
+
+          <DistillationSettings
+            control={form.control}
+            enabled={distillationEnabled}
+          />
         </SettingsForm>
+        <Separator className='my-8' />
+        <DistillationPenaltiesTable />
       </Form>
     </SettingsSection>
   )
