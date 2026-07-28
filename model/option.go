@@ -272,6 +272,9 @@ func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
+	if key == ratio_setting.GroupGroupRatioWalletDisplayOption {
+		return ratio_setting.UpdateGroupGroupRatioWalletDisplayByJSONString(value)
+	}
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
 	if handleConfigUpdate(key, value) {

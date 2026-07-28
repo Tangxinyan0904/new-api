@@ -48,7 +48,7 @@ Frontend responsibilities:
 - Modify: `controller/option.go`
 - Modify: `model/option.go`
 
-- [ ] **Step 1: Write failing setting tests**
+- [x] **Step 1: Write failing setting tests**
 
 Create `setting/ratio_setting/group_ratio_wallet_display_test.go`:
 
@@ -92,7 +92,7 @@ func TestValidateWalletDisplayRulesAgainstSpecialRatios(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the new test and verify the missing API failure**
+- [x] **Step 2: Run the new test and verify the missing API failure**
 
 Run:
 
@@ -102,7 +102,7 @@ go test ./setting/ratio_setting -run 'TestWalletDisplay' -count=1
 
 Expected: compilation fails because the four `GroupGroupRatioWalletDisplay...` functions do not exist.
 
-- [ ] **Step 3: Add the setting, normalization, validation, and snapshots**
+- [x] **Step 3: Add the setting, normalization, validation, and snapshots**
 
 In `setting/ratio_setting/group_ratio.go`, add the option constant, map, struct field, initialization, and these APIs. Use `common.Unmarshal`/`common.Marshal`; do not add new direct `encoding/json` calls.
 
@@ -201,7 +201,7 @@ Add small copy loops in the same file for `copyFloatMap`, `copyNestedFloatMap`, 
 
 Wrap the bodies of `UpdateGroupRatioByJSONString` and `UpdateGroupGroupRatioByJSONString` with `groupPricingSnapshotMutex.Lock()`/`Unlock()` so the new snapshot cannot observe a half-applied in-process update.
 
-- [ ] **Step 4: Validate the typed option before persistence and use the explicit updater**
+- [x] **Step 4: Validate the typed option before persistence and use the explicit updater**
 
 In `controller/option.go`, add this case to the existing validation switch before `model.UpdateOption`:
 
@@ -223,7 +223,7 @@ if key == ratio_setting.GroupGroupRatioWalletDisplayOption {
 
 This keeps runtime writes under the snapshot mutex while the registered config field still exports the same `RWMap` value.
 
-- [ ] **Step 5: Run focused setting tests**
+- [x] **Step 5: Run focused setting tests**
 
 Run:
 
