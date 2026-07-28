@@ -250,7 +250,7 @@ git commit -m "feat(billing): configure wallet-visible special ratios"
 - Modify: `router/api-router.go`
 - Create: `router/wallet_special_ratios_test.go`
 
-- [ ] **Step 1: Write the failing projection test**
+- [x] **Step 1: Write the failing projection test**
 
 Create `service/group_wallet_ratio_test.go`:
 
@@ -285,7 +285,7 @@ func TestBuildWalletSpecialRatioRulesFiltersAndSorts(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run the service test and verify it fails**
+- [x] **Step 2: Run the service test and verify it fails**
 
 Run:
 
@@ -295,7 +295,7 @@ go test ./service -run TestBuildWalletSpecialRatioRulesFiltersAndSorts -count=1
 
 Expected: compilation fails because `WalletSpecialRatioRule` and `buildWalletSpecialRatioRules` do not exist.
 
-- [ ] **Step 3: Implement the deterministic service projection**
+- [x] **Step 3: Implement the deterministic service projection**
 
 Append to `service/group.go`:
 
@@ -353,7 +353,7 @@ func buildWalletSpecialRatioRules(
 
 Add `math` and `sort` imports. Keep this helper in `service/group.go` because it is complex pricing projection logic with direct behavior tests.
 
-- [ ] **Step 4: Add the controller and authenticated route**
+- [x] **Step 4: Add the controller and authenticated route**
 
 Append to `controller/group.go`:
 
@@ -369,7 +369,7 @@ Add the missing `common` import. Inside the existing `selfRoute` block in `route
 selfRoute.GET("/wallet/special-ratios", controller.GetWalletSpecialRatioRules)
 ```
 
-- [ ] **Step 5: Protect the authentication boundary with a router test**
+- [x] **Step 5: Protect the authentication boundary with a router test**
 
 Create `router/wallet_special_ratios_test.go`:
 
@@ -398,7 +398,7 @@ func TestWalletSpecialRatiosRequireUserAuthentication(t *testing.T) {
 }
 ```
 
-- [ ] **Step 6: Run focused backend tests**
+- [x] **Step 6: Run focused backend tests**
 
 Run:
 

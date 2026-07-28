@@ -1,6 +1,8 @@
 package service
 
 import (
+	"math"
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/setting"
@@ -62,4 +64,56 @@ func GetUserGroupRatio(userGroup, group string) float64 {
 		return ratio
 	}
 	return ratio_setting.GetGroupRatio(group)
+}
+
+type WalletSpecialRatioRule struct {
+	UserGroup    string  `json:"user_group"`
+	BillingGroup string  `json:"billing_group"`
+	SpecialRatio float64 `json:"special_ratio"`
+	BaseRatio    float64 `json:"base_ratio"`
+}
+
+func GetWalletSpecialRatioRules() []WalletSpecialRatioRule {
+	snapshot := ratio_setting.GetWalletRatioSettingsSnapshot()
+	return buildWalletSpecialRatioRules(
+		snapshot.BaseRatios,
+		snapshot.SpecialRatios,
+		snapshot.WalletDisplay,
+	)
+}
+
+func buildWalletSpecialRatioRules(
+	base map[string]float64,
+	special map[string]map[string]float64,
+	display map[string]map[string]bool,
+) []WalletSpecialRatioRule {
+	rules := make([]WalletSpecialRatioRule, 0)
+	for userGroup, targets := range display {
+		userRatios, ok := special[userGroup]
+		if !ok {
+			continue
+		}
+		for billingGroup, visible := range targets {
+			specialRatio, specialOK := userRatios[billingGroup]
+			baseRatio, baseOK := base[billingGroup]
+			if !visible || !specialOK || !baseOK ||
+				math.IsNaN(specialRatio) || math.IsInf(specialRatio, 0) ||
+				math.IsNaN(baseRatio) || math.IsInf(baseRatio, 0) {
+				continue
+			}
+			rules = append(rules, WalletSpecialRatioRule{
+				UserGroup:    userGroup,
+				BillingGroup: billingGroup,
+				SpecialRatio: specialRatio,
+				BaseRatio:    baseRatio,
+			})
+		}
+	}
+	sort.Slice(rules, func(i, j int) bool {
+		if rules[i].UserGroup == rules[j].UserGroup {
+			return rules[i].BillingGroup < rules[j].BillingGroup
+		}
+		return rules[i].UserGroup < rules[j].UserGroup
+	})
+	return rules
 }
