@@ -32,6 +32,7 @@ import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialo
 import { TransferDialog } from './components/dialogs/transfer-dialog'
 import { TransferHistoryDialog } from './components/dialogs/transfer-history-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
+import { SpecialRatioRulesCard } from './components/special-ratio-rules-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
 import { DEFAULT_DISCOUNT_RATE } from './constants'
@@ -49,6 +50,7 @@ import {
   getMinTopupAmount,
   isWaffoPancakePayment,
 } from './lib'
+import { getWalletPrimaryGridClass } from './lib/special-ratios'
 import type {
   UserWalletData,
   PaymentMethod,
@@ -78,6 +80,7 @@ export function Wallet(props: WalletProps) {
   const [selectedCreemProduct, setSelectedCreemProduct] =
     useState<CreemProduct | null>(null)
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
+  const [showSpecialRatioPanel, setShowSpecialRatioPanel] = useState(true)
 
   const { status } = useStatus()
   const { currency } = useSystemConfig()
@@ -278,11 +281,10 @@ export function Wallet(props: WalletProps) {
             <WalletStatsCard user={user} loading={userLoading} />
 
             <div
-              className={
-                showSubscriptionPanel
-                  ? 'grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] xl:items-start'
-                  : 'grid gap-4'
-              }
+              className={getWalletPrimaryGridClass(
+                showSubscriptionPanel,
+                showSpecialRatioPanel
+              )}
             >
               <div id='wallet-add-funds' className='scroll-mt-4'>
                 <RechargeFormCard
@@ -323,6 +325,10 @@ export function Wallet(props: WalletProps) {
                 onAvailabilityChange={handleSubscriptionAvailabilityChange}
                 userQuota={user?.quota}
                 onPurchaseSuccess={fetchUser}
+              />
+
+              <SpecialRatioRulesCard
+                onAvailabilityChange={setShowSpecialRatioPanel}
               />
             </div>
 

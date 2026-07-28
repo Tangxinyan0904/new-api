@@ -64,6 +64,14 @@ export type WaffoPancakePaymentResponse = ApiResponse<
     }
   | string
 >
+export type WalletSpecialRatioResponse = ApiResponse<WalletSpecialRatioRule[]>
+
+export type WalletSpecialRatioRule = {
+  user_group: string
+  billing_group: string
+  special_ratio: number
+  base_ratio: number
+}
 
 /**
  * Creem product configuration

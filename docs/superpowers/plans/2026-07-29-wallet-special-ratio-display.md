@@ -651,7 +651,7 @@ git commit -m "feat(settings): select wallet-visible special ratios"
 - Create: `web/default/src/features/wallet/components/special-ratio-rules-card.tsx`
 - Modify: `web/default/src/features/wallet/index.tsx`
 
-- [ ] **Step 1: Write failing wallet state and layout tests**
+- [x] **Step 1: Write failing wallet state and layout tests**
 
 Create `web/default/src/features/wallet/lib/special-ratios.test.ts`:
 
@@ -680,7 +680,7 @@ describe('wallet special ratio card', () => {
 })
 ```
 
-- [ ] **Step 2: Run the wallet test and verify it fails**
+- [x] **Step 2: Run the wallet test and verify it fails**
 
 Run from `web/default`:
 
@@ -690,7 +690,7 @@ bun test src/features/wallet/lib/special-ratios.test.ts
 
 Expected: FAIL because `special-ratios.ts` does not exist.
 
-- [ ] **Step 3: Add wallet API types and pure view helpers**
+- [x] **Step 3: Add wallet API types and pure view helpers**
 
 In `wallet/types.ts`, add:
 
@@ -749,7 +749,7 @@ export function getWalletPrimaryGridClass(
 }
 ```
 
-- [ ] **Step 4: Build the card component**
+- [x] **Step 4: Build the card component**
 
 Create `wallet/components/special-ratio-rules-card.tsx`. Use `useQuery` with query key `['wallet-special-ratios']`, call `getSpecialRatioCardState`, and notify the parent whenever `available` changes:
 
@@ -773,7 +773,7 @@ if (state.display === 'hidden') return null
 
 Render one `TitledCard` titled `Special ratios`. For loading, render three fixed-height `Skeleton` rows. For errors, render `Failed to load special ratios` and an icon Retry button calling `query.refetch()`. For rules, render separator rows with a truncated `user_group -> billing_group` label, prominent `${special_ratio}x`, and supporting `Base ratio {{ratio}}x`. Wrap long group labels in the existing `Tooltip` primitives.
 
-- [ ] **Step 5: Mount the card and replace the wallet grid expression**
+- [x] **Step 5: Mount the card and replace the wallet grid expression**
 
 In `wallet/index.tsx`, initialize:
 
@@ -800,7 +800,7 @@ Keep Recharge first and Subscription second, then mount:
 
 This preserves the required order at every breakpoint and still shows the new card when subscriptions are unavailable.
 
-- [ ] **Step 6: Run focused wallet tests and type checking**
+- [x] **Step 6: Run focused wallet tests and type checking**
 
 Run from `web/default`:
 

@@ -42,6 +42,8 @@ import type {
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
+  WalletSpecialRatioResponse,
+  WalletSpecialRatioRule,
 } from './types'
 
 // ============================================================================
@@ -61,6 +63,18 @@ export function isApiSuccess(response: ApiResponse): boolean {
 export async function getTopupInfo(): Promise<TopupInfoResponse> {
   const res = await api.get('/api/user/topup/info')
   return res.data
+}
+
+export async function getWalletSpecialRatioRules(): Promise<
+  WalletSpecialRatioRule[]
+> {
+  const response = await api.get<WalletSpecialRatioResponse>(
+    '/api/user/wallet/special-ratios'
+  )
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Failed to load special ratios')
+  }
+  return response.data.data ?? []
 }
 
 /**
