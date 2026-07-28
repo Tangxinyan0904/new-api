@@ -55,6 +55,7 @@ const defaultBillingSettings: BillingSettings = {
   GroupRatio: '',
   UserUsableGroups: '',
   GroupGroupRatio: '',
+  'group_ratio_setting.group_group_ratio_wallet_display': '{}',
   AutoGroups: '',
   DefaultUseAutoGroup: false,
   'group_ratio_setting.group_special_usable_group': '{}',

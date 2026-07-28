@@ -277,6 +277,7 @@ export type BillingSettings = {
   GroupRatio: string
   UserUsableGroups: string
   GroupGroupRatio: string
+  'group_ratio_setting.group_group_ratio_wallet_display': string
   AutoGroups: string
   DefaultUseAutoGroup: boolean
   'group_ratio_setting.group_special_usable_group': string

@@ -428,7 +428,7 @@ git commit -m "feat(wallet): expose selected special ratios"
 - Modify: `web/default/src/features/system-settings/billing/section-registry.tsx`
 - Modify: `web/default/src/features/system-settings/types.ts`
 
-- [ ] **Step 1: Write failing pure helper tests**
+- [x] **Step 1: Write failing pure helper tests**
 
 Create `web/default/src/features/system-settings/models/group-ratio-wallet-display.test.ts`:
 
@@ -482,7 +482,7 @@ describe('wallet special-ratio display settings', () => {
 })
 ```
 
-- [ ] **Step 2: Run the helper test and verify it fails**
+- [x] **Step 2: Run the helper test and verify it fails**
 
 Run from `web/default`:
 
@@ -492,7 +492,7 @@ bun test src/features/system-settings/models/group-ratio-wallet-display.test.ts
 
 Expected: FAIL because `group-ratio-wallet-display.ts` does not exist.
 
-- [ ] **Step 3: Implement the pure helper module**
+- [x] **Step 3: Implement the pure helper module**
 
 Create `group-ratio-wallet-display.ts` with exported types and functions matching the tests:
 
@@ -555,7 +555,7 @@ export function isWalletDisplayRuleSelected(
 
 Implement `moveWalletDisplayRule` by reading whether the old pair is selected, removing it, and selecting the new pair only when needed. Implement `validateWalletDisplayPairs` by parsing the nested numeric ratio map and throwing an error containing `userGroup -> billingGroup` for a missing pair. Implement `buildWalletDisplayOptionUpdates` to normalize both values and return changed entries in the hard-coded order `GroupGroupRatio`, then the typed display option.
 
-- [ ] **Step 4: Carry the new field through settings defaults and schema**
+- [x] **Step 4: Carry the new field through settings defaults and schema**
 
 Add `GroupGroupRatioWalletDisplay: string` to the group settings types in:
 
@@ -588,7 +588,7 @@ GroupGroupRatioWalletDisplay: createJsonStringField(t),
 
 Replace the ad hoc group update loop with `buildWalletDisplayOptionUpdates(...)`, followed by the remaining unchanged group-setting updates in their current order. This guarantees the ratio write precedes the display write.
 
-- [ ] **Step 5: Add the visual checkbox and JSON field**
+- [x] **Step 5: Add the visual checkbox and JSON field**
 
 Pass `groupGroupRatioWalletDisplay` from `GroupRatioForm` into `GroupRatioVisualEditor` and then `GroupOverrideRules`. Add a table column before Actions:
 
@@ -622,7 +622,7 @@ Pass `groupGroupRatioWalletDisplay` from `GroupRatioForm` into `GroupRatioVisual
 
 Use `moveWalletDisplayRule` inside `handleOverrideSave` when the target group changes. Use `setWalletDisplayRule(..., false)` before deleting an override, and remove every selected target for a deleted source group. Add a JSON-mode `FormField` named `GroupGroupRatioWalletDisplay` with a textarea and the description `Selected special ratio rules shown in the wallet.`
 
-- [ ] **Step 6: Run focused frontend settings tests and type checking**
+- [x] **Step 6: Run focused frontend settings tests and type checking**
 
 Run from `web/default`:
 

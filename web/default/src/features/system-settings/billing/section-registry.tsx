@@ -45,6 +45,8 @@ const getGroupDefaults = (settings: BillingSettings) => ({
   GroupRatio: settings.GroupRatio,
   UserUsableGroups: settings.UserUsableGroups,
   GroupGroupRatio: settings.GroupGroupRatio,
+  GroupGroupRatioWalletDisplay:
+    settings['group_ratio_setting.group_group_ratio_wallet_display'],
   AutoGroups: settings.AutoGroups,
   DefaultUseAutoGroup: settings.DefaultUseAutoGroup,
   GroupSpecialUsableGroup:
