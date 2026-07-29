@@ -60,6 +60,7 @@ const CONTENT_SECTIONS = [
       <AnnouncementsSection
         enabled={settings['console_setting.announcements_enabled']}
         data={settings['console_setting.announcements']}
+        apiKeyNotice={settings['console_setting.api_key_notice']}
       />
     ),
   },

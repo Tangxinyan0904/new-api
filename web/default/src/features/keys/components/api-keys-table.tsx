@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useStatus } from '@/hooks/use-status'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,7 @@ import {
   ERROR_MESSAGES,
 } from '../constants'
 import type { ApiKey } from '../types'
+import { ApiKeyNotice } from './api-key-notice'
 import { ApiKeyCell } from './api-keys-cells'
 import { useApiKeysColumns } from './api-keys-columns'
 import { useApiKeys } from './api-keys-provider'
@@ -193,6 +195,7 @@ function ApiKeysMobileList({
 export function ApiKeysTable() {
   const { t } = useTranslation()
   const { refreshTrigger } = useApiKeys()
+  const { status } = useStatus()
   const [now, setNow] = useState(() => Date.now())
   const columns = useApiKeysColumns(now)
 
@@ -334,6 +337,7 @@ export function ApiKeysTable() {
             singleSelect: true,
           },
         ],
+        preActions: <ApiKeyNotice notice={status?.api_key_notice} />,
       }}
       mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}
       getColumnClassName={(columnId, part) =>
