@@ -216,6 +216,15 @@ func SetApiRouter(router *gin.Engine) {
 			rateLimitRoute.GET("/distillation/penalties", controller.ListDistillationPenalties)
 			rateLimitRoute.DELETE("/distillation/penalties/:user_id", controller.ClearDistillationPenalty)
 		}
+		registrationIPAbuseRoute := apiRouter.Group("/registration-ip-abuse")
+		registrationIPAbuseRoute.Use(middleware.RootAuth())
+		{
+			registrationIPAbuseRoute.GET("/blocked", controller.ListBlockedRegistrationIPs)
+			registrationIPAbuseRoute.POST("/:ip/unblock", controller.UnblockRegistrationIP)
+			registrationIPAbuseRoute.GET("/allowlist", controller.ListRegistrationIPAllowlist)
+			registrationIPAbuseRoute.POST("/allowlist", controller.AddRegistrationIPAllowlist)
+			registrationIPAbuseRoute.DELETE("/allowlist/:ip", controller.RemoveRegistrationIPAllowlist)
+		}
 
 		// Custom OAuth provider management (root only)
 		customOAuthRoute := apiRouter.Group("/custom-oauth-provider")

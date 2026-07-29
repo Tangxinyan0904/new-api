@@ -9,6 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type registrationIPAllowlistRequest struct {
+	IP string `json:"ip"`
+}
+
 func handleSelfServiceRegistrationError(c *gin.Context, err error) bool {
 	switch {
 	case errors.Is(err, model.ErrRegistrationIPBlocked):
@@ -32,4 +36,85 @@ func respondToRegistrationIPLimit(
 	}
 	common.ApiErrorI18n(c, i18n.MsgRegistrationIPLimitExceeded)
 	return true
+}
+
+func ListBlockedRegistrationIPs(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	items, total, err := model.ListBlockedRegistrationIPs(c.Query("keyword"), pageInfo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func UnblockRegistrationIP(c *gin.Context) {
+	result, err := model.UnblockRegistrationIP(c.Param("ip"))
+	if err != nil {
+		if !handleSelfServiceRegistrationError(c, err) {
+			common.ApiError(c, err)
+		}
+		return
+	}
+	recordRegistrationIPMutation(c, "registration_ip.unblock", result)
+	common.ApiSuccess(c, result)
+}
+
+func ListRegistrationIPAllowlist(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	items, total, err := model.ListRegistrationIPAllowlist(pageInfo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AddRegistrationIPAllowlist(c *gin.Context) {
+	var request registrationIPAllowlistRequest
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	result, err := model.AddRegistrationIPAllowlist(request.IP)
+	if err != nil {
+		if !handleSelfServiceRegistrationError(c, err) {
+			common.ApiError(c, err)
+		}
+		return
+	}
+	recordRegistrationIPMutation(c, "registration_ip.allowlist_add", result)
+	common.ApiSuccess(c, result)
+}
+
+func RemoveRegistrationIPAllowlist(c *gin.Context) {
+	result, err := model.RemoveRegistrationIPAllowlist(c.Param("ip"))
+	if err != nil {
+		if !handleSelfServiceRegistrationError(c, err) {
+			common.ApiError(c, err)
+		}
+		return
+	}
+	recordRegistrationIPMutation(c, "registration_ip.allowlist_remove", result)
+	common.ApiSuccess(c, result)
+}
+
+func recordRegistrationIPMutation(
+	c *gin.Context,
+	action string,
+	result *model.RegistrationIPMutationResult,
+) {
+	if result.AffectedUserIDs == nil {
+		result.AffectedUserIDs = make([]int, 0)
+	}
+	recordManageAudit(c, action, map[string]interface{}{
+		"ip":                     result.CanonicalIP,
+		"affected_account_count": result.AffectedAccountCount,
+		"affected_user_ids":      result.AffectedUserIDs,
+		"allowlisted":            result.Allowlisted,
+	})
 }
