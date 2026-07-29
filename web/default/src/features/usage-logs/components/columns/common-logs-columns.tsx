@@ -65,6 +65,7 @@ import { DetailsDialog } from '../dialogs/details-dialog'
 import { ModelBadge } from '../model-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
 import { useUsageLogsContext } from '../usage-logs-provider'
+import { SubscriptionCostCell } from './subscription-cost-cell'
 
 interface DetailSegment {
   text: string
@@ -753,28 +754,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const isSubscription = other?.billing_source === 'subscription'
 
         if (isSubscription) {
-          return (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <StatusBadge
-                      label={t('Subscription')}
-                      variant='success'
-                      size='sm'
-                      copyable={false}
-                      className='cursor-help'
-                    />
-                  }
-                />
-                <TooltipContent>
-                  <span>
-                    {t('Deducted by subscription')}: {formatLogQuota(quota)}
-                  </span>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )
+          return <SubscriptionCostCell quota={quota} />
         }
 
         const quotaStr = formatLogQuota(quota)
