@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-gonic/gin"
 )
@@ -85,6 +86,20 @@ func ApproveAffiliateTransferRequest(c *gin.Context) {
 		return
 	}
 	recordManageAudit(c, "affiliate.transfer.approve", affiliateTransferAuditParams(detail, ""))
+	userLogParams := map[string]interface{}{
+		"request_id": detail.Id,
+		"quota":      detail.TotalQuota,
+		"amount":     logger.LogQuota(detail.TotalQuota),
+	}
+	model.RecordOperationAuditLog(
+		detail.UserId,
+		auditContentEN("affiliate.transfer.approved_for_user", userLogParams),
+		c.ClientIP(),
+		"affiliate.transfer.approved_for_user",
+		userLogParams,
+		auditOperatorInfo(c),
+		nil,
+	)
 	common.ApiSuccess(c, nil)
 }
 

@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestListSelfAffiliateTransferRequestsReturnsOnlyCurrentUserHistory(t *testing.T) {
@@ -90,6 +92,76 @@ func TestListSelfAffiliateTransferRequestsReturnsOnlyCurrentUserHistory(t *testi
 }
 
 func TestApproveAffiliateTransferRequestRecordsDetailedAudit(t *testing.T) {
+	db := setupAffiliateTransferApprovalControllerFixture(t)
+	recorder, ctx := newAffiliateTransferApprovalContext(7)
+
+	ApproveAffiliateTransferRequest(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var logs []model.Log
+	require.NoError(t, db.Where("type = ?", model.LogTypeManage).Order("id ASC").Find(&logs).Error)
+	require.Len(t, logs, 2)
+
+	adminLog := logs[0]
+	assert.Equal(t, 1, adminLog.UserId)
+	assert.Contains(t, adminLog.Content, "Approved rebate transfer request #7 for user 302")
+
+	adminOther, err := common.StrToMap(adminLog.Other)
+	require.NoError(t, err)
+	adminOp, ok := adminOther["op"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "affiliate.transfer.approve", adminOp["action"])
+	adminParams, ok := adminOp["params"].(map[string]interface{})
+	require.True(t, ok)
+	assert.EqualValues(t, 7, adminParams["request_id"])
+	assert.EqualValues(t, 302, adminParams["target_user_id"])
+	assert.EqualValues(t, 200, adminParams["invite_reward_quota"])
+	assert.EqualValues(t, 300, adminParams["recharge_rebate_quota"])
+	assert.EqualValues(t, 500, adminParams["total_quota"])
+
+	userLog := logs[1]
+	assert.Equal(t, 302, userLog.UserId)
+	assert.Equal(t, "rebate-user", userLog.Username)
+	assert.Contains(t, userLog.Content, "Administrator approved")
+
+	userOther, err := common.StrToMap(userLog.Other)
+	require.NoError(t, err)
+	userOp, ok := userOther["op"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "affiliate.transfer.approved_for_user", userOp["action"])
+	userParams, ok := userOp["params"].(map[string]interface{})
+	require.True(t, ok)
+	assert.EqualValues(t, 7, userParams["request_id"])
+	assert.EqualValues(t, 500, userParams["quota"])
+	userAdminInfo, ok := userOther["admin_info"].(map[string]interface{})
+	require.True(t, ok)
+	assert.EqualValues(t, 1, userAdminInfo["admin_id"])
+	assert.Equal(t, "root-admin", userAdminInfo["admin_username"])
+}
+
+func TestApproveAffiliateTransferRequestDoesNotRecordUserLogWhenApprovalFails(t *testing.T) {
+	db := setupAffiliateTransferApprovalControllerFixture(t)
+	recorder, ctx := newAffiliateTransferApprovalContext(7)
+
+	ApproveAffiliateTransferRequest(ctx)
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	_, secondCtx := newAffiliateTransferApprovalContext(7)
+	ApproveAffiliateTransferRequest(secondCtx)
+
+	var logs []model.Log
+	require.NoError(t, db.Where("user_id = ? AND type = ?", 302, model.LogTypeManage).Find(&logs).Error)
+	require.Len(t, logs, 1)
+	other, err := common.StrToMap(logs[0].Other)
+	require.NoError(t, err)
+	op, ok := other["op"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "affiliate.transfer.approved_for_user", op["action"])
+}
+
+func setupAffiliateTransferApprovalControllerFixture(t *testing.T) *gorm.DB {
+	t.Helper()
 	db := setupModelListControllerTestDB(t)
 	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.Log{}))
 
@@ -118,33 +190,16 @@ func TestApproveAffiliateTransferRequestRecordsDetailedAudit(t *testing.T) {
 		Status:              model.AffiliateTransferStatusPending,
 		CreatedAt:           1000,
 	}).Error)
+	return db
+}
 
+func newAffiliateTransferApprovalContext(requestID int) (*httptest.ResponseRecorder, *gin.Context) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/user/affiliate/transfer-requests/7/approve", nil)
-	ctx.Params = gin.Params{{Key: "id", Value: "7"}}
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/user/affiliate/transfer-requests/"+strconv.Itoa(requestID)+"/approve", nil)
+	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(requestID)}}
 	ctx.Set("id", 1)
 	ctx.Set("username", "root-admin")
 	ctx.Set("role", common.RoleRootUser)
-
-	ApproveAffiliateTransferRequest(ctx)
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-
-	var log model.Log
-	require.NoError(t, db.Where("type = ?", model.LogTypeManage).First(&log).Error)
-	require.Contains(t, log.Content, "Approved rebate transfer request #7 for user 302")
-
-	other, err := common.StrToMap(log.Other)
-	require.NoError(t, err)
-	op, ok := other["op"].(map[string]interface{})
-	require.True(t, ok)
-	require.Equal(t, "affiliate.transfer.approve", op["action"])
-	params, ok := op["params"].(map[string]interface{})
-	require.True(t, ok)
-	require.EqualValues(t, 7, params["request_id"])
-	require.EqualValues(t, 302, params["target_user_id"])
-	require.EqualValues(t, 200, params["invite_reward_quota"])
-	require.EqualValues(t, 300, params["recharge_rebate_quota"])
-	require.EqualValues(t, 500, params["total_quota"])
+	return recorder, ctx
 }
