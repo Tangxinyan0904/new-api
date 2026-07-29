@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -205,6 +206,194 @@ func TestRegisterSelfServiceUserSerializesConcurrentThreshold(t *testing.T) {
 	var accountCount int64
 	require.NoError(t, db.Model(&RegistrationIPAccount{}).Where("registration_ip = ?", registrationIP).Count(&accountCount).Error)
 	assert.EqualValues(t, registrations, accountCount)
+}
+
+func TestUnblockRegistrationIPRestoresOnlyEligibleNonDeletedUsers(t *testing.T) {
+	db := setupRegistrationIPAbuseTestDB(t)
+	const registrationIP = "203.0.113.30"
+	userIDs := createBlockedRegistrationIPFixture(t, registrationIP)
+
+	require.NoError(t, SetUserStatusByAdmin(userIDs[0], common.UserStatusDisabled))
+	require.NoError(t, db.Delete(&User{}, userIDs[1]).Error)
+
+	result, err := UnblockRegistrationIP(registrationIP)
+	require.NoError(t, err)
+	assert.Equal(t, registrationIP, result.CanonicalIP)
+	assert.ElementsMatch(t, userIDs[2:], result.AffectedUserIDs)
+	assert.Equal(t, 2, result.AffectedAccountCount)
+	assert.False(t, result.Allowlisted)
+
+	var state RegistrationIPState
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.Equal(t, 2, state.CurrentCycle)
+	assert.Zero(t, state.RegistrationCount)
+	assert.Zero(t, state.BlockedAt)
+
+	var users []User
+	require.NoError(t, db.Unscoped().Where("id IN ?", userIDs).Order("id ASC").Find(&users).Error)
+	require.Len(t, users, 4)
+	assert.Equal(t, common.UserStatusDisabled, users[0].Status)
+	assert.Equal(t, common.UserStatusDisabled, users[1].Status)
+	assert.True(t, users[1].DeletedAt.Valid)
+	assert.Equal(t, common.UserStatusEnabled, users[2].Status)
+	assert.Equal(t, common.UserStatusEnabled, users[3].Status)
+
+	var oldCycleAccounts []RegistrationIPAccount
+	require.NoError(t, db.Where("registration_ip = ? AND registration_cycle = ?", registrationIP, 1).Find(&oldCycleAccounts).Error)
+	for _, account := range oldCycleAccounts {
+		assert.False(t, account.RestoreEligible)
+		assert.Zero(t, account.AutoDisabledAt)
+	}
+
+	idempotent, err := UnblockRegistrationIP(registrationIP)
+	require.NoError(t, err)
+	assert.Empty(t, idempotent.AffectedUserIDs)
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.Equal(t, 2, state.CurrentCycle)
+}
+
+func TestSetUserStatusByAdminClearsAutomaticRestorationMarker(t *testing.T) {
+	db := setupRegistrationIPAbuseTestDB(t)
+	const registrationIP = "203.0.113.31"
+	userIDs := createBlockedRegistrationIPFixture(t, registrationIP)
+
+	require.NoError(t, SetUserStatusByAdmin(userIDs[0], common.UserStatusEnabled))
+	var account RegistrationIPAccount
+	require.NoError(t, db.Where("user_id = ?", userIDs[0]).First(&account).Error)
+	assert.False(t, account.RestoreEligible)
+	assert.Zero(t, account.AutoDisabledAt)
+	var user User
+	require.NoError(t, db.First(&user, userIDs[0]).Error)
+	assert.Equal(t, common.UserStatusEnabled, user.Status)
+
+	require.NoError(t, SetUserStatusByAdmin(userIDs[1], common.UserStatusDisabled))
+	account = RegistrationIPAccount{}
+	require.NoError(t, db.Where("user_id = ?", userIDs[1]).First(&account).Error)
+	assert.False(t, account.RestoreEligible)
+	assert.Zero(t, account.AutoDisabledAt)
+
+	result, err := UnblockRegistrationIP(registrationIP)
+	require.NoError(t, err)
+	assert.NotContains(t, result.AffectedUserIDs, userIDs[0])
+	assert.NotContains(t, result.AffectedUserIDs, userIDs[1])
+}
+
+func TestRegistrationIPAllowlistRestoresAndStartsFreshCycles(t *testing.T) {
+	db := setupRegistrationIPAbuseTestDB(t)
+	const registrationIP = "203.0.113.32"
+	blockedUserIDs := createBlockedRegistrationIPFixture(t, registrationIP)
+
+	added, err := AddRegistrationIPAllowlist(registrationIP)
+	require.NoError(t, err)
+	assert.True(t, added.Allowlisted)
+	assert.ElementsMatch(t, blockedUserIDs, added.AffectedUserIDs)
+
+	var state RegistrationIPState
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.True(t, state.Allowlisted)
+	assert.Equal(t, 2, state.CurrentCycle)
+	assert.Zero(t, state.RegistrationCount)
+	assert.Zero(t, state.BlockedAt)
+
+	duplicateAdd, err := AddRegistrationIPAllowlist(registrationIP)
+	require.NoError(t, err)
+	assert.Empty(t, duplicateAdd.AffectedUserIDs)
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.Equal(t, 2, state.CurrentCycle)
+
+	allowlistedUser := newRegistrationIPTestUser(10)
+	registrationResult, err := RegisterSelfServiceUser(allowlistedUser, 0, registrationIP, nil)
+	require.NoError(t, err)
+	assert.False(t, registrationResult.TriggeredBlock)
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.Zero(t, state.RegistrationCount)
+
+	removed, err := RemoveRegistrationIPAllowlist(registrationIP)
+	require.NoError(t, err)
+	assert.False(t, removed.Allowlisted)
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.False(t, state.Allowlisted)
+	assert.Equal(t, 3, state.CurrentCycle)
+	assert.Zero(t, state.RegistrationCount)
+
+	duplicateRemove, err := RemoveRegistrationIPAllowlist(registrationIP)
+	require.NoError(t, err)
+	assert.Empty(t, duplicateRemove.AffectedUserIDs)
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.Equal(t, 3, state.CurrentCycle)
+
+	newCycleUser := newRegistrationIPTestUser(11)
+	_, err = RegisterSelfServiceUser(newCycleUser, 0, registrationIP, nil)
+	require.NoError(t, err)
+	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
+	assert.Equal(t, 1, state.RegistrationCount)
+
+	items, total, err := ListRegistrationIPAllowlist(&common.PageInfo{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	assert.Zero(t, total)
+	assert.Empty(t, items)
+}
+
+func TestListBlockedRegistrationIPsSearchesAssociatedUsersAndIncludesDeleted(t *testing.T) {
+	db := setupRegistrationIPAbuseTestDB(t)
+	const registrationIP = "203.0.113.33"
+	userIDs := createBlockedRegistrationIPFixture(t, registrationIP)
+	require.NoError(t, db.Model(&User{}).Where("id = ?", userIDs[0]).Updates(map[string]interface{}{
+		"username":     "needle-user",
+		"display_name": "Needle Display",
+	}).Error)
+	require.NoError(t, db.Delete(&User{}, userIDs[1]).Error)
+
+	keywords := []string{
+		registrationIP,
+		"::ffff:" + registrationIP,
+		strconv.Itoa(userIDs[0]),
+		"needle-user",
+		"Needle Display",
+	}
+	for _, keyword := range keywords {
+		t.Run(keyword, func(t *testing.T) {
+			items, total, err := ListBlockedRegistrationIPs(
+				keyword,
+				&common.PageInfo{Page: 1, PageSize: 10},
+			)
+			require.NoError(t, err)
+			assert.EqualValues(t, 1, total)
+			require.Len(t, items, 1)
+			assert.Equal(t, registrationIP, items[0].IP)
+			assert.Equal(t, RegistrationIPAccountLimit+1, items[0].RegistrationCount)
+			assert.Equal(t, RegistrationIPAccountLimit+1, items[0].AssociatedAccountCount)
+			require.Len(t, items[0].Accounts, RegistrationIPAccountLimit+1)
+			assert.NotZero(t, items[0].BlockedAt)
+		})
+	}
+
+	items, _, err := ListBlockedRegistrationIPs(
+		registrationIP,
+		&common.PageInfo{Page: 1, PageSize: 10},
+	)
+	require.NoError(t, err)
+	deletedFound := false
+	for _, account := range items[0].Accounts {
+		if account.UserId == userIDs[1] {
+			deletedFound = true
+			assert.True(t, account.Deleted)
+			assert.Equal(t, common.UserStatusDisabled, account.Status)
+		}
+	}
+	assert.True(t, deletedFound)
+}
+
+func createBlockedRegistrationIPFixture(t *testing.T, registrationIP string) []int {
+	t.Helper()
+	userIDs := make([]int, 0, RegistrationIPAccountLimit+1)
+	for index := 1; index <= RegistrationIPAccountLimit+1; index++ {
+		user := newRegistrationIPTestUser(index)
+		_, err := RegisterSelfServiceUser(user, 0, registrationIP, nil)
+		require.NoError(t, err)
+		userIDs = append(userIDs, user.Id)
+	}
+	return userIDs
 }
 
 func newRegistrationIPTestUser(index int) *User {
