@@ -23,6 +23,7 @@ import {
   parseTiersFromExpr,
   type ParsedTier,
 } from '@/features/pricing/lib/billing-expr'
+import { formatLogQuota } from '@/lib/format'
 
 import type { UsageLog } from '../data/schema'
 import type { LogOtherData } from '../types'
@@ -368,6 +369,8 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   // Affiliate rebate transfers
   'affiliate.transfer.approve':
     'Approved rebate transfer request #{{request_id}} for user {{target_user_id}}: invitation {{invite_reward_quota}}, recharge {{recharge_rebate_quota}}, total {{total_quota}}',
+  'affiliate.transfer.approved_for_user':
+    'Administrator approved {{amount}} balance',
   'affiliate.transfer.reject':
     'Rejected rebate transfer request #{{request_id}} for user {{target_user_id}}: invitation {{invite_reward_quota}}, recharge {{recharge_rebate_quota}}, total {{total_quota}}',
   // Prefill groups
@@ -410,5 +413,13 @@ export function renderAuditContent(
   if (!op?.action) return null
   const template = AUDIT_TEMPLATES[op.action]
   if (!template) return null
-  return t(template, (op.params ?? {}) as Record<string, unknown>)
+  const params = { ...op.params } as Record<string, unknown>
+  if (
+    op.action === 'affiliate.transfer.approved_for_user' &&
+    typeof params.quota === 'number' &&
+    Number.isFinite(params.quota)
+  ) {
+    params.amount = formatLogQuota(params.quota)
+  }
+  return t(template, params)
 }

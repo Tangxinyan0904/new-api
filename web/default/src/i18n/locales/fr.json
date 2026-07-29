@@ -239,6 +239,7 @@
     "Admin Permissions": "Autorisations administrateur",
     "Administer user accounts and roles.": "Gérer les comptes d'utilisateurs et les rôles.",
     "Administrator account": "Compte administrateur",
+    "Administrator approved {{amount}} balance": "L'administrateur a approuvé un crédit de {{amount}}",
     "Administrator username": "Nom d'utilisateur administrateur",
     "Advance next reset time": "Avancer la prochaine réinitialisation",
     "Advanced": "Avancé",

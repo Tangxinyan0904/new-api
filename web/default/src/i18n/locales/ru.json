@@ -239,6 +239,7 @@
     "Admin Permissions": "Права администратора",
     "Administer user accounts and roles.": "Управление учетными записями пользователей и ролями.",
     "Administrator account": "Учетная запись администратора",
+    "Administrator approved {{amount}} balance": "Администратор одобрил зачисление {{amount}}",
     "Administrator username": "Имя пользователя администратора",
     "Advance next reset time": "Перенести следующее время сброса",
     "Advanced": "Расширенные",

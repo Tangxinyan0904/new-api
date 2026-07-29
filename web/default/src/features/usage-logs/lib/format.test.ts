@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { expect, test } from 'bun:test'
 
+import { formatLogQuota } from '@/lib/format'
+
 import { renderAuditContent } from './format'
 
 test('renders the distillation penalty clear audit action', () => {
@@ -33,4 +35,18 @@ test('renders the distillation penalty clear audit action', () => {
   )
 
   expect(content).toBe('Cleared distillation penalty for user 51')
+})
+
+test('renders the user-facing affiliate approval with formatted balance', () => {
+  const content = renderAuditContent(
+    {
+      op: {
+        action: 'affiliate.transfer.approved_for_user',
+        params: { request_id: 7, quota: 500 },
+      },
+    },
+    (key, params) => key.replace('{{amount}}', String(params?.amount ?? ''))
+  )
+
+  expect(content).toBe(`Administrator approved ${formatLogQuota(500)} balance`)
 })

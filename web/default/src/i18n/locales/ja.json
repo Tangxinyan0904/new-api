@@ -239,6 +239,7 @@
     "Admin Permissions": "管理者権限",
     "Administer user accounts and roles.": "ユーザーアカウントとロールを管理します。",
     "Administrator account": "管理者アカウント",
+    "Administrator approved {{amount}} balance": "管理者が残高 {{amount}} を承認しました",
     "Administrator username": "管理者ユーザー名",
     "Advance next reset time": "次回リセット時刻を進める",
     "Advanced": "高度な設定",
