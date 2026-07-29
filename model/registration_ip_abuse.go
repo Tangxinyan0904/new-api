@@ -19,6 +19,7 @@ import (
 const RegistrationIPAccountLimit = 3
 
 var (
+	ErrInvalidRegistrationIP       = errors.New("invalid registration IP")
 	ErrRegistrationIPBlocked       = errors.New("registration IP is blocked")
 	ErrRegistrationIPLimitExceeded = errors.New("registration IP account limit exceeded")
 )
@@ -90,7 +91,7 @@ type RegistrationIPAllowlistItem struct {
 func NormalizeRegistrationIP(raw string) (string, error) {
 	addr, err := netip.ParseAddr(strings.TrimSpace(raw))
 	if err != nil {
-		return "", fmt.Errorf("invalid registration IP: %w", err)
+		return "", fmt.Errorf("%w: %v", ErrInvalidRegistrationIP, err)
 	}
 	if addr.Zone() != "" {
 		addr = addr.WithZone("")

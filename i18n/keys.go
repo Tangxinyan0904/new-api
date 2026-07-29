@@ -117,6 +117,9 @@ const (
 	MsgUserTelegramNotBound          = "user.telegram_not_bound"
 	MsgUserLinuxDOIdEmpty            = "user.linux_do_id_empty"
 	MsgUserQuotaChangeZero           = "user.quota_change_zero"
+	MsgRegistrationIPBlocked         = "registration_ip.blocked"
+	MsgRegistrationIPLimitExceeded   = "registration_ip.limit_exceeded"
+	MsgRegistrationIPInvalid         = "registration_ip.invalid"
 )
 
 // Quota related messages

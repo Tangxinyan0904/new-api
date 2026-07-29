@@ -107,6 +107,9 @@ func HandleOAuth(c *gin.Context) {
 	// 7. Find or create user
 	user, err := findOrCreateOAuthUser(c, provider, oauthUser, session)
 	if err != nil {
+		if handleSelfServiceRegistrationError(c, err) {
+			return
+		}
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorI18n(c, i18n.MsgUserEmailAlreadyTaken)
 			return
@@ -282,62 +285,48 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 		inviterId, _ = model.GetUserIdByAffCode(affCode.(string))
 	}
 
-	// Use transaction to ensure user creation and OAuth binding are atomic
+	var (
+		registrationResult *model.SelfServiceRegistrationResult
+		err                error
+	)
+	// Provider binding remains inside the shared registration transaction.
 	if genericProvider, ok := provider.(*oauth.GenericOAuthProvider); ok {
-		// Custom provider: create user and binding in a transaction
-		err := model.DB.Transaction(func(tx *gorm.DB) error {
-			// Create user
-			if err := user.InsertWithTx(tx, inviterId); err != nil {
-				return err
-			}
-
-			// Create OAuth binding
-			binding := &model.UserOAuthBinding{
-				UserId:         user.Id,
-				ProviderId:     genericProvider.GetProviderId(),
-				ProviderUserId: oauthUser.ProviderUserID,
-			}
-			if err := model.CreateUserOAuthBindingWithTx(tx, binding); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// Perform post-transaction tasks (logs, sidebar config, inviter rewards)
-		user.FinalizeOAuthUserCreation(inviterId)
+		registrationResult, err = model.RegisterSelfServiceUser(
+			user,
+			inviterId,
+			c.ClientIP(),
+			func(tx *gorm.DB) error {
+				binding := &model.UserOAuthBinding{
+					UserId:         user.Id,
+					ProviderId:     genericProvider.GetProviderId(),
+					ProviderUserId: oauthUser.ProviderUserID,
+				}
+				return model.CreateUserOAuthBindingWithTx(tx, binding)
+			},
+		)
 	} else {
-		// Built-in provider: create user and update provider ID in a transaction
-		err := model.DB.Transaction(func(tx *gorm.DB) error {
-			// Create user
-			if err := user.InsertWithTx(tx, inviterId); err != nil {
-				return err
-			}
-
-			// Set the provider user ID on the user model and update
-			provider.SetProviderUserID(user, oauthUser.ProviderUserID)
-			if err := tx.Model(user).Updates(map[string]interface{}{
-				"github_id":   user.GitHubId,
-				"discord_id":  user.DiscordId,
-				"oidc_id":     user.OidcId,
-				"linux_do_id": user.LinuxDOId,
-				"wechat_id":   user.WeChatId,
-				"telegram_id": user.TelegramId,
-			}).Error; err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// Perform post-transaction tasks
-		user.FinalizeOAuthUserCreation(inviterId)
+		registrationResult, err = model.RegisterSelfServiceUser(
+			user,
+			inviterId,
+			c.ClientIP(),
+			func(tx *gorm.DB) error {
+				provider.SetProviderUserID(user, oauthUser.ProviderUserID)
+				return tx.Model(user).Updates(map[string]interface{}{
+					"github_id":   user.GitHubId,
+					"discord_id":  user.DiscordId,
+					"oidc_id":     user.OidcId,
+					"linux_do_id": user.LinuxDOId,
+					"wechat_id":   user.WeChatId,
+					"telegram_id": user.TelegramId,
+				}).Error
+			},
+		)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if registrationResult.TriggeredBlock {
+		return user, model.ErrRegistrationIPLimitExceeded
 	}
 
 	return user, nil

@@ -7,8 +7,11 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 
 	"github.com/gin-contrib/sessions"
@@ -86,13 +89,62 @@ func TelegramLogin(c *gin.Context) {
 		return
 	}
 
-	telegramId := params["id"][0]
+	telegramId := params.Get("id")
+	if telegramId == "" {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
 	user := model.User{TelegramId: telegramId}
-	if err := user.FillUserByTelegramId(); err != nil {
-		c.JSON(200, gin.H{
-			"message": err.Error(),
-			"success": false,
-		})
+	if model.IsTelegramIdAlreadyTaken(telegramId) {
+		if err := user.FillUserByTelegramId(); err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": err.Error(),
+				"success": false,
+			})
+			return
+		}
+	} else {
+		if !common.RegisterEnabled {
+			common.ApiErrorI18n(c, i18n.MsgUserRegisterDisabled)
+			return
+		}
+		user.Username = "telegram_" + strconv.Itoa(model.GetMaxUserId()+1)
+		displayName := strings.TrimSpace(strings.Join(
+			[]string{params.Get("first_name"), params.Get("last_name")},
+			" ",
+		))
+		if displayName == "" {
+			displayName = params.Get("username")
+		}
+		if displayName == "" {
+			displayName = "Telegram User"
+		}
+		displayNameRunes := []rune(displayName)
+		if len(displayNameRunes) > model.UserNameMaxLength {
+			displayName = string(displayNameRunes[:model.UserNameMaxLength])
+		}
+		user.DisplayName = displayName
+		user.Role = common.RoleCommonUser
+		user.Status = common.UserStatusEnabled
+		registrationResult, err := model.RegisterSelfServiceUser(
+			&user,
+			0,
+			c.ClientIP(),
+			nil,
+		)
+		if err != nil {
+			if handleSelfServiceRegistrationError(c, err) {
+				return
+			}
+			common.ApiError(c, err)
+			return
+		}
+		if respondToRegistrationIPLimit(c, registrationResult) {
+			return
+		}
+	}
+	if user.Status != common.UserStatusEnabled {
+		common.ApiErrorI18n(c, i18n.MsgOAuthUserBanned)
 		return
 	}
 	setupLogin(&user, c)

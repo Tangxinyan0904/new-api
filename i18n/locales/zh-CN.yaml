@@ -107,6 +107,10 @@ user.telegram_not_bound: "该 Telegram 账户未绑定"
 user.linux_do_id_empty: "Linux DO id 为空！"
 user.quota_change_zero: "额度变更量不能为0"
 
+registration_ip.blocked: "该注册 IP 已被封禁，请联系管理员解封。"
+registration_ip.limit_exceeded: "账号已创建，但该 IP 的注册账号数超过限制，账号已被禁用。请联系管理员解封。"
+registration_ip.invalid: "无法获取有效的注册 IP，请联系管理员。"
+
 # Quota messages
 quota.negative: "额度不能为负数！"
 quota.exceed_max: "额度值超出有效范围"

@@ -37,7 +37,7 @@ func TestNormalizeRegistrationIP(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			got, err := NormalizeRegistrationIP(test.raw)
 			if test.wantErr {
-				require.Error(t, err)
+				require.ErrorIs(t, err, ErrInvalidRegistrationIP)
 				assert.Empty(t, got)
 				return
 			}

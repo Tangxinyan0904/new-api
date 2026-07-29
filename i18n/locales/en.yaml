@@ -106,6 +106,10 @@ user.telegram_not_bound: "This Telegram account is not bound"
 user.linux_do_id_empty: "Linux DO ID is empty!"
 user.quota_change_zero: "Quota change amount cannot be zero"
 
+registration_ip.blocked: "This registration IP is blocked. Contact an administrator to unblock it."
+registration_ip.limit_exceeded: "Your account was created but disabled because this IP exceeded the registration limit. Contact an administrator to unblock it."
+registration_ip.invalid: "Unable to determine a valid registration IP. Please contact an administrator."
+
 # Quota messages
 quota.negative: "Quota cannot be negative!"
 quota.exceed_max: "Quota value exceeds valid range"
