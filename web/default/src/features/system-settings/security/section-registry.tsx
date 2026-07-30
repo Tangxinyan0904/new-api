@@ -23,6 +23,7 @@ import { SSRFSection } from '../request-limits/ssrf-section'
 import { TokenLimitSection } from '../request-limits/token-limit-section'
 import type { SecuritySettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { RegistrationIPAbuseSection } from './registration-ip-abuse/registration-ip-abuse-section'
 
 const SECURITY_SECTIONS = [
   {
@@ -119,6 +120,11 @@ const SECURITY_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'registration-ip-abuse',
+    titleKey: 'Registration Abuse Protection',
+    build: () => <RegistrationIPAbuseSection />,
   },
 ] as const
 
