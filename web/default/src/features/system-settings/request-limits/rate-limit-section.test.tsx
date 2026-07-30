@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { expect, mock, test } from 'bun:test'
 
+import * as ReactQuery from '@tanstack/react-query'
 import { renderToStaticMarkup } from 'react-dom/server'
 
 import type { RateLimitFormValues } from './types'
@@ -30,6 +31,7 @@ let mutationOptions: MutationOptions | undefined
 let toastErrorMessage = ''
 
 mock.module('@tanstack/react-query', () => ({
+  ...ReactQuery,
   useMutation: (options: MutationOptions) => {
     mutationOptions = options
     return {
@@ -37,9 +39,6 @@ mock.module('@tanstack/react-query', () => ({
       mutate: () => undefined,
     }
   },
-  useQueryClient: () => ({
-    invalidateQueries: () => Promise.resolve(),
-  }),
 }))
 
 mock.module('react-i18next', () => ({
@@ -91,8 +90,13 @@ const defaultValues: RateLimitFormValues = {
 
 test('translates a server-provided save error before displaying it', () => {
   toastErrorMessage = ''
+  const queryClient = new ReactQuery.QueryClient()
 
-  renderToStaticMarkup(<RateLimitSection defaultValues={defaultValues} />)
+  renderToStaticMarkup(
+    <ReactQuery.QueryClientProvider client={queryClient}>
+      <RateLimitSection defaultValues={defaultValues} />
+    </ReactQuery.QueryClientProvider>
+  )
   mutationOptions?.onError?.(new Error('Failed to save rate limits'))
 
   expect(toastErrorMessage).toBe('translated:Failed to save rate limits')
