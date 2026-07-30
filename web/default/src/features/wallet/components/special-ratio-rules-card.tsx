@@ -34,7 +34,10 @@ import {
 } from '@/components/ui/tooltip'
 
 import { getWalletSpecialRatioRules } from '../api'
-import { getSpecialRatioCardState } from '../lib/special-ratios'
+import {
+  getSpecialRatioCardState,
+  getSpecialRatioSummary,
+} from '../lib/special-ratios'
 
 type SpecialRatioRulesCardProps = {
   onAvailabilityChange?: (available: boolean) => void
@@ -110,6 +113,11 @@ export function SpecialRatioRulesCard(props: SpecialRatioRulesCardProps) {
           <div>
             {query.data?.map((rule, index) => {
               const label = `${rule.user_group} -> ${rule.billing_group}`
+              const summary = getSpecialRatioSummary({
+                billingGroup: rule.billing_group,
+                baseRatio: rule.base_ratio,
+                specialRatio: rule.special_ratio,
+              })
               return (
                 <Fragment key={`${rule.user_group}:${rule.billing_group}`}>
                   {index > 0 && <Separator />}
@@ -125,15 +133,17 @@ export function SpecialRatioRulesCard(props: SpecialRatioRulesCardProps) {
                         </TooltipTrigger>
                         <TooltipContent>{label}</TooltipContent>
                       </Tooltip>
-                      <p className='text-muted-foreground mt-1 text-xs'>
-                        {t('Base ratio {{ratio}}x', {
-                          ratio: rule.base_ratio,
-                        })}
+                      <p className='text-muted-foreground mt-1 text-xs leading-5'>
+                        {t(
+                          'Current ratio: {{currentRatio}}x, ratio after upgrading to {{group}}: {{upgradeRatio}}x',
+                          {
+                            currentRatio: summary.currentRatio,
+                            group: summary.upgradeGroup,
+                            upgradeRatio: summary.upgradeRatio,
+                          }
+                        )}
                       </p>
                     </div>
-                    <span className='shrink-0 text-lg font-black tabular-nums'>
-                      {rule.special_ratio}x
-                    </span>
                   </div>
                 </Fragment>
               )

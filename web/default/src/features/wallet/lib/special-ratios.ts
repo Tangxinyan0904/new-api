@@ -18,6 +18,22 @@ For commercial licensing, please contact support@quantumnous.com
 */
 export type SpecialRatioCardDisplay = 'loading' | 'error' | 'hidden' | 'rules'
 
+export function getSpecialRatioSummary(input: {
+  billingGroup: string
+  baseRatio: number
+  specialRatio: number
+}): {
+  currentRatio: number
+  upgradeGroup: string
+  upgradeRatio: number
+} {
+  return {
+    currentRatio: input.baseRatio,
+    upgradeGroup: input.billingGroup,
+    upgradeRatio: input.specialRatio,
+  }
+}
+
 export function getSpecialRatioCardState(input: {
   isPending: boolean
   isError: boolean

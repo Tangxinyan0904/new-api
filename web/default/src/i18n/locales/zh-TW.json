@@ -1227,6 +1227,7 @@
     "Current Password": "目前密碼",
     "Current Price": "目前價格",
     "Current quota": "目前額度",
+    "Current ratio: {{currentRatio}}x, ratio after upgrading to {{group}}: {{upgradeRatio}}x": "目前倍率：{{currentRatio}}x，升級到 {{group}} 後倍率：{{upgradeRatio}}x",
     "Current Value": "目前值",
     "Current version": "目前版本",
     "Current:": "目前：",

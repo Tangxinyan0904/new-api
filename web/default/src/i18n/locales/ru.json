@@ -1227,6 +1227,7 @@
     "Current Password": "Текущий пароль",
     "Current Price": "Текущая цена",
     "Current quota": "Текущая квота",
+    "Current ratio: {{currentRatio}}x, ratio after upgrading to {{group}}: {{upgradeRatio}}x": "Текущий коэффициент: {{currentRatio}}x; коэффициент после перехода в {{group}}: {{upgradeRatio}}x",
     "Current Value": "Текущее значение",
     "Current version": "Текущая версия",
     "Current:": "Текущий:",

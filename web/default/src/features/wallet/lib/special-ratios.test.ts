@@ -20,6 +20,7 @@ import { describe, expect, test } from 'bun:test'
 
 import {
   getSpecialRatioCardState,
+  getSpecialRatioSummary,
   getWalletPrimaryGridClass,
 } from './special-ratios'
 
@@ -60,5 +61,19 @@ describe('wallet special ratio card', () => {
     expect(getWalletPrimaryGridClass(true, false)).toContain('xl:grid-cols-2')
     expect(getWalletPrimaryGridClass(false, true)).toContain('xl:grid-cols-2')
     expect(getWalletPrimaryGridClass(true, true)).toContain('2xl:grid-cols-3')
+  })
+
+  test('describes the current ratio and the upgrade target ratio', () => {
+    expect(
+      getSpecialRatioSummary({
+        billingGroup: 'svip',
+        baseRatio: 1,
+        specialRatio: 0.8,
+      })
+    ).toEqual({
+      currentRatio: 1,
+      upgradeGroup: 'svip',
+      upgradeRatio: 0.8,
+    })
   })
 })

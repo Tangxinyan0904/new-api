@@ -1227,6 +1227,7 @@
     "Current Password": "現在のパスワード",
     "Current Price": "現在の価格",
     "Current quota": "現在のクォータ",
+    "Current ratio: {{currentRatio}}x, ratio after upgrading to {{group}}: {{upgradeRatio}}x": "現在の倍率：{{currentRatio}}x、{{group}}にアップグレード後の倍率：{{upgradeRatio}}x",
     "Current Value": "現在の値",
     "Current version": "現在のバージョン",
     "Current:": "現在:",
