@@ -337,7 +337,7 @@ export function ApiKeysTable() {
             singleSelect: true,
           },
         ],
-        preActions: <ApiKeyNotice notice={status?.api_key_notice} />,
+        afterFilters: <ApiKeyNotice notice={status?.api_key_notice} />,
       }}
       mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}
       getColumnClassName={(columnId, part) =>
