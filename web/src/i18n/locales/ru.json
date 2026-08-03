@@ -3180,6 +3180,7 @@
     "Number of tokens per unit quota": "Количество токенов на единицу квоты",
     "Number of top log probabilities returned per token": "Количество top-вероятностей на токен",
     "Number of users invited": "Количество приглашенных пользователей",
+    "OAuth": "OAuth",
     "OAuth binding timed out. Please try again.": "Время ожидания привязки OAuth истекло. Повторите попытку.",
     "OAuth binding window is no longer available": "Окно привязки OAuth больше недоступно",
     "OAuth callback URL": "URL обратного вызова OAuth",

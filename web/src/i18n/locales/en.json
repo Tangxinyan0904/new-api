@@ -3180,6 +3180,7 @@
     "Number of tokens per unit quota": "Number of tokens per unit quota",
     "Number of top log probabilities returned per token": "Number of top log probabilities returned per token",
     "Number of users invited": "Number of users invited",
+    "OAuth": "OAuth",
     "OAuth binding timed out. Please try again.": "OAuth binding timed out. Please try again.",
     "OAuth binding window is no longer available": "OAuth binding window is no longer available",
     "OAuth callback URL": "OAuth callback URL",

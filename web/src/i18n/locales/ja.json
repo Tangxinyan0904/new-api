@@ -3180,6 +3180,7 @@
     "Number of tokens per unit quota": "単位クォータあたりのトークン数",
     "Number of top log probabilities returned per token": "トークンごとに返される上位対数確率の数",
     "Number of users invited": "招待されたユーザー数",
+    "OAuth": "OAuth",
     "OAuth binding timed out. Please try again.": "OAuth 連携がタイムアウトしました。もう一度お試しください。",
     "OAuth binding window is no longer available": "OAuth 連携ウィンドウは利用できなくなりました",
     "OAuth callback URL": "OAuth コールバック URL",

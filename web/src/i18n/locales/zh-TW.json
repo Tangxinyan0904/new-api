@@ -3180,6 +3180,7 @@
     "Number of tokens per unit quota": "每單位配額的令牌數",
     "Number of top log probabilities returned per token": "每個 token 返回的 top 概率數量",
     "Number of users invited": "已邀請的用戶數量",
+    "OAuth": "OAuth",
     "OAuth binding timed out. Please try again.": "OAuth 綁定逾時，請重試。",
     "OAuth binding window is no longer available": "OAuth 綁定視窗已無法使用",
     "OAuth callback URL": "OAuth 回呼 URL",

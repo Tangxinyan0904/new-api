@@ -3180,6 +3180,7 @@
     "Number of tokens per unit quota": "Số token trên đơn vị hạn mức",
     "Number of top log probabilities returned per token": "Số log probabilities hàng đầu trên mỗi token",
     "Number of users invited": "Số người dùng được mời",
+    "OAuth": "OAuth",
     "OAuth binding timed out. Please try again.": "Liên kết OAuth đã hết thời gian chờ. Vui lòng thử lại.",
     "OAuth binding window is no longer available": "Cửa sổ liên kết OAuth không còn khả dụng",
     "OAuth callback URL": "URL callback OAuth",
