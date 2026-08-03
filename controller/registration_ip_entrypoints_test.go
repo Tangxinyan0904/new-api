@@ -15,14 +15,13 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -153,7 +152,7 @@ func TestRegistrationIPWeChatUsesSharedRegistration(t *testing.T) {
 	common.WeChatServerAddress = server.URL
 
 	for index := 1; index <= model.RegistrationIPAccountLimit+1; index++ {
-		recorder := performSessionRequest(
+		recorder := performControllerRequest(
 			t,
 			http.MethodGet,
 			"/api/oauth/wechat?code="+strconv.Itoa(index),
@@ -184,7 +183,7 @@ func TestRegistrationIPTelegramCreatesUsersAndAppliesSharedLimit(t *testing.T) {
 
 	for index := 1; index <= model.RegistrationIPAccountLimit+1; index++ {
 		query := signedTelegramLoginQuery(common.TelegramBotToken, index)
-		recorder := performSessionRequest(
+		recorder := performControllerRequest(
 			t,
 			http.MethodGet,
 			"/api/oauth/telegram/login?"+query.Encode(),
@@ -261,6 +260,9 @@ func setupRegistrationIPControllerTest(t *testing.T) *gorm.DB {
 	require.NoError(t, i18n.Init())
 	require.NoError(t, db.AutoMigrate(
 		&model.Token{},
+		&model.UserSession{},
+		&model.AuthFlow{},
+		&model.ExternalIdentityClaim{},
 		&model.Log{},
 		&model.RegistrationIPState{},
 		&model.RegistrationIPAccount{},
@@ -327,19 +329,19 @@ func performOAuthUserCreation(
 	t.Helper()
 	var user *model.User
 	var creationErr error
-	performSessionRequest(
+	performControllerRequest(
 		t,
 		http.MethodGet,
 		"/api/oauth/test",
 		clientIP+":1234",
 		func(c *gin.Context) {
-			user, creationErr = findOrCreateOAuthUser(c, provider, oauthUser, sessions.Default(c))
+			user, creationErr = findOrCreateOAuthUser(c, provider, oauthUser, "")
 		},
 	)
 	return user, creationErr
 }
 
-func performSessionRequest(
+func performControllerRequest(
 	t *testing.T,
 	method string,
 	target string,
@@ -348,7 +350,6 @@ func performSessionRequest(
 ) *httptest.ResponseRecorder {
 	t.Helper()
 	router := gin.New()
-	router.Use(sessions.Sessions("session", cookie.NewStore([]byte("registration-ip-session-secret"))))
 	router.Handle(method, "/api/oauth/test", handler)
 	router.Handle(method, "/api/oauth/wechat", handler)
 	router.Handle(method, "/api/oauth/telegram/login", handler)
@@ -366,7 +367,7 @@ func signedTelegramLoginQuery(token string, id int) url.Values {
 		"username":   {fmt.Sprintf("telegram_user_%d", id)},
 		"first_name": {"Telegram"},
 		"last_name":  {strconv.Itoa(id)},
-		"auth_date":  {"1785326400"},
+		"auth_date":  {strconv.FormatInt(time.Now().Unix(), 10)},
 	}
 	keys := make([]string, 0, len(values))
 	for key := range values {

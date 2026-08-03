@@ -31,8 +31,7 @@ const buttonVariants = cva(
           'bg-gradient-to-br from-[#64b5f6] to-[#2196f3] text-white shadow-[0_6px_16px_-4px_rgba(100,181,246,0.5)] hover:-translate-y-[3px] hover:scale-[1.03] hover:shadow-[0_8px_20px_-2px_rgba(100,181,246,0.6)]',
         outline:
           'border-2 border-dashed border-[#64b5f6] bg-[#f0f8ff] text-[#2196f3] shadow-none hover:bg-[#64b5f6] hover:text-white hover:-translate-y-[3px] hover:scale-[1.03] dark:bg-[#1a2436] dark:border-[#42a5f5] dark:text-[#42a5f5]',
-        pay:
-          'bg-gradient-to-br from-[#ffb3c6] to-[#ff758f] text-white shadow-[0_6px_16px_-4px_rgba(255,117,143,0.5)] hover:-translate-y-[3px] hover:scale-[1.03] hover:shadow-[0_8px_20px_-2px_rgba(255,117,143,0.6)]',
+        pay: 'bg-gradient-to-br from-[#ffb3c6] to-[#ff758f] text-white shadow-[0_6px_16px_-4px_rgba(255,117,143,0.5)] hover:-translate-y-[3px] hover:scale-[1.03] hover:shadow-[0_8px_20px_-2px_rgba(255,117,143,0.6)]',
         image:
           'bg-gradient-to-br from-[#a855f7] to-[#b388ff] text-white shadow-[0_6px_16px_-4px_rgba(179,136,255,0.5)] hover:-translate-y-[3px] hover:scale-[1.03]',
         secondary:

@@ -1,4 +1,5 @@
 import { api } from '@/lib/api'
+
 import type {
   ApiResponse,
   RebateApprovalDetail,
@@ -14,19 +15,27 @@ export async function getRebateTransferRequests(params: {
   if (params.p) search.set('p', String(params.p))
   if (params.page_size) search.set('page_size', String(params.page_size))
   if (params.status) search.set('status', params.status)
-  const res = await api.get(`/api/user/affiliate/transfer-requests?${search.toString()}`)
+  const res = await api.get(
+    `/api/user/affiliate/transfer-requests?${search.toString()}`
+  )
   return res.data
 }
 
-export async function approveRebateTransferRequest(id: number): Promise<ApiResponse> {
-  const res = await api.post(`/api/user/affiliate/transfer-requests/${id}/approve`)
+export async function approveRebateTransferRequest(
+  id: number
+): Promise<ApiResponse> {
+  const res = await api.post(
+    `/api/user/affiliate/transfer-requests/${id}/approve`
+  )
   return res.data
 }
 
 export async function getRebateTransferRequestDetail(
   id: number
 ): Promise<ApiResponse<RebateApprovalDetail>> {
-  const res = await api.get(`/api/user/affiliate/transfer-requests/${id}/detail`)
+  const res = await api.get(
+    `/api/user/affiliate/transfer-requests/${id}/detail`
+  )
   return res.data
 }
 
@@ -34,6 +43,9 @@ export async function rejectRebateTransferRequest(
   id: number,
   reason = ''
 ): Promise<ApiResponse> {
-  const res = await api.post(`/api/user/affiliate/transfer-requests/${id}/reject`, { reason })
+  const res = await api.post(
+    `/api/user/affiliate/transfer-requests/${id}/reject`,
+    { reason }
+  )
   return res.data
 }

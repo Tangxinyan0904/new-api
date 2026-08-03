@@ -1,7 +1,9 @@
-import { useState } from 'react'
 import { Check, Eye, X } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+
 import { Button } from '@/components/ui/button'
+
 import type { RebateApprovalRequest } from '../types'
 import { RebateApprovalDetailDialog } from './rebate-approval-detail-dialog'
 
@@ -31,7 +33,11 @@ export function RebateApprovalRowActions({
           <Eye className='size-4' />
           {t('Details')}
         </Button>
-        <Button size='sm' disabled={!pending} onClick={() => onApprove(request.id)}>
+        <Button
+          size='sm'
+          disabled={!pending}
+          onClick={() => onApprove(request.id)}
+        >
           <Check className='size-4' />
           {t('Approve')}
         </Button>

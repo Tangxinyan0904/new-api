@@ -16,20 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { useForm } from 'react-hook-form'
+import { I18nextProvider } from 'react-i18next'
 
 import { Form } from '@/components/ui/form'
 
 import type { RateLimitFormValues } from '../types'
 
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}))
-
 const { DistillationSettings } = await import('../distillation-settings')
+
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: { en: { translation: {} } },
+})
 
 const formValues: RateLimitFormValues = {
   ModelRequestRateLimitEnabled: true,
@@ -54,9 +58,11 @@ function DistillationSettingsHarness(props: { enabled: boolean }) {
   })
 
   return (
-    <Form {...form}>
-      <DistillationSettings control={form.control} enabled={props.enabled} />
-    </Form>
+    <I18nextProvider i18n={i18n}>
+      <Form {...form}>
+        <DistillationSettings control={form.control} enabled={props.enabled} />
+      </Form>
+    </I18nextProvider>
   )
 }
 

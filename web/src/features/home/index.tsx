@@ -29,8 +29,8 @@ import { DEFAULT_GEOIP_POPUP_MESSAGE } from '@/lib/constants'
 import { isLikelyHtml } from '@/lib/content-format'
 import { useAuthStore } from '@/stores/auth-store'
 
-import { CTA, Features, Hero, HowItWorks, Stats } from './components'
 import { getGeoIPStatus } from './api'
+import { CTA, Features, Hero, HowItWorks, Stats } from './components'
 import { useHomePageContent } from './hooks'
 import type { GeoIPStatus } from './types'
 
@@ -94,8 +94,7 @@ export function Home() {
     !geoIPDismissed
   const geoIPDialogDismissible = geoIPStatus?.mode === 'homepage_notice'
   const geoIPMessage =
-    !geoIPStatus?.message ||
-    geoIPStatus.message === DEFAULT_GEOIP_POPUP_MESSAGE
+    !geoIPStatus?.message || geoIPStatus.message === DEFAULT_GEOIP_POPUP_MESSAGE
       ? t(DEFAULT_GEOIP_POPUP_MESSAGE)
       : geoIPStatus.message
 
@@ -118,9 +117,7 @@ export function Home() {
         ) : null
       }
     >
-      <p className='text-muted-foreground text-sm leading-6'>
-        {geoIPMessage}
-      </p>
+      <p className='text-muted-foreground text-sm leading-6'>{geoIPMessage}</p>
     </Dialog>
   )
 

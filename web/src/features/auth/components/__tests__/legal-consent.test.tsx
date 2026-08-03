@@ -16,17 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { I18nextProvider } from 'react-i18next'
 
 import type { SystemStatus } from '../../types'
 
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}))
-
 const { LegalConsent } = await import('../legal-consent')
+
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: { en: { translation: {} } },
+})
 
 const legalStatus = {
   user_agreement_enabled: true,
@@ -36,11 +40,13 @@ const legalStatus = {
 describe('LegalConsent', () => {
   test('renders a high-contrast unchecked row with a larger checkbox', () => {
     const html = renderToStaticMarkup(
-      <LegalConsent
-        status={legalStatus}
-        checked={false}
-        onCheckedChange={() => undefined}
-      />
+      <I18nextProvider i18n={i18n}>
+        <LegalConsent
+          status={legalStatus}
+          checked={false}
+          onCheckedChange={() => undefined}
+        />
+      </I18nextProvider>
     )
 
     expect(html).toContain('border-destructive/70')
@@ -54,11 +60,13 @@ describe('LegalConsent', () => {
 
   test('renders a distinct confirmed state', () => {
     const html = renderToStaticMarkup(
-      <LegalConsent
-        status={legalStatus}
-        checked
-        onCheckedChange={() => undefined}
-      />
+      <I18nextProvider i18n={i18n}>
+        <LegalConsent
+          status={legalStatus}
+          checked
+          onCheckedChange={() => undefined}
+        />
+      </I18nextProvider>
     )
 
     expect(html).toContain('border-primary/70')
@@ -68,11 +76,13 @@ describe('LegalConsent', () => {
 
   test('renders nothing when no legal document is enabled', () => {
     const html = renderToStaticMarkup(
-      <LegalConsent
-        status={{} as SystemStatus}
-        checked={false}
-        onCheckedChange={() => undefined}
-      />
+      <I18nextProvider i18n={i18n}>
+        <LegalConsent
+          status={{} as SystemStatus}
+          checked={false}
+          onCheckedChange={() => undefined}
+        />
+      </I18nextProvider>
     )
 
     expect(html).toBe('')

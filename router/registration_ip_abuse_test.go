@@ -3,32 +3,53 @@ package router
 import (
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestRegistrationIPAbuseRoutesRequireRootAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	require.NoError(t, i18n.Init())
-	engine := gin.New()
-	engine.Use(sessions.Sessions("session", cookie.NewStore([]byte("registration-ip-router-test"))))
-	engine.GET("/test-login", func(c *gin.Context) {
-		session := sessions.Default(c)
-		session.Set("username", "admin-user")
-		session.Set("role", common.RoleAdminUser)
-		session.Set("id", 1)
-		session.Set("status", common.UserStatusEnabled)
-		require.NoError(t, session.Save())
-		c.Status(http.StatusNoContent)
+	previousDB := model.DB
+	previousDatabaseType := common.MainDatabaseType()
+	previousRedisEnabled := common.RedisEnabled
+	previousSessionSecret := common.SessionSecret
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}))
+	model.DB = db
+	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
+	common.RedisEnabled = false
+	common.SessionSecret = "registration-ip-router-test-secret"
+	t.Cleanup(func() {
+		model.DB = previousDB
+		common.SetMainDatabaseType(previousDatabaseType)
+		common.RedisEnabled = previousRedisEnabled
+		common.SessionSecret = previousSessionSecret
 	})
+
+	admin := &model.User{
+		Username:    "registration-ip-admin",
+		Password:    "password-placeholder",
+		Role:        common.RoleAdminUser,
+		Status:      common.UserStatusEnabled,
+		Group:       "default",
+		AuthVersion: 1,
+	}
+	require.NoError(t, db.Create(admin).Error)
+	session, err := service.CreateLoginSession(admin.Id, "password", "127.0.0.1", "router-test")
+	require.NoError(t, err)
+
+	engine := gin.New()
 	SetApiRouter(engine)
 
 	wantRoutes := map[string]bool{
@@ -48,16 +69,9 @@ func TestRegistrationIPAbuseRoutesRequireRootAuthentication(t *testing.T) {
 		assert.True(t, found, route)
 	}
 
-	loginRecorder := httptest.NewRecorder()
-	loginRequest := httptest.NewRequest(http.MethodGet, "/test-login", nil)
-	engine.ServeHTTP(loginRecorder, loginRequest)
-	require.Equal(t, http.StatusNoContent, loginRecorder.Code)
-	require.NotEmpty(t, loginRecorder.Result().Cookies())
-
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/registration-ip-abuse/blocked", nil)
-	request.AddCookie(loginRecorder.Result().Cookies()[0])
-	request.Header.Set("New-Api-User", strconv.Itoa(1))
+	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
 	request.Header.Set("Accept-Language", "en")
 	engine.ServeHTTP(recorder, request)
 
@@ -66,6 +80,7 @@ func TestRegistrationIPAbuseRoutesRequireRootAuthentication(t *testing.T) {
 		Message string `json:"message"`
 	}
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.Equal(t, http.StatusForbidden, recorder.Code)
 	assert.False(t, response.Success)
 	assert.Contains(t, response.Message, "insufficient privileges")
 }

@@ -19,7 +19,9 @@ For commercial licensing, please contact support@quantumnous.com
 import { expect, mock, test } from 'bun:test'
 
 import * as ReactQuery from '@tanstack/react-query'
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { I18nextProvider } from 'react-i18next'
 
 import type { RateLimitFormValues } from '../types'
 
@@ -39,12 +41,6 @@ mock.module('@tanstack/react-query', () => ({
       mutate: () => undefined,
     }
   },
-}))
-
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string) => `translated:${key}`,
-  }),
 }))
 
 mock.module('sonner', () => ({
@@ -74,6 +70,18 @@ mock.module('../user-rate-limit-editor', () => ({
 
 const { RateLimitSection } = await import('../rate-limit-section')
 
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: {
+    en: {
+      translation: {
+        'Failed to save rate limits': 'translated:Failed to save rate limits',
+      },
+    },
+  },
+})
+
 const defaultValues: RateLimitFormValues = {
   ModelRequestRateLimitEnabled: true,
   ModelRequestRateLimitDurationMinutes: 1,
@@ -93,9 +101,11 @@ test('translates a server-provided save error before displaying it', () => {
   const queryClient = new ReactQuery.QueryClient()
 
   renderToStaticMarkup(
-    <ReactQuery.QueryClientProvider client={queryClient}>
-      <RateLimitSection defaultValues={defaultValues} />
-    </ReactQuery.QueryClientProvider>
+    <I18nextProvider i18n={i18n}>
+      <ReactQuery.QueryClientProvider client={queryClient}>
+        <RateLimitSection defaultValues={defaultValues} />
+      </ReactQuery.QueryClientProvider>
+    </I18nextProvider>
   )
   mutationOptions?.onError?.(new Error('Failed to save rate limits'))
 

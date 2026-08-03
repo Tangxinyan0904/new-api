@@ -205,8 +205,7 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
     const normalized = normalizeFormValues(values)
     const updates = (Object.keys(normalized) as Array<keyof GeoIPSettings>)
       .filter(
-        (key) =>
-          key !== 'geoip.maxmind_license_key' || normalized[key] !== ''
+        (key) => key !== 'geoip.maxmind_license_key' || normalized[key] !== ''
       )
       .filter((key) => !valuesEqual(normalized[key], baselineRef.current[key]))
 
@@ -322,7 +321,9 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
                   />
                 </FormControl>
                 <FormDescription>
-                  {t('Direct download URL for .mmdb, .mmdb.gz, .tar.gz or .zip.')}
+                  {t(
+                    'Direct download URL for .mmdb, .mmdb.gz, .tar.gz or .zip.'
+                  )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -380,7 +381,9 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
                   <Textarea rows={3} {...field} />
                 </FormControl>
                 <FormDescription>
-                  {t('Message shown to visitors from blocked countries or regions.')}
+                  {t(
+                    'Message shown to visitors from blocked countries or regions.'
+                  )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -394,7 +397,9 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
               <SettingsSwitchItem>
                 <SettingsSwitchContent>
                   <FormLabel>
-                    {t('Allow private and local loopback IPs to skip GeoIP checks')}
+                    {t(
+                      'Allow private and local loopback IPs to skip GeoIP checks'
+                    )}
                   </FormLabel>
                   <FormDescription>
                     {t(

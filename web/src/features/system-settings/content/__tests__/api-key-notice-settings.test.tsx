@@ -18,11 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, mock, test } from 'bun:test'
 
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
-
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}))
+import { I18nextProvider } from 'react-i18next'
 
 mock.module('../../hooks/use-update-option', () => ({
   useUpdateOption: () => ({
@@ -33,10 +31,18 @@ mock.module('../../hooks/use-update-option', () => ({
 
 const { ApiKeyNoticeSettings } = await import('../api-key-notice-settings')
 
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: { en: { translation: {} } },
+})
+
 describe('ApiKeyNoticeSettings', () => {
   test('renders the saved value as a bounded plain-text setting', () => {
     const html = renderToStaticMarkup(
-      <ApiKeyNoticeSettings value='Short operational notice' />
+      <I18nextProvider i18n={i18n}>
+        <ApiKeyNoticeSettings value='Short operational notice' />
+      </I18nextProvider>
     )
 
     expect(html).toContain('API Key Notice')
@@ -47,7 +53,11 @@ describe('ApiKeyNoticeSettings', () => {
   })
 
   test('counts supplementary Unicode characters consistently with the API', () => {
-    const html = renderToStaticMarkup(<ApiKeyNoticeSettings value='🔐🔐' />)
+    const html = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <ApiKeyNoticeSettings value='🔐🔐' />
+      </I18nextProvider>
+    )
 
     expect(html).toContain('2 / 500')
   })

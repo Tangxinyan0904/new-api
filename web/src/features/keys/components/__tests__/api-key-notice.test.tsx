@@ -16,24 +16,36 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
-
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}))
+import { I18nextProvider } from 'react-i18next'
 
 const { ApiKeyNotice } = await import('../api-key-notice')
 
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: { en: { translation: {} } },
+})
+
 describe('ApiKeyNotice', () => {
   test('hides an empty notice', () => {
-    expect(renderToStaticMarkup(<ApiKeyNotice notice={'  \n '} />)).toBe('')
+    expect(
+      renderToStaticMarkup(
+        <I18nextProvider i18n={i18n}>
+          <ApiKeyNotice notice={'  \n '} />
+        </I18nextProvider>
+      )
+    ).toBe('')
   })
 
   test('renders configured plain text with line breaks preserved', () => {
     const html = renderToStaticMarkup(
-      <ApiKeyNotice notice={'Keep this key private.\nRotate it regularly.'} />
+      <I18nextProvider i18n={i18n}>
+        <ApiKeyNotice notice={'Keep this key private.\nRotate it regularly.'} />
+      </I18nextProvider>
     )
 
     expect(html).toContain('API Key Notice')

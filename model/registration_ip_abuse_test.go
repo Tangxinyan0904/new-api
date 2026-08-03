@@ -427,6 +427,7 @@ func setupRegistrationIPAbuseTestDB(t *testing.T) *gorm.DB {
 	LOG_DB = db
 	require.NoError(t, db.AutoMigrate(
 		&User{},
+		&UserSession{},
 		&RegistrationIPState{},
 		&RegistrationIPAccount{},
 	))

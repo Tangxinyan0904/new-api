@@ -1,11 +1,12 @@
 package geoip_setting
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
 )
 
 const (
@@ -41,7 +42,7 @@ func ValidateMode(mode string) error {
 
 func NormalizeBlockedCountriesJSON(raw string) (string, error) {
 	var values []string
-	if err := json.Unmarshal([]byte(raw), &values); err != nil {
+	if err := common.UnmarshalJsonStr(raw, &values); err != nil {
 		return "", fmt.Errorf("invalid GeoIP blocked countries JSON: %w", err)
 	}
 
@@ -60,7 +61,7 @@ func NormalizeBlockedCountriesJSON(raw string) (string, error) {
 	}
 	sort.Strings(normalized)
 
-	bytes, err := json.Marshal(normalized)
+	bytes, err := common.Marshal(normalized)
 	if err != nil {
 		return "", err
 	}
@@ -72,11 +73,11 @@ func UpdateBlockedCountriesByJSONString(raw string) error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal([]byte(normalized), &BlockedCountries)
+	return common.UnmarshalJsonStr(normalized, &BlockedCountries)
 }
 
 func BlockedCountries2JSONString() string {
-	bytes, err := json.Marshal(BlockedCountries)
+	bytes, err := common.Marshal(BlockedCountries)
 	if err != nil {
 		return `["CN"]`
 	}

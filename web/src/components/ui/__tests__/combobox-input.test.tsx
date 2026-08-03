@@ -16,25 +16,31 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
-
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}))
+import { I18nextProvider } from 'react-i18next'
 
 const { ComboboxInput } = await import('../combobox-input')
+
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: { en: { translation: {} } },
+})
 
 describe('ComboboxInput', () => {
   test('preserves a password input for masked selectable values', () => {
     const html = renderToStaticMarkup(
-      <ComboboxInput
-        options={[{ value: 'private-group', label: 'Private group' }]}
-        value='private-group'
-        onValueChange={() => undefined}
-        type='password'
-      />
+      <I18nextProvider i18n={i18n}>
+        <ComboboxInput
+          options={[{ value: 'private-group', label: 'Private group' }]}
+          value='private-group'
+          onValueChange={() => undefined}
+          type='password'
+        />
+      </I18nextProvider>
     )
 
     expect(html).toContain('type="password"')

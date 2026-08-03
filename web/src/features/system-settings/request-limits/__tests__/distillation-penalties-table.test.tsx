@@ -16,28 +16,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { I18nextProvider } from 'react-i18next'
 
 import { formatTimestampToDate } from '@/lib/format'
 
 import type { PageData, DistillationPenalty } from '../types'
 
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({
-    t: (key: string, values?: Record<string, string | number>) =>
-      key.replaceAll(/\{\{(\w+)\}\}/g, (_match, name: string) =>
-        String(values?.[name] ?? '')
-      ),
-  }),
-}))
-
 const { DistillationPenaltiesTable } =
   await import('../distillation-penalties-table')
 const { getDistillationPenaltiesQueryKey, getDistillationPenaltyPhaseConfig } =
   await import('../distillation-penalties')
+
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: { en: { translation: {} } },
+})
 
 const penalties: PageData<DistillationPenalty> = {
   page: 1,
@@ -74,9 +73,11 @@ function renderPenaltiesTable(data: PageData<DistillationPenalty>): string {
   queryClient.setQueryData(getDistillationPenaltiesQueryKey(1, 10, ''), data)
 
   return renderToStaticMarkup(
-    <QueryClientProvider client={queryClient}>
-      <DistillationPenaltiesTable />
-    </QueryClientProvider>
+    <I18nextProvider i18n={i18n}>
+      <QueryClientProvider client={queryClient}>
+        <DistillationPenaltiesTable />
+      </QueryClientProvider>
+    </I18nextProvider>
   )
 }
 

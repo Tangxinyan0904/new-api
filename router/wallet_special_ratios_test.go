@@ -5,8 +5,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
@@ -14,7 +12,6 @@ import (
 func TestWalletSpecialRatiosRequireUserAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	engine.Use(sessions.Sessions("session", cookie.NewStore([]byte("wallet-special-ratios-test"))))
 	SetApiRouter(engine)
 
 	recorder := httptest.NewRecorder()
