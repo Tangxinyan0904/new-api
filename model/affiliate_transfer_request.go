@@ -64,10 +64,20 @@ type AffiliateTransferRequestListItem struct {
 	DisplayName string `json:"display_name"`
 }
 
+type AffiliateInvitedUserDetail struct {
+	Id          int    `json:"id"`
+	Username    string `json:"username"`
+	DisplayName string `json:"display_name"`
+	CreatedAt   int64  `json:"created_at"`
+	LastLoginAt int64  `json:"last_login_at"`
+	IsDeleted   bool   `json:"is_deleted"`
+}
+
 type AffiliateTransferRequestDetail struct {
 	AffiliateTransferRequest
 	Username                  string                        `json:"username"`
 	DisplayName               string                        `json:"display_name"`
+	InvitedUsers              []AffiliateInvitedUserDetail  `json:"invited_users"`
 	InvitedCount              int                           `json:"invited_count"`
 	TotalInvitedRechargeQuota int                           `json:"total_invited_recharge_quota"`
 	RechargeRebateRate        float64                       `json:"recharge_rebate_rate"`
@@ -330,10 +340,15 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 	}
 
 	var invitedUsers []User
-	if err := DB.Select("id", "username", "display_name").Where("inviter_id = ?", item.UserId).Order("id desc").Find(&invitedUsers).Error; err != nil {
+	if err := DB.Unscoped().
+		Select("id", "username", "display_name", "created_at", "last_login_at", "deleted_at").
+		Where("inviter_id = ?", item.UserId).
+		Order("created_at DESC, id DESC").
+		Find(&invitedUsers).Error; err != nil {
 		return nil, err
 	}
 
+	invitedUserDetails := make([]AffiliateInvitedUserDetail, 0, len(invitedUsers))
 	invitedNames := make(map[int]string, len(invitedUsers))
 	invitedIds := make([]int, 0, len(invitedUsers))
 	for _, invited := range invitedUsers {
@@ -343,6 +358,14 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 			name = invited.Username
 		}
 		invitedNames[invited.Id] = name
+		invitedUserDetails = append(invitedUserDetails, AffiliateInvitedUserDetail{
+			Id:          invited.Id,
+			Username:    invited.Username,
+			DisplayName: invited.DisplayName,
+			CreatedAt:   invited.CreatedAt,
+			LastLoginAt: invited.LastLoginAt,
+			IsDeleted:   invited.DeletedAt.Valid,
+		})
 	}
 
 	sources := make([]AffiliateRechargeSourceItem, 0)
@@ -422,6 +445,7 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 		AffiliateTransferRequest:  item.AffiliateTransferRequest,
 		Username:                  item.Username,
 		DisplayName:               item.DisplayName,
+		InvitedUsers:              invitedUserDetails,
 		InvitedCount:              len(invitedUsers),
 		TotalInvitedRechargeQuota: totalRechargeQuota,
 		RechargeRebateRate:        AffiliateRechargeRebateRate,
