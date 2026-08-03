@@ -352,12 +352,6 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 	invitedNames := make(map[int]string, len(invitedUsers))
 	invitedIds := make([]int, 0, len(invitedUsers))
 	for _, invited := range invitedUsers {
-		invitedIds = append(invitedIds, invited.Id)
-		name := invited.DisplayName
-		if name == "" {
-			name = invited.Username
-		}
-		invitedNames[invited.Id] = name
 		invitedUserDetails = append(invitedUserDetails, AffiliateInvitedUserDetail{
 			Id:          invited.Id,
 			Username:    invited.Username,
@@ -366,6 +360,15 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 			LastLoginAt: invited.LastLoginAt,
 			IsDeleted:   invited.DeletedAt.Valid,
 		})
+		if invited.DeletedAt.Valid {
+			continue
+		}
+		invitedIds = append(invitedIds, invited.Id)
+		name := invited.DisplayName
+		if name == "" {
+			name = invited.Username
+		}
+		invitedNames[invited.Id] = name
 	}
 
 	sources := make([]AffiliateRechargeSourceItem, 0)

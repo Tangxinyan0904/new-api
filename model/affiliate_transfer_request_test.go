@@ -758,3 +758,47 @@ func TestAffiliateTransferRequestDetailIncludesAllInvitedUsers(t *testing.T) {
 	assert.NotContains(t, string(payload), "password")
 	assert.NotContains(t, string(payload), "older@example.com")
 }
+
+func TestAffiliateTransferRequestDetailExcludesDeletedInviteeTopUpsFromRechargeSources(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	owner := User{
+		Username: "deleted-topup-owner",
+		Password: "password",
+		AffCode:  "deleted-topup-owner-code",
+	}
+	require.NoError(t, DB.Create(&owner).Error)
+	request := AffiliateTransferRequest{
+		UserId:              owner.Id,
+		RechargeRebateQuota: 300,
+		TotalQuota:          300,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           200,
+	}
+	require.NoError(t, DB.Create(&request).Error)
+	deletedInvitee := User{
+		Username:  "deleted-topup-invitee",
+		Password:  "password",
+		AffCode:   "deleted-topup-invitee-code",
+		InviterId: owner.Id,
+		CreatedAt: 100,
+	}
+	require.NoError(t, DB.Create(&deletedInvitee).Error)
+	require.NoError(t, DB.Create(&TopUp{
+		UserId:          deletedInvitee.Id,
+		Amount:          6000,
+		TradeNo:         "deleted-topup-invitee-recharge",
+		PaymentMethod:   PaymentMethodCreem,
+		PaymentProvider: PaymentProviderCreem,
+		CompleteTime:    100,
+		Status:          common.TopUpStatusSuccess,
+	}).Error)
+	require.NoError(t, DB.Delete(&deletedInvitee).Error)
+
+	detail, err := GetAffiliateTransferRequestDetail(request.Id)
+	require.NoError(t, err)
+	require.Len(t, detail.InvitedUsers, 1)
+	assert.True(t, detail.InvitedUsers[0].IsDeleted)
+	assert.Zero(t, detail.TotalInvitedRechargeQuota)
+	assert.Empty(t, detail.RechargeSources)
+}
