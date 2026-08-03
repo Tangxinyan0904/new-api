@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"math"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -95,14 +96,35 @@ func maskAffiliateDisplayName(name string) string {
 	return string(chars[0]) + strings.Repeat("*", len(chars)-2) + string(chars[len(chars)-1])
 }
 
-func creditedTopUpQuota(topUp TopUp) int {
+func affiliateQuotaFromDecimal(value decimal.Decimal) (int, error) {
+	quota, clamp := common.QuotaFromDecimalChecked(value)
+	if clamp != nil {
+		return 0, clamp
+	}
+	if quota < 0 {
+		return 0, errors.New("affiliate quota cannot be negative")
+	}
+	return quota, nil
+}
+
+func addAffiliateQuota(left int, right int) (int, error) {
+	if left < 0 || right < 0 {
+		return 0, errors.New("affiliate quota cannot be negative")
+	}
+	return affiliateQuotaFromDecimal(decimal.NewFromInt(int64(left)).Add(decimal.NewFromInt(int64(right))))
+}
+
+func creditedTopUpQuota(topUp TopUp) (int, error) {
 	switch topUp.PaymentProvider {
 	case PaymentProviderCreem:
-		return int(topUp.Amount)
+		return affiliateQuotaFromDecimal(decimal.NewFromInt(topUp.Amount))
 	case PaymentProviderStripe:
-		return int(decimal.NewFromFloat(topUp.Money).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).IntPart())
+		if math.IsNaN(topUp.Money) || math.IsInf(topUp.Money, 0) {
+			return 0, errors.New("invalid top-up money")
+		}
+		return affiliateQuotaFromDecimal(decimal.NewFromFloat(topUp.Money).Mul(decimal.NewFromFloat(common.QuotaPerUnit)))
 	default:
-		return int(decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).IntPart())
+		return affiliateQuotaFromDecimal(decimal.NewFromInt(topUp.Amount).Mul(decimal.NewFromFloat(common.QuotaPerUnit)))
 	}
 }
 
@@ -135,11 +157,21 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 			return nil, err
 		}
 		for _, topUp := range topUps {
-			totalRechargeQuota += creditedTopUpQuota(topUp)
+			creditedQuota, err := creditedTopUpQuota(topUp)
+			if err != nil {
+				return nil, err
+			}
+			totalRechargeQuota, err = addAffiliateQuota(totalRechargeQuota, creditedQuota)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	grossRechargeRebateQuota := int(decimal.NewFromInt(int64(totalRechargeQuota)).Mul(decimal.NewFromFloat(AffiliateRechargeRebateRate)).IntPart())
+	grossRechargeRebateQuota, err := affiliateQuotaFromDecimal(decimal.NewFromInt(int64(totalRechargeQuota)).Mul(decimal.NewFromFloat(AffiliateRechargeRebateRate)))
+	if err != nil {
+		return nil, err
+	}
 	var requestedRechargeRebateQuota int
 	if err := tx.Model(&AffiliateTransferRequest{}).
 		Where("user_id = ? AND (status <> ? OR rejected_quota_forfeited_at > ?)", userId, AffiliateTransferStatusRejected, 0).
@@ -147,11 +179,17 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 		Scan(&requestedRechargeRebateQuota).Error; err != nil {
 		return nil, err
 	}
-	rebateQuota := grossRechargeRebateQuota - requestedRechargeRebateQuota
-	if rebateQuota < 0 {
-		rebateQuota = 0
+	if requestedRechargeRebateQuota < 0 {
+		return nil, errors.New("requested affiliate rebate quota cannot be negative")
 	}
-	pendingQuota := user.AffQuota + rebateQuota
+	rebateQuota := 0
+	if grossRechargeRebateQuota > requestedRechargeRebateQuota {
+		rebateQuota = grossRechargeRebateQuota - requestedRechargeRebateQuota
+	}
+	pendingQuota, err := addAffiliateQuota(user.AffQuota, rebateQuota)
+	if err != nil {
+		return nil, err
+	}
 
 	var pending AffiliateTransferRequest
 	pendingRequest := (*AffiliateTransferRequest)(nil)
@@ -310,6 +348,9 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 	sources := make([]AffiliateRechargeSourceItem, 0)
 	totalRechargeQuota := 0
 	requestRechargeRebateQuota := item.RechargeRebateQuota
+	if requestRechargeRebateQuota > common.MaxQuota {
+		return nil, errors.New("affiliate rebate quota exceeds the maximum")
+	}
 	if len(invitedIds) > 0 && requestRechargeRebateQuota > 0 {
 		var previousRechargeRebateQuota int
 		if err := DB.Model(&AffiliateTransferRequest{}).
@@ -318,17 +359,26 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 			Scan(&previousRechargeRebateQuota).Error; err != nil {
 			return nil, err
 		}
+		if previousRechargeRebateQuota < 0 {
+			return nil, errors.New("requested affiliate rebate quota cannot be negative")
+		}
 
 		var topUps []TopUp
 		if err := DB.Where("user_id IN ? AND status = ? AND (complete_time = 0 OR complete_time <= ?)", invitedIds, common.TopUpStatusSuccess, item.CreatedAt).Order("complete_time asc, id asc").Find(&topUps).Error; err != nil {
 			return nil, err
 		}
 		for _, topUp := range topUps {
-			creditedQuota := creditedTopUpQuota(topUp)
+			creditedQuota, err := creditedTopUpQuota(topUp)
+			if err != nil {
+				return nil, err
+			}
 			if creditedQuota <= 0 {
 				continue
 			}
-			fullRebateQuota := int(decimal.NewFromInt(int64(creditedQuota)).Mul(decimal.NewFromFloat(AffiliateRechargeRebateRate)).IntPart())
+			fullRebateQuota, err := affiliateQuotaFromDecimal(decimal.NewFromInt(int64(creditedQuota)).Mul(decimal.NewFromFloat(AffiliateRechargeRebateRate)))
+			if err != nil {
+				return nil, err
+			}
 			if fullRebateQuota <= 0 {
 				continue
 			}
@@ -343,9 +393,15 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 			}
 			sourceCreditedQuota := creditedQuota
 			if sourceRebateQuota < fullRebateQuota {
-				sourceCreditedQuota = int(decimal.NewFromInt(int64(sourceRebateQuota)).Div(decimal.NewFromFloat(AffiliateRechargeRebateRate)).IntPart())
+				sourceCreditedQuota, err = affiliateQuotaFromDecimal(decimal.NewFromInt(int64(sourceRebateQuota)).Div(decimal.NewFromFloat(AffiliateRechargeRebateRate)))
+				if err != nil {
+					return nil, err
+				}
 			}
-			totalRechargeQuota += sourceCreditedQuota
+			totalRechargeQuota, err = addAffiliateQuota(totalRechargeQuota, sourceCreditedQuota)
+			if err != nil {
+				return nil, err
+			}
 			sources = append(sources, AffiliateRechargeSourceItem{
 				InvitedUserId:      topUp.UserId,
 				InvitedDisplayName: invitedNames[topUp.UserId],
@@ -374,13 +430,18 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 }
 
 func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
-	return DB.Transaction(func(tx *gorm.DB) error {
+	var approvedUserId int
+	var approvedQuota int
+	err := DB.Transaction(func(tx *gorm.DB) error {
 		var request AffiliateTransferRequest
 		if err := lockForUpdate(tx).First(&request, "id = ?", requestId).Error; err != nil {
 			return err
 		}
 		if request.Status != AffiliateTransferStatusPending {
 			return errors.New("request is not pending")
+		}
+		if request.InviteRewardQuota < 0 || request.RechargeRebateQuota < 0 || request.TotalQuota <= 0 || request.TotalQuota > common.MaxQuota {
+			return errors.New("invalid affiliate transfer quota")
 		}
 
 		res := tx.Model(&AffiliateTransferRequest{}).
@@ -410,16 +471,25 @@ func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 			}
 		}
 		res = tx.Model(&User{}).
-			Where("id = ?", request.UserId).
+			Where("id = ? AND quota <= ?", request.UserId, common.MaxQuota-request.TotalQuota).
 			Update("quota", gorm.Expr("quota + ?", request.TotalQuota))
 		if res.Error != nil {
 			return res.Error
 		}
 		if res.RowsAffected != 1 {
-			return errors.New("transfer recipient does not exist")
+			return errors.New("transfer recipient does not exist or quota limit would be exceeded")
 		}
+		approvedUserId = request.UserId
+		approvedQuota = request.TotalQuota
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+	if err := cacheIncrUserQuota(approvedUserId, int64(approvedQuota)); err != nil {
+		common.SysLog("failed to increase user quota cache after affiliate transfer approval: " + err.Error())
+	}
+	return nil
 }
 
 func RejectAffiliateTransferRequest(requestId int, reviewerId int, reason string) error {

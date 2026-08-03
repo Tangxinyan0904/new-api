@@ -1,6 +1,7 @@
 package model
 
 import (
+	"math"
 	"sync"
 	"testing"
 
@@ -151,6 +152,94 @@ func TestCreateAffiliateTransferRequestMinimumQuotaBoundary(t *testing.T) {
 	request, err = CreateAffiliateTransferRequest(owner.Id)
 	require.NoError(t, err)
 	assert.Equal(t, minimumQuota, request.TotalQuota)
+}
+
+func TestAffiliateRebateCalculationsRejectSaturatedTopUpQuota(t *testing.T) {
+	tests := []struct {
+		name string
+		load func(t *testing.T, owner User, invitee User) error
+	}{
+		{
+			name: "summary",
+			load: func(t *testing.T, owner User, _ User) error {
+				_, err := GetAffiliateRebateSummary(owner.Id)
+				return err
+			},
+		},
+		{
+			name: "approval detail",
+			load: func(t *testing.T, owner User, _ User) error {
+				request := AffiliateTransferRequest{
+					UserId:              owner.Id,
+					RechargeRebateQuota: 1,
+					TotalQuota:          1,
+					Status:              AffiliateTransferStatusPending,
+					CreatedAt:           100,
+				}
+				require.NoError(t, DB.Create(&request).Error)
+				_, err := GetAffiliateTransferRequestDetail(request.Id)
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupAffiliateTransferRequestFixture(t)
+
+			owner := User{Username: "saturated-affiliate-owner", Password: "password", AffCode: "saturated-affiliate-owner-code"}
+			require.NoError(t, DB.Create(&owner).Error)
+			invitee := User{Username: "saturated-affiliate-invitee", Password: "password", AffCode: "saturated-affiliate-invitee-code", InviterId: owner.Id}
+			require.NoError(t, DB.Create(&invitee).Error)
+			require.NoError(t, DB.Create(&TopUp{
+				UserId:          invitee.Id,
+				Amount:          math.MaxInt64,
+				TradeNo:         "saturated-affiliate-topup-" + tt.name,
+				PaymentMethod:   PaymentMethodBalance,
+				PaymentProvider: PaymentProviderEpay,
+				CompleteTime:    100,
+				Status:          common.TopUpStatusSuccess,
+			}).Error)
+
+			err := tt.load(t, owner, invitee)
+			require.Error(t, err)
+			var clamp *common.QuotaClamp
+			require.ErrorAs(t, err, &clamp)
+			assert.Equal(t, common.QuotaClampOverflow, clamp.Kind)
+		})
+	}
+}
+
+func TestApproveAffiliateTransferRequestUpdatesCachedQuota(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+	useUserCacheMiniRedis(t)
+
+	owner := User{
+		Username:    "cached-affiliate-owner",
+		Password:    "password",
+		AffCode:     "cached-affiliate-owner-code",
+		Quota:       50,
+		Role:        common.RoleCommonUser,
+		Status:      common.UserStatusEnabled,
+		Group:       "default",
+		AuthVersion: 1,
+	}
+	require.NoError(t, DB.Create(&owner).Error)
+	require.NoError(t, populateUserCache(owner))
+	request := AffiliateTransferRequest{
+		UserId:              owner.Id,
+		RechargeRebateQuota: 500,
+		TotalQuota:          500,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           100,
+	}
+	require.NoError(t, DB.Create(&request).Error)
+
+	require.NoError(t, ApproveAffiliateTransferRequest(request.Id, 99))
+
+	quota, err := GetUserQuota(owner.Id, false)
+	require.NoError(t, err)
+	assert.Equal(t, 550, quota)
 }
 
 func TestAffiliateTransferRequestMultiConnectionConcurrentTerminalTransition(t *testing.T) {
