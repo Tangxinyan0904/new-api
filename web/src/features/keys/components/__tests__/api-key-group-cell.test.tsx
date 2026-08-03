@@ -186,6 +186,7 @@ describe('API key group table cell', () => {
       root.render(<CellHarness group='auto' shouldReduceMotion={false} />)
     )
 
+    assert.equal(container.textContent?.includes('Auto'), true)
     assert.equal(
       container.querySelectorAll('[data-auto-group-frame]').length,
       1
@@ -198,7 +199,6 @@ describe('API key group table cell', () => {
       container.querySelector('[data-auto-group-effect="ratio"]'),
       null
     )
-    assert.equal(container.textContent?.includes('Auto'), true)
     assert.equal(container.textContent?.includes('Ratio'), false)
 
     await act(async () => root.unmount())

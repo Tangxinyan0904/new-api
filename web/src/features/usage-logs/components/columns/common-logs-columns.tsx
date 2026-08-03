@@ -646,17 +646,12 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const log = row.original
         if (!isTimingLogType(log.type)) return null
 
-        const useTime = row.getValue('use_time') as number
         const other = parseLogOther(log.other)
-        const tokensPerSecond =
-          useTime > 0 && log.completion_tokens > 0
-            ? log.completion_tokens / useTime
-            : null
 
         return (
           <StreamTpsCell
             isStream={log.is_stream}
-            tokensPerSecond={tokensPerSecond}
+            showTokensPerSecond={false}
             streamStatus={other?.stream_status}
           />
         )
@@ -747,7 +742,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const quota = row.getValue('quota') as number
         const other = parseLogOther(log.other)
         if (other?.billing_source === 'subscription') {
-          return <SubscriptionCostCell quota={quota} />
+          return <SubscriptionCostCell quota={quota} other={other} />
         }
         return <LogCostDisplay quota={quota} other={other} />
       },

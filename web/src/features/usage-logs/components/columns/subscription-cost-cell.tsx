@@ -19,26 +19,38 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 
 import { StatusBadge } from '@/components/status-badge'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { formatLogQuota } from '@/lib/format'
+
+import { hasToolSurcharge } from '../../lib/format'
+import type { LogOtherData } from '../../types'
+import { ToolSurchargeMarker } from '../log-cost-display'
 
 type SubscriptionCostCellProps = {
   quota: number
+  other?: LogOtherData | null
 }
 
 export function SubscriptionCostCell(props: SubscriptionCostCellProps) {
   const { t } = useTranslation()
+  const showToolSurcharge = hasToolSurcharge(props.other ?? null)
 
   return (
-    <div className='flex w-fit flex-col items-center gap-0.5'>
-      <StatusBadge
-        label={t('Subscription')}
-        variant='success'
-        size='sm'
-        copyable={false}
-      />
-      <span className='font-mono text-xs font-semibold tabular-nums'>
-        {formatLogQuota(props.quota)}
-      </span>
-    </div>
+    <TooltipProvider>
+      <div className='inline-flex items-center gap-1'>
+        <div className='flex w-fit flex-col items-center gap-0.5'>
+          <StatusBadge
+            label={t('Subscription')}
+            variant='success'
+            size='sm'
+            copyable={false}
+          />
+          <span className='font-mono text-xs font-semibold tabular-nums'>
+            {formatLogQuota(props.quota)}
+          </span>
+        </div>
+        {showToolSurcharge ? <ToolSurchargeMarker /> : null}
+      </div>
+    </TooltipProvider>
   )
 }

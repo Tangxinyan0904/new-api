@@ -20,37 +20,23 @@ import { describe, expect, mock, test } from 'bun:test'
 
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { formatLogQuota } from '@/lib/format'
-
 mock.module('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }))
 
-const { SubscriptionCostCell } = await import('../subscription-cost-cell')
+const { StreamTpsCell } = await import('../timing-metrics-cell')
 
-describe('SubscriptionCostCell', () => {
-  test('renders the subscription label above the deducted amount', () => {
-    const quota = 500_000
-    const html = renderToStaticMarkup(<SubscriptionCostCell quota={quota} />)
-    const labelIndex = html.indexOf('Subscription')
-    const amountIndex = html.indexOf(formatLogQuota(quota))
-
-    expect(html).toContain('flex-col')
-    expect(labelIndex).toBeGreaterThan(-1)
-    expect(amountIndex).toBeGreaterThan(labelIndex)
-  })
-
-  test('keeps the tool-call surcharge marker for subscription deductions', () => {
+describe('StreamTpsCell', () => {
+  test('hides throughput when the compact log column only needs stream status', () => {
     const html = renderToStaticMarkup(
-      <SubscriptionCostCell
-        quota={500_000}
-        other={{
-          billing_source: 'subscription',
-          tool_surcharges: [{ name: 'lookup_customer', count: 1, price: 5 }],
-        }}
+      <StreamTpsCell
+        isStream
+        tokensPerSecond={42}
+        showTokensPerSecond={false}
       />
     )
 
-    expect(html).toContain('data-tool-surcharge-indicator="true"')
+    expect(html).toContain('Stream')
+    expect(html).not.toContain('t/s')
   })
 })

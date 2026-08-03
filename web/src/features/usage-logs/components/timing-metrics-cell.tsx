@@ -152,12 +152,14 @@ export function TimingMetricsCell(props: TimingMetricsCellProps) {
 interface StreamTpsCellProps {
   isStream: boolean
   tokensPerSecond?: number | null
+  showTokensPerSecond?: boolean
   streamStatus?: LogOtherData['stream_status']
   className?: string
 }
 
 export function StreamTpsCell(props: StreamTpsCellProps) {
   const { t } = useTranslation()
+  const showTokensPerSecond = props.showTokensPerSecond ?? true
   const showStreamError =
     props.isStream && props.streamStatus && props.streamStatus.status !== 'ok'
   const tpsLabel =
@@ -203,9 +205,11 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
           </TooltipProvider>
         )}
       </span>
-      <span className='text-muted-foreground/60 px-0.5 tabular-nums'>
-        {tpsLabel}
-      </span>
+      {showTokensPerSecond && (
+        <span className='text-muted-foreground/60 px-0.5 tabular-nums'>
+          {tpsLabel}
+        </span>
+      )}
     </div>
   )
 }

@@ -44,7 +44,7 @@ function splitQuotaDisplay(value: string): { prefix: string; amount: string } {
   return { prefix: match[1], amount: match[2] }
 }
 
-function ToolSurchargeMarker() {
+export function ToolSurchargeMarker() {
   const { t } = useTranslation()
   const label = t('Includes tool-call surcharge')
 
