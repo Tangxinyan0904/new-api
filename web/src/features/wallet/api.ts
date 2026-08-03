@@ -30,6 +30,9 @@ import type {
   PaymentResponse,
   StripePaymentResponse,
   AffiliateCodeResponse,
+  AffiliateRebateSummaryResponse,
+  AffiliateTransferRequestResponse,
+  AffiliateTransferHistoryResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
   CompleteOrderRequest,
@@ -39,6 +42,8 @@ import type {
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
+  WalletSpecialRatioResponse,
+  WalletSpecialRatioRule,
 } from './types'
 
 // ============================================================================
@@ -58,6 +63,18 @@ export function isApiSuccess(response: ApiResponse): boolean {
 export async function getTopupInfo(): Promise<TopupInfoResponse> {
   const res = await api.get('/api/user/topup/info')
   return res.data
+}
+
+export async function getWalletSpecialRatioRules(): Promise<
+  WalletSpecialRatioRule[]
+> {
+  const response = await api.get<WalletSpecialRatioResponse>(
+    '/api/user/wallet/special-ratios'
+  )
+  if (!response.data.success) {
+    throw new Error(response.data.message || 'Failed to load special ratios')
+  }
+  return response.data.data ?? []
 }
 
 /**
@@ -196,6 +213,30 @@ export async function transferAffiliateQuota(
   request: AffiliateTransferRequest
 ): Promise<AffiliateTransferResponse> {
   const res = await api.post('/api/user/aff_transfer', request)
+  return res.data
+}
+
+export async function getAffiliateRebateSummary(): Promise<AffiliateRebateSummaryResponse> {
+  const res = await api.get('/api/user/affiliate/rebate-summary')
+  return res.data
+}
+
+export async function createAffiliateTransferRequest(): Promise<AffiliateTransferRequestResponse> {
+  const res = await api.post('/api/user/affiliate/transfer-request')
+  return res.data
+}
+
+export async function getAffiliateTransferHistory(
+  page: number,
+  pageSize: number
+): Promise<AffiliateTransferHistoryResponse> {
+  const params = new URLSearchParams({
+    p: page.toString(),
+    page_size: pageSize.toString(),
+  })
+  const res = await api.get(
+    `/api/user/affiliate/transfer-requests/self?${params.toString()}`
+  )
   return res.data
 }
 

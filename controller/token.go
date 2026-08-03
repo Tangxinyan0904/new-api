@@ -124,6 +124,10 @@ func GetAllTokens(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if err := model.AttachTodayQuotaToTokens(userId, tokens); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	total, _ := model.CountUserTokens(userId)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
@@ -139,6 +143,10 @@ func SearchTokens(c *gin.Context) {
 
 	tokens, total, err := model.SearchUserTokens(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.AttachTodayQuotaToTokens(userId, tokens); err != nil {
 		common.ApiError(c, err)
 		return
 	}

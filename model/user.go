@@ -624,9 +624,11 @@ func (user *User) finishInsert(inviterId int) {
 		if defaultSidebarConfig != "" {
 			currentSetting := createdUser.GetSetting()
 			currentSetting.SidebarModules = defaultSidebarConfig
-			createdUser.SetSetting(currentSetting)
-			createdUser.Update(false)
-			common.SysLog(fmt.Sprintf("为新用户 %s (角色: %d) 初始化边栏配置", createdUser.Username, createdUser.Role))
+			if err := UpdateUserSetting(createdUser.Id, currentSetting); err != nil {
+				common.SysError(fmt.Sprintf("为新用户 %s 初始化边栏配置失败: %s", createdUser.Username, err.Error()))
+			} else {
+				common.SysLog(fmt.Sprintf("为新用户 %s (角色: %d) 初始化边栏配置", createdUser.Username, createdUser.Role))
+			}
 		}
 	}
 
@@ -681,9 +683,11 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 		if defaultSidebarConfig != "" {
 			currentSetting := createdUser.GetSetting()
 			currentSetting.SidebarModules = defaultSidebarConfig
-			createdUser.SetSetting(currentSetting)
-			createdUser.Update(false)
-			common.SysLog(fmt.Sprintf("为新用户 %s (角色: %d) 初始化边栏配置", createdUser.Username, createdUser.Role))
+			if err := UpdateUserSetting(createdUser.Id, currentSetting); err != nil {
+				common.SysError(fmt.Sprintf("为新用户 %s 初始化边栏配置失败: %s", createdUser.Username, err.Error()))
+			} else {
+				common.SysLog(fmt.Sprintf("为新用户 %s (角色: %d) 初始化边栏配置", createdUser.Username, createdUser.Role))
+			}
 		}
 	}
 

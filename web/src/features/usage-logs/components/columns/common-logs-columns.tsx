@@ -43,6 +43,10 @@ import { cn } from '@/lib/utils'
 import { LOG_TYPE_ALL_VALUE } from '../../constants'
 import type { UsageLog } from '../../data/schema'
 import {
+  getCacheHitMetrics,
+  isHighCacheHitPercentage,
+} from '../../lib/cache-metrics'
+import {
   formatModelName,
   getTieredBillingSummary,
   hasAnyCacheTokens,
@@ -62,6 +66,7 @@ import { LogCostDisplay } from '../log-cost-display'
 import { ModelBadge } from '../model-badge'
 import { TimingMetricsCell, StreamTpsCell } from '../timing-metrics-cell'
 import { useUsageLogsContext } from '../usage-logs-provider'
+import { SubscriptionCostCell } from './subscription-cost-cell'
 
 interface DetailSegment {
   text: string
@@ -619,6 +624,22 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       meta: { mobileTitle: true },
     },
     {
+      id: 'reasoning_effort',
+      header: t('Reasoning Effort'),
+      cell: ({ row }) => {
+        const log = row.original
+        if (!isDisplayableLogType(log.type)) return null
+
+        const reasoningEffort = parseLogOther(log.other)?.reasoning_effort
+        if (!reasoningEffort) {
+          return <span className='text-muted-foreground text-xs'>-</span>
+        }
+
+        return <span className='font-mono text-xs'>{reasoningEffort}</span>
+      },
+      size: 75,
+    },
+    {
       accessorKey: 'is_stream',
       header: t('Stream'),
       cell: ({ row }) => {
@@ -641,6 +662,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         )
       },
       meta: { label: t('Stream') },
+      size: 50,
     },
     {
       accessorKey: 'prompt_tokens',
@@ -690,6 +712,32 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       },
     },
     {
+      id: 'cache_hit',
+      header: t('Cache Hit'),
+      cell: ({ row }) => {
+        const log = row.original
+        if (!isDisplayableLogType(log.type)) return null
+
+        const metrics = getCacheHitMetrics(
+          log.prompt_tokens,
+          parseLogOther(log.other)
+        )
+        const isHighHit = isHighCacheHitPercentage(metrics.percentage)
+
+        return (
+          <span
+            className={cn(
+              'font-mono text-xs tabular-nums',
+              isHighHit && 'font-medium text-emerald-700 dark:text-emerald-400'
+            )}
+          >
+            {metrics.formattedPercentage}
+          </span>
+        )
+      },
+      size: 75,
+    },
+    {
       accessorKey: 'quota',
       header: t('Cost'),
       cell: ({ row }) => {
@@ -698,6 +746,9 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
 
         const quota = row.getValue('quota') as number
         const other = parseLogOther(log.other)
+        if (other?.billing_source === 'subscription') {
+          return <SubscriptionCostCell quota={quota} />
+        }
         return <LogCostDisplay quota={quota} other={other} />
       },
     },

@@ -31,67 +31,61 @@ interface LegalConsentProps {
   className?: string
 }
 
-export function LegalConsent({
-  status,
-  checked,
-  onCheckedChange,
-  className,
-}: LegalConsentProps) {
+export function LegalConsent(props: LegalConsentProps) {
   const { t } = useTranslation()
-  const hasUserAgreement = Boolean(status?.user_agreement_enabled)
-  const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
+  const hasUserAgreement = Boolean(props.status?.user_agreement_enabled)
+  const hasPrivacyPolicy = Boolean(props.status?.privacy_policy_enabled)
 
   if (!hasUserAgreement && !hasPrivacyPolicy) {
     return null
   }
 
   const handleChange = (value: boolean) => {
-    onCheckedChange(value === true)
+    props.onCheckedChange(value === true)
   }
 
   return (
-    <div
+    <Label
+      htmlFor='legal-consent'
       className={cn(
-        'border-border/60 bg-muted/40 flex items-start gap-3 rounded-md border p-3',
-        className
+        'focus-within:ring-ring/60 flex cursor-pointer items-start gap-3 rounded-lg border-2 px-3 py-2.5 text-left text-sm leading-5 font-medium transition-colors focus-within:ring-3 focus-within:ring-offset-2',
+        props.checked
+          ? 'border-primary/70 bg-primary/10 text-foreground hover:bg-primary/15'
+          : 'border-destructive/70 bg-destructive/10 text-foreground hover:bg-destructive/15',
+        props.className
       )}
     >
       <Checkbox
         id='legal-consent'
-        checked={checked}
+        checked={props.checked}
         onCheckedChange={handleChange}
-        className='mt-0.5'
+        className='border-foreground/70 bg-background mt-0.5 size-5 border-2 shadow-sm'
       />
-      <Label
-        htmlFor='legal-consent'
-        className='text-muted-foreground items-start gap-1 text-left text-xs leading-5 font-normal'
-      >
-        <span>
-          {t('I have read and agree to the')}{' '}
-          {hasUserAgreement && (
-            <a
-              href='/user-agreement'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('User Agreement')}
-            </a>
-          )}
-          {hasUserAgreement && hasPrivacyPolicy && ' and the '}
-          {hasPrivacyPolicy && (
-            <a
-              href='/privacy-policy'
-              target='_blank'
-              rel='noopener noreferrer'
-              className='text-primary hover:underline'
-            >
-              {t('Privacy Policy')}
-            </a>
-          )}
-          .
-        </span>
-      </Label>
-    </div>
+      <span className='min-w-0 flex-1'>
+        {t('I have read and agree to the')}{' '}
+        {hasUserAgreement && (
+          <a
+            href='/user-agreement'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-primary focus-visible:ring-ring/60 rounded-sm font-semibold underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none'
+          >
+            {t('User Agreement')}
+          </a>
+        )}
+        {hasUserAgreement && hasPrivacyPolicy && <> {t('and')} </>}
+        {hasPrivacyPolicy && (
+          <a
+            href='/privacy-policy'
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-primary focus-visible:ring-ring/60 rounded-sm font-semibold underline underline-offset-4 focus-visible:ring-2 focus-visible:outline-none'
+          >
+            {t('Privacy Policy')}
+          </a>
+        )}
+        .
+      </span>
+    </Label>
   )
 }

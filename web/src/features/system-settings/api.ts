@@ -41,6 +41,13 @@ export async function updateSystemOption(request: UpdateOptionRequest) {
   return res.data
 }
 
+export async function downloadGeoIPDatabase() {
+  const res = await api.post<UpdateOptionResponse>(
+    '/api/option/geoip/download'
+  )
+  return res.data
+}
+
 export async function confirmPaymentCompliance() {
   const res = await api.post<ConfirmPaymentComplianceResponse>(
     '/api/option/payment_compliance',

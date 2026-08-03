@@ -48,28 +48,22 @@ func GetPageQuery(c *gin.Context) *PageInfo {
 		pageInfo.PageSize = pageSize
 	}
 	if pageInfo.Page < 1 {
-		// 兼容
-		page, _ := strconv.Atoi(c.Query("p"))
-		if page != 0 {
-			pageInfo.Page = page
-		} else {
-			pageInfo.Page = 1
-		}
+		pageInfo.Page = 1
 	}
 
-	if pageInfo.PageSize == 0 {
+	if pageInfo.PageSize <= 0 {
 		// 兼容
 		pageSize, _ := strconv.Atoi(c.Query("ps"))
-		if pageSize != 0 {
+		if pageSize > 0 {
 			pageInfo.PageSize = pageSize
 		}
-		if pageInfo.PageSize == 0 {
+		if pageInfo.PageSize <= 0 {
 			pageSize, _ = strconv.Atoi(c.Query("size")) // token page
-			if pageSize != 0 {
+			if pageSize > 0 {
 				pageInfo.PageSize = pageSize
 			}
 		}
-		if pageInfo.PageSize == 0 {
+		if pageInfo.PageSize <= 0 {
 			pageInfo.PageSize = ItemsPerPage
 		}
 	}

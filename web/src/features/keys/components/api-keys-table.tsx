@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useStatus } from '@/hooks/use-status'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -53,6 +54,7 @@ import {
   ERROR_MESSAGES,
 } from '../constants'
 import type { ApiKey } from '../types'
+import { ApiKeyNotice } from './api-key-notice'
 import { ApiKeyCell, UnlimitedQuotaBadge } from './api-keys-cells'
 import { useApiKeysColumns } from './api-keys-columns'
 import { useApiKeys } from './api-keys-provider'
@@ -72,20 +74,15 @@ function isDisabledApiKeyRow(apiKey: ApiKey) {
 
 function ApiKeysMobileSkeleton() {
   return (
-    <div className='divide-border overflow-hidden rounded-lg border'>
+    <div className='grid grid-cols-1 gap-2'>
       {API_KEYS_MOBILE_SKELETON_IDS.map((id) => (
-        <div
-          key={id}
-          className='space-y-2 border-b px-3 py-2.5 last:border-b-0'
-        >
-          <div className='flex items-center justify-between'>
-            <Skeleton className='h-4 w-32' />
-            <Skeleton className='h-5 w-16 rounded-md' />
+        <div key={id} className='space-y-2 rounded-lg border px-2.5 py-2.5'>
+          <div className='space-y-1'>
+            <Skeleton className='h-4 w-24' />
+            <Skeleton className='h-5 w-14 rounded-md' />
           </div>
-          <div className='flex items-center justify-between gap-3'>
-            <Skeleton className='h-7 w-44' />
-            <Skeleton className='h-8 w-16' />
-          </div>
+          <Skeleton className='h-7 w-full' />
+          <Skeleton className='ml-auto h-8 w-20' />
           <Skeleton className='h-3 w-28' />
         </div>
       ))}
@@ -126,7 +123,7 @@ function ApiKeysMobileList({
   }
 
   return (
-    <div className='divide-border overflow-hidden rounded-lg border'>
+    <div className='grid grid-cols-1 gap-2'>
       {rows.map((row) => {
         const apiKey = row.original
         const statusConfig = API_KEY_STATUSES[apiKey.status]
@@ -136,11 +133,11 @@ function ApiKeysMobileList({
           <div
             key={row.id}
             className={cn(
-              'bg-card space-y-2.5 border-b px-3 py-2.5 last:border-b-0',
+              'bg-card min-w-0 space-y-2.5 rounded-lg border px-2.5 py-2.5',
               isDisabledApiKeyRow(apiKey) && DISABLED_ROW_MOBILE
             )}
           >
-            <div className='flex items-start justify-between gap-3'>
+            <div className='min-w-0 space-y-1'>
               <div className='min-w-0'>
                 <div className='truncate text-sm font-semibold'>
                   {apiKey.name}
@@ -158,11 +155,13 @@ function ApiKeysMobileList({
               )}
             </div>
 
-            <div className='flex min-w-0 items-center justify-between gap-2'>
-              <div className='min-w-0 flex-1 [&_button:first-child]:max-w-full [&_button:first-child]:truncate [&_button:first-child]:px-0'>
+            <div className='min-w-0 space-y-2'>
+              <div className='min-w-0 [&_button:first-child]:max-w-full [&_button:first-child]:truncate [&_button:first-child]:px-0'>
                 <ApiKeyCell apiKey={apiKey} />
               </div>
-              <DataTableRowActions row={row} />
+              <div className='flex justify-end'>
+                <DataTableRowActions row={row} />
+              </div>
             </div>
 
             <div className='flex items-center justify-between gap-2 text-xs'>
@@ -179,6 +178,13 @@ function ApiKeysMobileList({
                 </span>
               )}
             </div>
+
+            <div className='flex items-center justify-between gap-2 text-xs'>
+              <span className='text-muted-foreground'>{t('Today Usage')}</span>
+              <span className='font-medium tabular-nums'>
+                {formatQuota(apiKey.today_quota ?? 0)}
+              </span>
+            </div>
           </div>
         )
       })}
@@ -189,6 +195,7 @@ function ApiKeysMobileList({
 export function ApiKeysTable() {
   const { t } = useTranslation()
   const { refreshTrigger } = useApiKeys()
+  const { status } = useStatus()
   const [now, setNow] = useState(() => Date.now())
   const columns = useApiKeysColumns(now)
 
@@ -281,6 +288,12 @@ export function ApiKeysTable() {
     columns,
     enableRowSelection: true,
     columnFilters,
+    initialColumnVisibility: {
+      model_limits: false,
+      allow_ips: false,
+      created_time: false,
+      expired_time: false,
+    },
     columnVisibilityStorageKey: API_KEYS_COLUMN_VISIBILITY_STORAGE_KEY,
     globalFilter,
     pagination,
@@ -324,8 +337,12 @@ export function ApiKeysTable() {
             singleSelect: true,
           },
         ],
+        afterFilters: <ApiKeyNotice notice={status?.api_key_notice} />,
       }}
       mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}
+      getColumnClassName={(columnId, part) =>
+        columnId === 'actions' && part === 'cell' ? 'py-0' : undefined
+      }
       getRowClassName={(row) =>
         isDisabledApiKeyRow(row.original) ? DISABLED_ROW_DESKTOP : undefined
       }

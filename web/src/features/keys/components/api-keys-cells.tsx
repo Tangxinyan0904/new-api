@@ -16,9 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useMutation } from '@tanstack/react-query'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
 import { BadgeCell } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
@@ -36,8 +38,51 @@ import {
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { formatQuota } from '@/lib/format'
 
-import type { ApiKey } from '../types'
+import { updateApiKey } from '../api'
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
+import type { ApiKey, ApiKeyFormData } from '../types'
+import {
+  ApiKeyGroupCombobox,
+  type ApiKeyGroupOption,
+} from './api-key-group-combobox'
 import { useApiKeys } from './api-keys-provider'
+
+function getGroupUpdatePayload(
+  apiKey: ApiKey,
+  group: string
+): ApiKeyFormData & { id: number } {
+  return {
+    id: apiKey.id,
+    name: apiKey.name,
+    remain_quota: apiKey.remain_quota,
+    expired_time: apiKey.expired_time,
+    unlimited_quota: apiKey.unlimited_quota,
+    model_limits_enabled: apiKey.model_limits_enabled,
+    model_limits: apiKey.model_limits || '',
+    allow_ips: apiKey.allow_ips || '',
+    group,
+    auto_groups: group === 'auto' ? (apiKey.auto_groups ?? []) : [],
+    cross_group_retry: group === 'auto' ? !!apiKey.cross_group_retry : false,
+  }
+}
+
+function ensureCurrentGroupOption(
+  options: ApiKeyGroupOption[],
+  apiKey: ApiKey,
+  fallbackLabel: string
+): ApiKeyGroupOption[] {
+  const currentGroup = apiKey.group || ''
+  if (options.some((option) => option.value === currentGroup)) return options
+
+  return [
+    {
+      value: currentGroup,
+      label: currentGroup || fallbackLabel,
+      desc: currentGroup || fallbackLabel,
+    },
+    ...options,
+  ]
+}
 
 export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation()
@@ -173,6 +218,50 @@ export function UnlimitedQuotaBadge(props: UnlimitedQuotaBadgeProps) {
         </span>
       </PopoverContent>
     </Popover>
+  )
+}
+
+export function EditableApiKeyGroupCell(props: {
+  apiKey: ApiKey
+  groupOptions: ApiKeyGroupOption[]
+}) {
+  const { t } = useTranslation()
+  const { triggerRefresh } = useApiKeys()
+  const mutation = useMutation({
+    mutationFn: (group: string) =>
+      updateApiKey(getGroupUpdatePayload(props.apiKey, group)),
+    onSuccess: (result) => {
+      if (result.success) {
+        toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))
+        triggerRefresh()
+        return
+      }
+
+      toast.error(result.message || t(ERROR_MESSAGES.UPDATE_FAILED))
+    },
+    onError: () => {
+      toast.error(t(ERROR_MESSAGES.UPDATE_FAILED))
+    },
+  })
+
+  const options = ensureCurrentGroupOption(
+    props.groupOptions,
+    props.apiKey,
+    t('User Group')
+  )
+
+  return (
+    <ApiKeyGroupCombobox
+      options={options}
+      value={props.apiKey.group || ''}
+      onValueChange={(group) => {
+        if (group === (props.apiKey.group || '')) return
+        mutation.mutate(group)
+      }}
+      placeholder={t('Select a group')}
+      disabled={mutation.isPending || options.length === 0}
+      compact
+    />
   )
 }
 

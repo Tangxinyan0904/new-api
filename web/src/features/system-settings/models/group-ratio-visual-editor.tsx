@@ -76,12 +76,20 @@ import {
 } from '@/components/ui/sheet'
 
 import { safeJsonParse } from '../utils/json-parser'
+import {
+  isWalletDisplayRuleSelected,
+  moveWalletDisplayRule,
+  parseWalletDisplayMap,
+  serializeWalletDisplayMap,
+  setWalletDisplayRule,
+} from './group-ratio-wallet-display'
 
 type GroupRatioVisualEditorProps = {
   groupRatio: string
   topupGroupRatio: string
   userUsableGroups: string
   groupGroupRatio: string
+  groupGroupRatioWalletDisplay: string
   autoGroups: string
   maxTokenAutoGroupsField: ReactNode
   groupSpecialUsableGroup: string
@@ -264,6 +272,7 @@ export const GroupRatioVisualEditor = memo(function GroupRatioVisualEditor({
   topupGroupRatio,
   userUsableGroups,
   groupGroupRatio,
+  groupGroupRatioWalletDisplay,
   autoGroups,
   maxTokenAutoGroupsField,
   groupSpecialUsableGroup,
@@ -345,6 +354,7 @@ export const GroupRatioVisualEditor = memo(function GroupRatioVisualEditor({
       <GroupOverrideRules
         registry={registry}
         groupGroupRatio={groupGroupRatio}
+        groupGroupRatioWalletDisplay={groupGroupRatioWalletDisplay}
         onChange={onChange}
       />
 
@@ -687,12 +697,14 @@ type GroupOverride = {
 type GroupOverrideRulesProps = {
   registry: RegistryEntry[]
   groupGroupRatio: string
+  groupGroupRatioWalletDisplay: string
   onChange: (field: string, value: string) => void
 }
 
 function GroupOverrideRules({
   registry,
   groupGroupRatio,
+  groupGroupRatioWalletDisplay,
   onChange,
 }: GroupOverrideRulesProps) {
   const { t } = useTranslation()
@@ -727,6 +739,16 @@ function GroupOverrideRules({
     }))
   }, [groupGroupRatio])
 
+  const safeWalletDisplayValue = useMemo(() => {
+    try {
+      return serializeWalletDisplayMap(
+        parseWalletDisplayMap(groupGroupRatioWalletDisplay)
+      )
+    } catch {
+      return '{}'
+    }
+  }, [groupGroupRatioWalletDisplay])
+
   const emitMap = useCallback(
     (map: Record<string, Record<string, number>>) => {
       onChange('GroupGroupRatio', JSON.stringify(map, null, 2))
@@ -750,8 +772,24 @@ function GroupOverrideRules({
       const map = parseNestedRatioMap(groupGroupRatio)
       delete map[userGroup]
       emitMap(map)
+
+      let nextDisplayValue = safeWalletDisplayValue
+      const selectedTargets = Object.keys(
+        parseWalletDisplayMap(safeWalletDisplayValue)[userGroup] ?? {}
+      )
+      for (const targetGroup of selectedTargets) {
+        nextDisplayValue = setWalletDisplayRule(
+          nextDisplayValue,
+          userGroup,
+          targetGroup,
+          false
+        )
+      }
+      if (nextDisplayValue !== safeWalletDisplayValue) {
+        onChange('GroupGroupRatioWalletDisplay', nextDisplayValue)
+      }
     },
-    [groupGroupRatio, emitMap]
+    [groupGroupRatio, emitMap, onChange, safeWalletDisplayValue]
   )
 
   const handleOverrideAdd = useCallback((userGroup: string) => {
@@ -778,12 +816,28 @@ function GroupOverrideRules({
       }
       if (oldTargetGroup && oldTargetGroup !== targetGroup) {
         delete map[overrideUserGroup][oldTargetGroup]
+        onChange(
+          'GroupGroupRatioWalletDisplay',
+          moveWalletDisplayRule(
+            safeWalletDisplayValue,
+            overrideUserGroup,
+            oldTargetGroup,
+            overrideUserGroup,
+            targetGroup
+          )
+        )
       }
       map[overrideUserGroup][targetGroup] = ratio
       emitMap(map)
       setOverrideDialogOpen(false)
     },
-    [overrideUserGroup, groupGroupRatio, emitMap]
+    [
+      overrideUserGroup,
+      groupGroupRatio,
+      emitMap,
+      onChange,
+      safeWalletDisplayValue,
+    ]
   )
 
   const handleOverrideDelete = useCallback(
@@ -796,8 +850,17 @@ function GroupOverrideRules({
         }
       }
       emitMap(map)
+      onChange(
+        'GroupGroupRatioWalletDisplay',
+        setWalletDisplayRule(
+          safeWalletDisplayValue,
+          userGroup,
+          targetGroup,
+          false
+        )
+      )
     },
-    [groupGroupRatio, emitMap]
+    [groupGroupRatio, emitMap, onChange, safeWalletDisplayValue]
   )
 
   return (
@@ -917,6 +980,37 @@ function GroupOverrideRules({
                                     </span>
                                   )
                                 },
+                              },
+                              {
+                                id: 'wallet-display',
+                                header: t('Wallet display'),
+                                className: 'w-28 text-center',
+                                cellClassName: 'text-center',
+                                cell: (override) => (
+                                  <div className='flex justify-center'>
+                                    <Checkbox
+                                      checked={isWalletDisplayRuleSelected(
+                                        safeWalletDisplayValue,
+                                        userGroupData.userGroup,
+                                        override.targetGroup
+                                      )}
+                                      onCheckedChange={(checked) =>
+                                        onChange(
+                                          'GroupGroupRatioWalletDisplay',
+                                          setWalletDisplayRule(
+                                            safeWalletDisplayValue,
+                                            userGroupData.userGroup,
+                                            override.targetGroup,
+                                            checked === true
+                                          )
+                                        )
+                                      }
+                                      aria-label={t(
+                                        'Show this rule in the wallet'
+                                      )}
+                                    />
+                                  </div>
+                                ),
                               },
                               {
                                 id: 'actions',

@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/geoip_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -140,6 +141,20 @@ func InitOptionMap() {
 	common.OptionMap["ModelRequestRateLimitDurationMinutes"] = strconv.Itoa(setting.ModelRequestRateLimitDurationMinutes)
 	common.OptionMap["ModelRequestRateLimitSuccessCount"] = strconv.Itoa(setting.ModelRequestRateLimitSuccessCount)
 	common.OptionMap["ModelRequestRateLimitGroup"] = setting.ModelRequestRateLimitGroup2JSONString()
+	common.OptionMap["ModelRequestRateLimitUser"] = setting.ModelRequestRateLimitUser2JSONString()
+	distillationRateLimitSettings := setting.GetDistillationRateLimitSettings()
+	common.OptionMap["ModelRequestRateLimitDistillationEnabled"] = strconv.FormatBool(distillationRateLimitSettings.Enabled)
+	common.OptionMap["ModelRequestRateLimitDistillationThreshold"] = strconv.Itoa(distillationRateLimitSettings.Threshold)
+	common.OptionMap["ModelRequestRateLimitDistillationRPM"] = strconv.Itoa(distillationRateLimitSettings.RPM)
+	common.OptionMap["ModelRequestRateLimitDistillationPenaltyMinutes"] = strconv.Itoa(distillationRateLimitSettings.PenaltyMinutes)
+	common.OptionMap["ModelRequestRateLimitDistillationObservationMinutes"] = strconv.Itoa(distillationRateLimitSettings.ObservationMinutes)
+	common.OptionMap["geoip.mode"] = geoip_setting.Mode
+	common.OptionMap["geoip.database_path"] = geoip_setting.DatabasePath
+	common.OptionMap["geoip.download_url"] = geoip_setting.DownloadURL
+	common.OptionMap["geoip.maxmind_license_key"] = geoip_setting.MaxMindLicenseKey
+	common.OptionMap["geoip.popup_message"] = geoip_setting.PopupMessage
+	common.OptionMap["geoip.allow_private_loopback"] = strconv.FormatBool(geoip_setting.AllowPrivateLoopback)
+	common.OptionMap["geoip.blocked_countries"] = geoip_setting.BlockedCountries2JSONString()
 	common.OptionMap["ModelRatio"] = ratio_setting.ModelRatio2JSONString()
 	common.OptionMap["ModelPrice"] = ratio_setting.ModelPrice2JSONString()
 	common.OptionMap["CacheRatio"] = ratio_setting.CacheRatio2JSONString()
@@ -282,6 +297,9 @@ func updateOptionMap(key string, value string) (err error) {
 	common.OptionMapRWMutex.Lock()
 	defer common.OptionMapRWMutex.Unlock()
 	common.OptionMap[key] = value
+	if key == ratio_setting.GroupGroupRatioWalletDisplayOption {
+		return ratio_setting.UpdateGroupGroupRatioWalletDisplayByJSONString(value)
+	}
 
 	// 检查是否是模型配置 - 使用更规范的方式处理
 	if handleConfigUpdate(key, value) {
@@ -373,6 +391,8 @@ func updateOptionMap(key string, value string) (err error) {
 			setting.CheckSensitiveOnPromptEnabled = boolValue
 		case "ModelRequestRateLimitEnabled":
 			setting.ModelRequestRateLimitEnabled = boolValue
+		case "ModelRequestRateLimitDistillationEnabled":
+			err = setting.UpdateDistillationRateLimitOption(key, value)
 		case "StopOnSensitiveEnabled":
 			setting.StopOnSensitiveEnabled = boolValue
 		case "SMTPSSLEnabled":
@@ -394,6 +414,22 @@ func updateOptionMap(key string, value string) (err error) {
 	switch key {
 	case "EmailDomainWhitelist":
 		common.EmailDomainWhitelist = strings.Split(value, ",")
+	case "geoip.mode":
+		if err = geoip_setting.ValidateMode(value); err == nil {
+			geoip_setting.Mode = value
+		}
+	case "geoip.database_path":
+		geoip_setting.DatabasePath = value
+	case "geoip.download_url":
+		geoip_setting.DownloadURL = value
+	case "geoip.maxmind_license_key":
+		geoip_setting.MaxMindLicenseKey = value
+	case "geoip.popup_message":
+		geoip_setting.PopupMessage = value
+	case "geoip.allow_private_loopback":
+		geoip_setting.AllowPrivateLoopback = value == "true"
+	case "geoip.blocked_countries":
+		err = geoip_setting.UpdateBlockedCountriesByJSONString(value)
 	case "SMTPServer":
 		common.SMTPServer = value
 	case "SMTPPort":
@@ -545,6 +581,13 @@ func updateOptionMap(key string, value string) (err error) {
 		setting.ModelRequestRateLimitSuccessCount, _ = strconv.Atoi(value)
 	case "ModelRequestRateLimitGroup":
 		err = setting.UpdateModelRequestRateLimitGroupByJSONString(value)
+	case "ModelRequestRateLimitUser":
+		err = setting.UpdateModelRequestRateLimitUserByJSONString(value)
+	case "ModelRequestRateLimitDistillationThreshold",
+		"ModelRequestRateLimitDistillationRPM",
+		"ModelRequestRateLimitDistillationPenaltyMinutes",
+		"ModelRequestRateLimitDistillationObservationMinutes":
+		err = setting.UpdateDistillationRateLimitOption(key, value)
 	case "RetryTimes":
 		common.RetryTimes, _ = strconv.Atoi(value)
 	case "DataExportInterval":

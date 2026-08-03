@@ -37,6 +37,7 @@ export type UpdateOptionRequest = {
 export type UpdateOptionResponse = {
   success: boolean
   message: string
+  data?: unknown
 }
 
 export type ConfirmPaymentComplianceResponse = {
@@ -168,6 +169,7 @@ export type AuthSettings = {
 
 export type ContentSettings = {
   'console_setting.api_info': string
+  'console_setting.api_key_notice': string
   'console_setting.announcements': string
   'console_setting.faq': string
   'console_setting.uptime_kuma_groups': string
@@ -277,6 +279,7 @@ export type BillingSettings = {
   GroupRatio: string
   UserUsableGroups: string
   GroupGroupRatio: string
+  'group_ratio_setting.group_group_ratio_wallet_display': string
   AutoGroups: string
   MaxTokenAutoGroups: number
   DefaultUseAutoGroup: boolean
@@ -370,6 +373,12 @@ export type SecuritySettings = {
   ModelRequestRateLimitSuccessCount: number
   ModelRequestRateLimitDurationMinutes: number
   ModelRequestRateLimitGroup: string
+  ModelRequestRateLimitUser: string
+  ModelRequestRateLimitDistillationEnabled: boolean
+  ModelRequestRateLimitDistillationThreshold: number
+  ModelRequestRateLimitDistillationRPM: number
+  ModelRequestRateLimitDistillationPenaltyMinutes: number
+  ModelRequestRateLimitDistillationObservationMinutes: number
   CheckSensitiveEnabled: boolean
   CheckSensitiveOnPromptEnabled: boolean
   SensitiveWords: string
@@ -382,7 +391,32 @@ export type SecuritySettings = {
   'fetch_setting.allowed_ports': number[]
   'fetch_setting.apply_ip_filter_for_domain': boolean
   'token_setting.max_user_tokens': number
+  'geoip.mode': GeoIPMode
+  'geoip.database_path': string
+  'geoip.download_url': string
+  'geoip.maxmind_license_key': string
+  'geoip.popup_message': string
+  'geoip.allow_private_loopback': boolean
+  'geoip.blocked_countries': string[]
 }
+
+export type GeoIPMode =
+  | 'off'
+  | 'homepage_notice'
+  | 'homepage_block'
+  | 'homepage_block_api_reject'
+  | 'full_reject'
+
+export type GeoIPSettings = Pick<
+  SecuritySettings,
+  | 'geoip.mode'
+  | 'geoip.database_path'
+  | 'geoip.download_url'
+  | 'geoip.maxmind_license_key'
+  | 'geoip.popup_message'
+  | 'geoip.allow_private_loopback'
+  | 'geoip.blocked_countries'
+>
 
 export type UpstreamChannel = {
   id: number

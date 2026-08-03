@@ -1217,7 +1217,12 @@ func ManageUser(c *gin.Context) {
 		return
 	}
 
-	if req.Action == "demote" {
+	if req.Action == "disable" || req.Action == "enable" {
+		if err := model.SetUserStatusByAdmin(user.Id, user.Status); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	} else if req.Action == "demote" {
 		if err := model.DB.Transaction(func(tx *gorm.DB) error {
 			if err := user.UpdateWithTx(tx, false); err != nil {
 				return err

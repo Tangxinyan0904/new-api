@@ -23,6 +23,7 @@ import {
   parseTiersFromExpr,
   type ParsedTier,
 } from '@/features/pricing/lib/billing-expr'
+import { formatLogQuota } from '@/lib/format'
 
 import type { UsageLog } from '../data/schema'
 import type { LogOtherData } from '../types'
@@ -391,6 +392,8 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'option.payment_compliance': 'Confirmed payment compliance',
   'option.reset_ratio': 'Reset model ratios',
   'option.clear_affinity_cache': 'Cleared channel affinity cache',
+  'rate_limit.distillation_clear':
+    'Cleared distillation penalty for user {{target_user_id}}',
   // Custom OAuth
   'custom_oauth.create': 'Created a custom OAuth provider',
   'custom_oauth.update': 'Updated a custom OAuth provider',
@@ -424,6 +427,13 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'redemption.update': 'Updated a redemption code',
   'redemption.delete': 'Deleted a redemption code',
   'redemption.delete_invalid': 'Deleted invalid redemption codes',
+  // Affiliate rebate transfers
+  'affiliate.transfer.approve':
+    'Approved rebate transfer request #{{request_id}} for user {{target_user_id}}: invitation {{invite_reward_quota}}, recharge {{recharge_rebate_quota}}, total {{total_quota}}',
+  'affiliate.transfer.approved_for_user':
+    'Administrator approved {{amount}} balance',
+  'affiliate.transfer.reject':
+    'Rejected rebate transfer request #{{request_id}} for user {{target_user_id}}: invitation {{invite_reward_quota}}, recharge {{recharge_rebate_quota}}, total {{total_quota}}',
   // Prefill groups
   'prefill_group.create': 'Created a prefill group',
   'prefill_group.update': 'Updated a prefill group',
@@ -465,5 +475,13 @@ export function renderAuditContent(
   if (!op?.action) return null
   const template = AUDIT_TEMPLATES[op.action]
   if (!template) return null
-  return t(template, (op.params ?? {}) as Record<string, unknown>)
+  const params = { ...op.params } as Record<string, unknown>
+  if (
+    op.action === 'affiliate.transfer.approved_for_user' &&
+    typeof params.quota === 'number' &&
+    Number.isFinite(params.quota)
+  ) {
+    params.amount = formatLogQuota(params.quota)
+  }
+  return t(template, params)
 }

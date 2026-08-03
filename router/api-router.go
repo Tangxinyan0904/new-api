@@ -22,6 +22,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", anonymousRequestBodyLimit, controller.PostSetup)
 		apiRouter.GET("/status", controller.GetStatus)
+		apiRouter.GET("/geoip/status", controller.GetGeoIPStatus)
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
@@ -87,6 +88,7 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/sessions/revoke-others", middleware.DisableCache(), controller.RevokeOtherLoginSessions)
 				selfRoute.GET("/self/groups", controller.GetUserGroups)
 				selfRoute.GET("/self", controller.GetSelf)
+				selfRoute.GET("/wallet/special-ratios", controller.GetWalletSpecialRatioRules)
 				selfRoute.GET("/models", controller.GetUserModels)
 				selfRoute.PUT("/self", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.UpdateSelf)
 				selfRoute.DELETE("/self", controller.DeleteSelf)
@@ -98,6 +100,9 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.POST("/passkey/verify/finish", middleware.DisableCache(), controller.PasskeyVerifyFinish)
 				selfRoute.DELETE("/passkey", middleware.DisableCache(), controller.PasskeyDelete)
 				selfRoute.GET("/aff", controller.GetAffCode)
+				selfRoute.GET("/affiliate/rebate-summary", controller.GetAffiliateRebateSummary)
+				selfRoute.GET("/affiliate/transfer-requests/self", controller.ListSelfAffiliateTransferRequests)
+				selfRoute.POST("/affiliate/transfer-request", controller.CreateAffiliateTransferRequest)
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
 				selfRoute.POST("/topup", middleware.CriticalRateLimit(), controller.TopUp)
@@ -135,6 +140,10 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.GET("/", controller.GetAllUsers)
 				adminRoute.GET("/topup", controller.GetAllTopUps)
 				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
+				adminRoute.GET("/affiliate/transfer-requests", controller.ListAffiliateTransferRequests)
+				adminRoute.GET("/affiliate/transfer-requests/:id/detail", controller.GetAffiliateTransferRequestDetail)
+				adminRoute.POST("/affiliate/transfer-requests/:id/approve", controller.ApproveAffiliateTransferRequest)
+				adminRoute.POST("/affiliate/transfer-requests/:id/reject", controller.RejectAffiliateTransferRequest)
 				adminRoute.GET("/search", controller.SearchUsers)
 				adminRoute.GET("/:id/oauth/bindings", controller.GetUserOAuthBindingsByAdmin)
 				adminRoute.DELETE("/:id/oauth/bindings/:provider_id", controller.UnbindCustomOAuthByAdmin)
@@ -193,6 +202,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			optionRoute.GET("/", controller.GetOptions)
 			optionRoute.PUT("/", controller.UpdateOption)
+			optionRoute.POST("/geoip/download", controller.DownloadGeoIPDatabase)
 			optionRoute.POST("/payment_compliance", controller.ConfirmPaymentCompliance)
 			optionRoute.GET("/channel_affinity_cache", controller.GetChannelAffinityCacheStats)
 			optionRoute.DELETE("/channel_affinity_cache", controller.ClearChannelAffinityCache)
@@ -202,6 +212,22 @@ func SetApiRouter(router *gin.Engine) {
 			optionRoute.POST("/waffo-pancake/save", controller.SaveWaffoPancake)
 			optionRoute.POST("/waffo-pancake/subscription-product", controller.CreateWaffoPancakeSubscriptionProduct)
 			optionRoute.GET("/waffo-pancake/subscription-product-options", controller.ListWaffoPancakeSubscriptionProductOptions)
+		}
+		rateLimitRoute := apiRouter.Group("/rate-limit")
+		rateLimitRoute.Use(middleware.RootAuth())
+		{
+			rateLimitRoute.PUT("", controller.UpdateRateLimitSettings)
+			rateLimitRoute.GET("/distillation/penalties", controller.ListDistillationPenalties)
+			rateLimitRoute.DELETE("/distillation/penalties/:user_id", controller.ClearDistillationPenalty)
+		}
+		registrationIPAbuseRoute := apiRouter.Group("/registration-ip-abuse")
+		registrationIPAbuseRoute.Use(middleware.RootAuth())
+		{
+			registrationIPAbuseRoute.GET("/blocked", controller.ListBlockedRegistrationIPs)
+			registrationIPAbuseRoute.POST("/:ip/unblock", controller.UnblockRegistrationIP)
+			registrationIPAbuseRoute.GET("/allowlist", controller.ListRegistrationIPAllowlist)
+			registrationIPAbuseRoute.POST("/allowlist", controller.AddRegistrationIPAllowlist)
+			registrationIPAbuseRoute.DELETE("/allowlist/:ip", controller.RemoveRegistrationIPAllowlist)
 		}
 
 		// Custom OAuth provider management (root only)

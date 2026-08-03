@@ -33,6 +33,10 @@ import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 import { positiveIntegerSchema } from '../utils/numeric-field'
 import { GroupRatioForm } from './group-ratio-form'
+import {
+  buildWalletDisplayOptionUpdates,
+  validateWalletDisplayPairs,
+} from './group-ratio-wallet-display'
 import { ModelRatioForm } from './model-ratio-form'
 import { ToolPriceSettings } from './tool-price-settings'
 import { UpstreamRatioSync } from './upstream-ratio-sync'
@@ -120,21 +124,39 @@ const createModelSchema = (t: Translate) =>
   })
 
 const createGroupSchema = (t: Translate) =>
-  z.object({
-    GroupRatio: createJsonStringField(t),
-    TopupGroupRatio: createJsonStringField(t),
-    UserUsableGroups: createJsonStringField(t),
-    GroupGroupRatio: createJsonStringField(t),
-    AutoGroups: createJsonStringField(t, {
-      predicate: (parsed) =>
-        Array.isArray(parsed) &&
-        parsed.every((item) => typeof item === 'string'),
-      predicateMessage: 'Expected a JSON array of group identifiers',
-    }),
-    MaxTokenAutoGroups: positiveIntegerSchema(t('Enter a positive integer')),
-    DefaultUseAutoGroup: z.boolean(),
-    GroupSpecialUsableGroup: createJsonStringField(t),
-  })
+  z
+    .object({
+      GroupRatio: createJsonStringField(t),
+      TopupGroupRatio: createJsonStringField(t),
+      UserUsableGroups: createJsonStringField(t),
+      GroupGroupRatio: createJsonStringField(t),
+      GroupGroupRatioWalletDisplay: createJsonStringField(t),
+      AutoGroups: createJsonStringField(t, {
+        predicate: (parsed) =>
+          Array.isArray(parsed) &&
+          parsed.every((item) => typeof item === 'string'),
+        predicateMessage: 'Expected a JSON array of group identifiers',
+      }),
+      MaxTokenAutoGroups: positiveIntegerSchema(t('Enter a positive integer')),
+      DefaultUseAutoGroup: z.boolean(),
+      GroupSpecialUsableGroup: createJsonStringField(t),
+    })
+    .superRefine((values, context) => {
+      try {
+        validateWalletDisplayPairs(
+          values.GroupGroupRatioWalletDisplay,
+          values.GroupGroupRatio
+        )
+      } catch {
+        context.addIssue({
+          code: 'custom',
+          path: ['GroupGroupRatioWalletDisplay'],
+          message: t(
+            'Wallet display rules must reference existing special ratio rules'
+          ),
+        })
+      }
+    })
 
 type ModelFormValues = z.infer<ReturnType<typeof createModelSchema>>
 type GroupFormValues = z.infer<ReturnType<typeof createGroupSchema>>
@@ -205,6 +227,9 @@ export function RatioSettingsCard({
     TopupGroupRatio: normalizeJsonString(groupDefaults.TopupGroupRatio),
     UserUsableGroups: normalizeJsonString(groupDefaults.UserUsableGroups),
     GroupGroupRatio: normalizeJsonString(groupDefaults.GroupGroupRatio),
+    GroupGroupRatioWalletDisplay: normalizeJsonString(
+      groupDefaults.GroupGroupRatioWalletDisplay
+    ),
     AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
     MaxTokenAutoGroups: groupDefaults.MaxTokenAutoGroups,
     DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
@@ -244,6 +269,9 @@ export function RatioSettingsCard({
       TopupGroupRatio: formatJsonForTextarea(groupDefaults.TopupGroupRatio),
       UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
       GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
+      GroupGroupRatioWalletDisplay: formatJsonForTextarea(
+        groupDefaults.GroupGroupRatioWalletDisplay
+      ),
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
       GroupSpecialUsableGroup: formatJsonForTextarea(
         groupDefaults.GroupSpecialUsableGroup
@@ -292,6 +320,9 @@ export function RatioSettingsCard({
       TopupGroupRatio: normalizeJsonString(groupDefaults.TopupGroupRatio),
       UserUsableGroups: normalizeJsonString(groupDefaults.UserUsableGroups),
       GroupGroupRatio: normalizeJsonString(groupDefaults.GroupGroupRatio),
+      GroupGroupRatioWalletDisplay: normalizeJsonString(
+        groupDefaults.GroupGroupRatioWalletDisplay
+      ),
       AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
       MaxTokenAutoGroups: groupDefaults.MaxTokenAutoGroups,
       DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
@@ -306,6 +337,9 @@ export function RatioSettingsCard({
       TopupGroupRatio: formatJsonForTextarea(groupDefaults.TopupGroupRatio),
       UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
       GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
+      GroupGroupRatioWalletDisplay: formatJsonForTextarea(
+        groupDefaults.GroupGroupRatioWalletDisplay
+      ),
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
       GroupSpecialUsableGroup: formatJsonForTextarea(
         groupDefaults.GroupSpecialUsableGroup
@@ -363,12 +397,30 @@ export function RatioSettingsCard({
         TopupGroupRatio: normalizeJsonString(values.TopupGroupRatio),
         UserUsableGroups: normalizeJsonString(values.UserUsableGroups),
         GroupGroupRatio: normalizeJsonString(values.GroupGroupRatio),
+        GroupGroupRatioWalletDisplay: normalizeJsonString(
+          values.GroupGroupRatioWalletDisplay
+        ),
         AutoGroups: normalizeJsonString(values.AutoGroups),
         MaxTokenAutoGroups: values.MaxTokenAutoGroups,
         DefaultUseAutoGroup: values.DefaultUseAutoGroup,
         GroupSpecialUsableGroup: normalizeJsonString(
           values.GroupSpecialUsableGroup
         ),
+      }
+
+      const walletDisplayUpdates = buildWalletDisplayOptionUpdates(
+        {
+          GroupGroupRatio: normalized.GroupGroupRatio,
+          GroupGroupRatioWalletDisplay: normalized.GroupGroupRatioWalletDisplay,
+        },
+        {
+          GroupGroupRatio: groupNormalizedDefaults.current.GroupGroupRatio,
+          GroupGroupRatioWalletDisplay:
+            groupNormalizedDefaults.current.GroupGroupRatioWalletDisplay,
+        }
+      )
+      for (const update of walletDisplayUpdates) {
+        await updateOption.mutateAsync(update)
       }
 
       // Map form field names to API keys (most are 1:1, except GroupSpecialUsableGroup)
@@ -379,9 +431,15 @@ export function RatioSettingsCard({
 
       const updates = (
         Object.keys(normalized) as Array<keyof typeof normalized>
-      ).filter(
-        (key) => normalized[key] !== groupNormalizedDefaults.current[key]
-      )
+      ).filter((key) => {
+        if (
+          key === 'GroupGroupRatio' ||
+          key === 'GroupGroupRatioWalletDisplay'
+        ) {
+          return false
+        }
+        return normalized[key] !== groupNormalizedDefaults.current[key]
+      })
 
       for (const key of updates) {
         const apiKey = apiKeyMap[key] || key

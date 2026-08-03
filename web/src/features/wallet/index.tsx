@@ -23,13 +23,16 @@ import { SectionPageLayout } from '@/components/layout'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
+import { DEFAULT_CURRENCY_CONFIG } from '@/stores/system-config-store'
 
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
+import { TransferHistoryDialog } from './components/dialogs/transfer-history-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
+import { SpecialRatioRulesCard } from './components/special-ratio-rules-card'
 import { SubscriptionPlansCard } from './components/subscription-plans-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
 import { DEFAULT_DISCOUNT_RATE, PAYMENT_TYPES } from './constants'
@@ -47,6 +50,7 @@ import {
   getMinTopupAmount,
   dispatchSelectedPayment,
 } from './lib'
+import { getWalletPrimaryGridClass } from './lib/special-ratios'
 import type {
   UserWalletData,
   PaymentMethod,
@@ -73,16 +77,22 @@ export function Wallet(props: WalletProps) {
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  const [transferHistoryOpen, setTransferHistoryOpen] = useState(false)
   const [billingDialogOpen, setBillingDialogOpen] = useState(false)
   const [redemptionCode, setRedemptionCode] = useState('')
   const [creemDialogOpen, setCreemDialogOpen] = useState(false)
   const [selectedCreemProduct, setSelectedCreemProduct] =
     useState<CreemProduct | null>(null)
   const [showSubscriptionPanel, setShowSubscriptionPanel] = useState(true)
+  const [showSpecialRatioPanel, setShowSpecialRatioPanel] = useState(true)
 
   const { status } = useStatus()
   const { currency } = useSystemConfig()
   const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
+  const minimumTransferQuota =
+    currency?.quotaPerUnit && currency.quotaPerUnit > 0
+      ? currency.quotaPerUnit
+      : DEFAULT_CURRENCY_CONFIG.quotaPerUnit
 
   // Calculate effective exchange rate - when display type is USD, use rate of 1
   const effectiveUsdExchangeRate = useMemo(() => {
@@ -100,6 +110,9 @@ export function Wallet(props: WalletProps) {
   const {
     affiliateLink,
     loading: affiliateLoading,
+    refreshing: affiliateRefreshing,
+    rebateSummary,
+    refetch: refreshAffiliateData,
     transferQuota,
     transferring,
   } = useAffiliate()
@@ -223,8 +236,8 @@ export function Wallet(props: WalletProps) {
   }
 
   // Handle transfer
-  const handleTransfer = async (amount: number) => {
-    const success = await transferQuota(amount)
+  const handleTransfer = async () => {
+    const success = await transferQuota()
     if (success) {
       await fetchUser()
     }
@@ -291,11 +304,10 @@ export function Wallet(props: WalletProps) {
             <WalletStatsCard user={user} loading={userLoading} />
 
             <div
-              className={
-                showSubscriptionPanel
-                  ? 'grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] xl:items-start'
-                  : 'grid gap-4'
-              }
+              className={getWalletPrimaryGridClass(
+                showSubscriptionPanel,
+                showSpecialRatioPanel
+              )}
             >
               <div id='wallet-add-funds' className='scroll-mt-4'>
                 <RechargeFormCard
@@ -337,16 +349,26 @@ export function Wallet(props: WalletProps) {
                 userQuota={user?.quota}
                 onPurchaseSuccess={fetchUser}
               />
+
+              <SpecialRatioRulesCard
+                onAvailabilityChange={setShowSpecialRatioPanel}
+              />
             </div>
 
             <AffiliateRewardsCard
               user={user}
               affiliateLink={affiliateLink}
+              rebateSummary={rebateSummary}
+              minimumTransferQuota={minimumTransferQuota}
+              onRefresh={refreshAffiliateData}
               onTransfer={() => setTransferDialogOpen(true)}
+              onOpenTransferHistory={() => setTransferHistoryOpen(true)}
               complianceConfirmed={
                 topupInfo?.payment_compliance_confirmed !== false
               }
               loading={affiliateLoading}
+              refreshing={affiliateRefreshing}
+              transferring={transferring}
             />
           </div>
         </SectionPageLayout.Content>
@@ -369,8 +391,15 @@ export function Wallet(props: WalletProps) {
         open={transferDialogOpen}
         onOpenChange={setTransferDialogOpen}
         onConfirm={handleTransfer}
-        availableQuota={user?.aff_quota ?? 0}
+        availableQuota={
+          rebateSummary?.total_pending_quota ?? user?.aff_quota ?? 0
+        }
         transferring={transferring}
+      />
+
+      <TransferHistoryDialog
+        open={transferHistoryOpen}
+        onOpenChange={setTransferHistoryOpen}
       />
 
       <BillingHistoryDialog

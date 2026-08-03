@@ -65,6 +65,7 @@ import dayjs from '@/lib/dayjs'
 import { SettingsSwitchField } from '../components/settings-form-layout'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { ApiKeyNoticeSettings } from './api-key-notice-settings'
 
 type Announcement = {
   id: number
@@ -77,6 +78,7 @@ type Announcement = {
 type AnnouncementsSectionProps = {
   enabled: boolean
   data: string
+  apiKeyNotice: string
 }
 
 const announcementSchema = z.object({
@@ -132,6 +134,7 @@ const typeOptions = [
 export function AnnouncementsSection({
   enabled,
   data,
+  apiKeyNotice,
 }: AnnouncementsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
@@ -311,6 +314,7 @@ export function AnnouncementsSection({
 
   return (
     <SettingsSection title={t('Announcements')}>
+      <ApiKeyNoticeSettings value={apiKeyNotice} />
       <div className='space-y-4'>
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>

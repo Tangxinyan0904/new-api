@@ -28,7 +28,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { useMediaQuery } from '@/hooks'
 import { toIntlLocale } from '@/i18n/languages'
 import { getUserGroups } from '@/lib/api'
 import dayjs from '@/lib/dayjs'
@@ -37,10 +36,11 @@ import { cn } from '@/lib/utils'
 
 import { API_KEY_STATUSES } from '../constants'
 import type { ApiKey } from '../types'
-import { ApiKeyGroupCell } from './api-key-group-cell'
+import type { ApiKeyGroupOption } from './api-key-group-combobox'
 import { ApiKeyTimestampCell } from './api-key-timestamp-cell'
 import {
   ApiKeyCell,
+  EditableApiKeyGroupCell,
   IpRestrictionsCell,
   ModelLimitsCell,
   UnlimitedQuotaBadge,
@@ -53,30 +53,40 @@ function getQuotaProgressColor(percentage: number): string {
   return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
 }
 
-function useGroupRatios(): Record<string, number | string> {
+type GroupOptionsData = {
+  options: ApiKeyGroupOption[]
+}
+
+const EMPTY_GROUP_OPTIONS_DATA: GroupOptionsData = {
+  options: [],
+}
+
+function useGroupOptions(): GroupOptionsData {
   const { data } = useQuery({
     queryKey: ['user-groups'],
     queryFn: getUserGroups,
     staleTime: 0,
     select: (res) => {
-      if (!res.success || !res.data) return {}
-      const ratios: Record<string, number | string> = {}
+      if (!res.success || !res.data) return EMPTY_GROUP_OPTIONS_DATA
+      const options: ApiKeyGroupOption[] = []
       for (const [group, info] of Object.entries(res.data)) {
-        if (typeof info.ratio === 'number' || typeof info.ratio === 'string') {
-          ratios[group] = info.ratio
-        }
+        options.push({
+          value: group,
+          label: group,
+          desc: info.desc || group,
+          ratio: info.ratio,
+        })
       }
-      return ratios
+      return { options }
     },
   })
 
-  return data ?? {}
+  return data ?? EMPTY_GROUP_OPTIONS_DATA
 }
 
 export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
-  const groupRatios = useGroupRatios()
-  const shouldReduceMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+  const { options: groupOptions } = useGroupOptions()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
   const staleAccessThreshold = dayjs(now).subtract(3, 'month').valueOf()
@@ -191,21 +201,27 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
       size: 170,
     },
     {
+      id: 'today_quota',
+      accessorKey: 'today_quota',
+      header: t('Today Usage'),
+      cell: ({ row }) => (
+        <span className='font-medium tabular-nums'>
+          {formatQuota(row.original.today_quota ?? 0)}
+        </span>
+      ),
+      size: 150,
+    },
+    {
       accessorKey: 'group',
       header: t('Group'),
-      cell: ({ row }) => {
-        const apiKey = row.original
-        const group = row.getValue('group') as string
-        return (
-          <ApiKeyGroupCell
-            group={group}
-            ratio={groupRatios[group]}
-            crossGroupRetry={apiKey.cross_group_retry}
-            shouldReduceMotion={shouldReduceMotion}
-          />
-        )
-      },
-      size: 220,
+      cell: ({ row }) => (
+        <EditableApiKeyGroupCell
+          apiKey={row.original}
+          groupOptions={groupOptions}
+        />
+      ),
+      enableSorting: false,
+      size: 400,
       meta: { mobileHidden: true },
     },
     {

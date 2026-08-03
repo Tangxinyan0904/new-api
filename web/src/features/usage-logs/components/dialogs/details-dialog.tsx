@@ -17,24 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
-/*
-Copyright (C) 2023-2026 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-
-For commercial licensing, please contact support@quantumnous.com
-*/
 import {
   Copy,
   Check,
@@ -64,6 +46,10 @@ import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import type { UsageLog } from '../../data/schema'
+import {
+  getCacheHitMetrics,
+  isHighCacheHitPercentage,
+} from '../../lib/cache-metrics'
 import {
   parseLogOther,
   getParamOverrideActionLabel,
@@ -481,6 +467,8 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
+  const cacheHitMetrics = getCacheHitMetrics(props.log.prompt_tokens, other)
+  const isHighCacheHit = isHighCacheHitPercentage(cacheHitMetrics.percentage)
   const typeConfig = getLogTypeConfig(props.log.type)
 
   const isViolation = isViolationFeeLog(other)
@@ -1028,6 +1016,35 @@ export function DetailsDialog(props: DetailsDialogProps) {
           />
         )}
 
+        {isDisplayableType(props.log.type) && (
+          <DetailSection label={t('Cache Hit')}>
+            <DetailRow
+              label={t('Hit Rate')}
+              value={
+                <span
+                  className={cn(
+                    isHighCacheHit &&
+                      'font-medium text-emerald-700 dark:text-emerald-400'
+                  )}
+                >
+                  {cacheHitMetrics.formattedPercentage}
+                </span>
+              }
+              mono
+            />
+            <DetailRow
+              label={t('Cache Read')}
+              value={formatTokens(cacheHitMetrics.cacheReadTokens)}
+              mono
+            />
+            <DetailRow
+              label={t('Total Input Tokens')}
+              value={formatTokens(cacheHitMetrics.totalInputTokens)}
+              mono
+            />
+          </DetailSection>
+        )}
+
         {/* System prompt override */}
         {other?.is_system_prompt_overwritten && (
           <DetailRow
@@ -1107,46 +1124,48 @@ export function DetailsDialog(props: DetailsDialogProps) {
             />
           )}
 
-        {/* Stream status details */}
-        {other?.stream_status && other.stream_status.status !== 'ok' && (
-          <DetailSection label={t('Stream Status')}>
-            <DetailRow
-              label={t('Status')}
-              value={
-                <StatusBadge
-                  label={other.stream_status.status || t('Error')}
-                  variant='red'
-                  size='sm'
-                  copyable={false}
+        {/* Stream status details (admin only) */}
+        {props.isAdmin &&
+          other?.stream_status &&
+          other.stream_status.status !== 'ok' && (
+            <DetailSection label={t('Stream Status')}>
+              <DetailRow
+                label={t('Status')}
+                value={
+                  <StatusBadge
+                    label={other.stream_status.status || t('Error')}
+                    variant='red'
+                    size='sm'
+                    copyable={false}
+                  />
+                }
+              />
+              {other.stream_status.end_reason && (
+                <DetailRow
+                  label={t('End Reason')}
+                  value={other.stream_status.end_reason}
                 />
-              }
-            />
-            {other.stream_status.end_reason && (
-              <DetailRow
-                label={t('End Reason')}
-                value={other.stream_status.end_reason}
-              />
-            )}
-            {(other.stream_status.error_count ?? 0) > 0 && (
-              <DetailRow
-                label={t('Soft Errors')}
-                value={String(other.stream_status.error_count)}
-              />
-            )}
-            {other.stream_status.end_error && (
-              <DetailRow
-                label={t('End Error')}
-                value={other.stream_status.end_error}
-              />
-            )}
-            {Array.isArray(other.stream_status.errors) &&
-              other.stream_status.errors.length > 0 && (
-                <pre className='bg-background/60 mt-1 max-h-32 overflow-y-auto rounded border p-2 font-mono text-[11px] leading-relaxed wrap-break-word whitespace-pre-wrap'>
-                  {other.stream_status.errors.join('\n')}
-                </pre>
               )}
-          </DetailSection>
-        )}
+              {(other.stream_status.error_count ?? 0) > 0 && (
+                <DetailRow
+                  label={t('Soft Errors')}
+                  value={String(other.stream_status.error_count)}
+                />
+              )}
+              {other.stream_status.end_error && (
+                <DetailRow
+                  label={t('End Error')}
+                  value={other.stream_status.end_error}
+                />
+              )}
+              {Array.isArray(other.stream_status.errors) &&
+                other.stream_status.errors.length > 0 && (
+                  <pre className='bg-background/60 mt-1 max-h-32 overflow-y-auto rounded border p-2 font-mono text-[11px] leading-relaxed wrap-break-word whitespace-pre-wrap'>
+                    {other.stream_status.errors.join('\n')}
+                  </pre>
+                )}
+            </DetailSection>
+          )}
 
         {/* Subscription billing details */}
         {isSubscription && other && (

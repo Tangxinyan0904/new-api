@@ -25,6 +25,7 @@ import type { UpdateOptionRequest } from '../types'
 
 // Configuration keys that require status refresh
 const STATUS_RELATED_KEYS = new Set([
+  'theme.frontend',
   'HeaderNavModules',
   'SidebarModulesAdmin',
   'Notice',
@@ -37,6 +38,7 @@ const STATUS_RELATED_KEYS = new Set([
   'general_setting.custom_currency_symbol',
   'general_setting.custom_currency_exchange_rate',
   'oidc.display_name',
+  'console_setting.api_key_notice',
 ])
 
 export function useUpdateOption() {

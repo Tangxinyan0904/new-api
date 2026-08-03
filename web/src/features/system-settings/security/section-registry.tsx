@@ -16,12 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { GeoIPSection } from '../request-limits/geoip-section'
 import { RateLimitSection } from '../request-limits/rate-limit-section'
 import { SensitiveWordsSection } from '../request-limits/sensitive-words-section'
 import { SSRFSection } from '../request-limits/ssrf-section'
 import { TokenLimitSection } from '../request-limits/token-limit-section'
 import type { SecuritySettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { RegistrationIPAbuseSection } from './registration-ip-abuse/registration-ip-abuse-section'
 
 const SECURITY_SECTIONS = [
   {
@@ -37,6 +39,17 @@ const SECURITY_SECTIONS = [
           ModelRequestRateLimitDurationMinutes:
             settings.ModelRequestRateLimitDurationMinutes,
           ModelRequestRateLimitGroup: settings.ModelRequestRateLimitGroup,
+          ModelRequestRateLimitUser: settings.ModelRequestRateLimitUser,
+          ModelRequestRateLimitDistillationEnabled:
+            settings.ModelRequestRateLimitDistillationEnabled,
+          ModelRequestRateLimitDistillationThreshold:
+            settings.ModelRequestRateLimitDistillationThreshold,
+          ModelRequestRateLimitDistillationRPM:
+            settings.ModelRequestRateLimitDistillationRPM,
+          ModelRequestRateLimitDistillationPenaltyMinutes:
+            settings.ModelRequestRateLimitDistillationPenaltyMinutes,
+          ModelRequestRateLimitDistillationObservationMinutes:
+            settings.ModelRequestRateLimitDistillationObservationMinutes,
         }}
       />
     ),
@@ -79,6 +92,24 @@ const SECURITY_SECTIONS = [
     ),
   },
   {
+    id: 'geoip',
+    titleKey: 'GeoIP Access Restriction',
+    build: (settings: SecuritySettings) => (
+      <GeoIPSection
+        defaultValues={{
+          'geoip.mode': settings['geoip.mode'],
+          'geoip.database_path': settings['geoip.database_path'],
+          'geoip.download_url': settings['geoip.download_url'],
+          'geoip.maxmind_license_key': settings['geoip.maxmind_license_key'],
+          'geoip.popup_message': settings['geoip.popup_message'],
+          'geoip.allow_private_loopback':
+            settings['geoip.allow_private_loopback'],
+          'geoip.blocked_countries': settings['geoip.blocked_countries'],
+        }}
+      />
+    ),
+  },
+  {
     id: 'token-limits',
     titleKey: 'Token Limits',
     build: (settings: SecuritySettings) => (
@@ -89,6 +120,11 @@ const SECURITY_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'registration-ip-abuse',
+    titleKey: 'Registration Abuse Protection',
+    build: () => <RegistrationIPAbuseSection />,
   },
 ] as const
 

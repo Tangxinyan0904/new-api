@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
@@ -49,4 +50,8 @@ func GetUserGroups(c *gin.Context) {
 		"message": "",
 		"data":    usableGroups,
 	})
+}
+
+func GetWalletSpecialRatioRules(c *gin.Context) {
+	common.ApiSuccess(c, service.GetWalletSpecialRatioRules())
 }

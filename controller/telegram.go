@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
@@ -253,19 +254,97 @@ func TelegramLogin(c *gin.Context) {
 	}
 
 	user := model.User{TelegramId: telegramId}
-	if err := user.FillUserByTelegramId(); err != nil {
-		c.JSON(200, gin.H{
-			"message": err.Error(),
-			"success": false,
-		})
-		return
+	if model.IsTelegramIdAlreadyTaken(telegramId) {
+		if err := user.FillUserByTelegramId(); err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"message": err.Error(),
+				"success": false,
+			})
+			return
+		}
+		if err := claimTelegramAuthorization(params, time.Now()); err != nil {
+			common.SysLog("TelegramLogin assertion replay rejected: " + err.Error())
+			c.JSON(http.StatusForbidden, gin.H{
+				"message": "该登录凭据已被使用",
+				"success": false,
+			})
+			return
+		}
+	} else {
+		if !common.RegisterEnabled {
+			common.ApiErrorI18n(c, i18n.MsgUserRegisterDisabled)
+			return
+		}
+		user.Username = "telegram_" + strconv.Itoa(model.GetMaxUserId()+1)
+		displayName := strings.TrimSpace(strings.Join(
+			[]string{params.Get("first_name"), params.Get("last_name")},
+			" ",
+		))
+		if displayName == "" {
+			displayName = params.Get("username")
+		}
+		if displayName == "" {
+			displayName = "Telegram User"
+		}
+		displayNameRunes := []rune(displayName)
+		if len(displayNameRunes) > model.UserNameMaxLength {
+			displayName = string(displayNameRunes[:model.UserNameMaxLength])
+		}
+		user.DisplayName = displayName
+		user.Role = common.RoleCommonUser
+		user.Status = common.UserStatusEnabled
+
+		assertion, assertionExpiresAt, err := telegramAuthorizationClaim(params, time.Now())
+		if err != nil {
+			common.SysLog("TelegramLogin authorization claim failed: " + err.Error())
+			c.JSON(http.StatusForbidden, gin.H{
+				"message": "该登录凭据已被使用",
+				"success": false,
+			})
+			return
+		}
+		registrationResult, err := model.RegisterSelfServiceUser(
+			&user,
+			0,
+			c.ClientIP(),
+			func(tx *gorm.DB) error {
+				if err := model.ClaimExternalIdentityWithTx(
+					tx,
+					model.ExternalIdentityProviderTelegram,
+					telegramId,
+					user.Id,
+				); err != nil {
+					return err
+				}
+				return model.ClaimExternalAuthAssertionWithTx(
+					tx,
+					model.AuthFlowPurposeTelegramAssertion,
+					assertion,
+					assertionExpiresAt,
+				)
+			},
+		)
+		if err != nil {
+			if errors.Is(err, model.ErrAuthFlowInvalid) || errors.Is(err, model.ErrAuthFlowConsumed) {
+				common.SysLog("TelegramLogin assertion replay rejected: " + err.Error())
+				c.JSON(http.StatusForbidden, gin.H{
+					"message": "该登录凭据已被使用",
+					"success": false,
+				})
+				return
+			}
+			if handleSelfServiceRegistrationError(c, err) {
+				return
+			}
+			common.ApiError(c, err)
+			return
+		}
+		if respondToRegistrationIPLimit(c, registrationResult) {
+			return
+		}
 	}
-	if err := claimTelegramAuthorization(params, time.Now()); err != nil {
-		common.SysLog("TelegramLogin assertion replay rejected: " + err.Error())
-		c.JSON(http.StatusForbidden, gin.H{
-			"message": "该登录凭据已被使用",
-			"success": false,
-		})
+	if user.Status != common.UserStatusEnabled {
+		common.ApiErrorI18n(c, i18n.MsgOAuthUserBanned)
 		return
 	}
 	setupLogin(&user, c)

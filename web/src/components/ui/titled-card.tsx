@@ -63,22 +63,47 @@ export function TitledCard({
   return (
     <Card
       data-card-hover={disableHoverEffect ? 'false' : undefined}
-      className={cn('gap-0 overflow-hidden py-0', className)}
+      className={cn(
+        'relative gap-0 overflow-hidden rounded-[1.75rem] border-[3px] border-[#ffd1dc] bg-white py-0 shadow-[3px_3px_0px_#ffd1dc] dark:border-[#3b2d35] dark:bg-[#151d2a] dark:shadow-[3px_3px_0px_#3b2d35]',
+        !disableHoverEffect &&
+          'transition-transform duration-200 hover:-translate-y-1',
+        className
+      )}
     >
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute -top-8 -right-8 z-0 h-24 w-24 rounded-full bg-[#ffb3c6]/25'
+      />
+      <div
+        aria-hidden='true'
+        className='pointer-events-none absolute -bottom-8 -left-8 z-0 h-24 w-24 rounded-full bg-[#64b5f6]/20'
+      />
       <CardHeader
-        className={cn('border-b p-3 !pb-3 sm:p-5 sm:!pb-5', headerClassName)}
+        className={cn(
+          'relative z-10 border-b-2 border-dashed border-[#ffd1dc] p-4 dark:border-[#3b2d35] sm:p-5',
+          headerClassName
+        )}
       >
         <div className='flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between'>
           <div className='flex min-w-0 items-center gap-3'>
             {icon != null && (
-              <IconBadge size='title' tone={iconTone} className={iconClassName}>
+              <IconBadge
+                size='title'
+                tone={iconTone}
+                className={cn(
+                  'size-10 rounded-full sm:size-10',
+                  iconTone == null &&
+                    'bg-gradient-to-br from-[#ffb3c6] to-[#ff758f] text-white shadow-[0_4px_10px_rgba(255,117,143,0.4)]',
+                  iconClassName
+                )}
+              >
                 {icon}
               </IconBadge>
             )}
             <div className='min-w-0'>
               <CardTitle
                 className={cn(
-                  'text-lg tracking-tight sm:text-xl',
+                  'text-lg font-black tracking-tight text-[#2c3e50] dark:text-[#e2e8f0] sm:text-xl',
                   titleClassName
                 )}
               >
@@ -86,7 +111,10 @@ export function TitledCard({
               </CardTitle>
               {description != null && (
                 <CardDescription
-                  className={cn('text-xs sm:text-sm', descriptionClassName)}
+                  className={cn(
+                    'mt-1 text-sm font-bold text-[#7f8c8d] dark:text-[#94a3b8]',
+                    descriptionClassName
+                  )}
                 >
                   {description}
                 </CardDescription>
@@ -94,11 +122,18 @@ export function TitledCard({
             </div>
           </div>
           {action != null && (
-            <div className='w-full shrink-0 sm:w-auto'>{action}</div>
+            <div className='mt-2 w-full shrink-0 sm:mt-0 sm:w-auto'>
+              {action}
+            </div>
           )}
         </div>
       </CardHeader>
-      <CardContent className={cn('p-3 sm:p-5', contentClassName)}>
+      <CardContent
+        className={cn(
+          'relative z-10 p-4 text-[#2c3e50] dark:text-[#e2e8f0] sm:p-5',
+          contentClassName
+        )}
+      >
         {children}
       </CardContent>
     </Card>

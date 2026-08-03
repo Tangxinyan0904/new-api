@@ -20,6 +20,57 @@ For commercial licensing, please contact support@quantumnous.com
 // Affiliate Functions
 // ============================================================================
 
+import type {
+  AffiliateRebateSummary,
+  AffiliateTransferRequestRecord,
+} from '../types'
+
+export function markAffiliateTransferSubmitted(
+  summary: AffiliateRebateSummary,
+  createdRequest?: AffiliateTransferRequestRecord
+): AffiliateRebateSummary {
+  return {
+    ...summary,
+    ...(createdRequest ? { pending_request: createdRequest } : {}),
+    submitted_today: true,
+  }
+}
+
+interface AffiliateTransferActionStateInput {
+  totalPendingQuota: number
+  minimumQuota: number
+  pendingRequest: boolean
+  submittedToday: boolean
+}
+
+interface AffiliateTransferActionState {
+  disabled: boolean
+  labelKey: 'Request Transfer' | 'Submitted'
+  showMinimum: boolean
+}
+
+export function getAffiliateTransferActionState(
+  input: AffiliateTransferActionStateInput
+): AffiliateTransferActionState {
+  const submitted = input.pendingRequest || input.submittedToday
+  const belowMinimum =
+    input.minimumQuota <= 0 || input.totalPendingQuota < input.minimumQuota
+
+  if (submitted) {
+    return {
+      disabled: true,
+      labelKey: 'Submitted',
+      showMinimum: false,
+    }
+  }
+
+  return {
+    disabled: belowMinimum,
+    labelKey: 'Request Transfer',
+    showMinimum: belowMinimum,
+  }
+}
+
 /**
  * Generate affiliate registration link
  */

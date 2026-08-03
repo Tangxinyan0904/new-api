@@ -18,12 +18,124 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { CopyButton } from '@/components/copy-button'
 import { SectionPageLayout } from '@/components/layout'
+import { useStatus } from '@/hooks/use-status'
+import { getBgColorClass } from '@/lib/colors'
+import { cn } from '@/lib/utils'
 
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
 import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
 import { ApiKeysTable } from './components/api-keys-table'
+
+type ApiInfoAddress = {
+  url: string
+  route?: string
+  description?: string
+  color?: string
+}
+
+function appendApiV1Path(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) return trimmed
+
+  const withoutTrailingSlash = trimmed.replace(/\/+$/, '')
+  if (withoutTrailingSlash.endsWith('/v1')) {
+    return withoutTrailingSlash
+  }
+
+  return `${withoutTrailingSlash}/v1`
+}
+
+function isApiInfoAddress(value: unknown): value is ApiInfoAddress {
+  if (typeof value !== 'object' || value === null) {
+    return false
+  }
+
+  const candidate = value as Record<string, unknown>
+  return typeof candidate.url === 'string' && candidate.url.trim().length > 0
+}
+
+function getApiInfoAddresses(value: unknown): ApiInfoAddress[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter(isApiInfoAddress)
+}
+
+function ApiKeysApiAddresses() {
+  const { t } = useTranslation()
+  const { status, loading } = useStatus()
+  const enabled = status ? status.api_info_enabled !== false : false
+  const apiInfoAddresses = enabled ? getApiInfoAddresses(status?.api_info) : []
+
+  if (loading || apiInfoAddresses.length === 0) {
+    return null
+  }
+
+  return (
+    <section
+      aria-label={t('API Addresses')}
+      className='border-border/70 bg-muted/20 rounded-lg border p-3'
+    >
+      <div className='mb-2 text-sm font-medium'>{t('API Addresses')}</div>
+      <div className='grid grid-cols-1 gap-2 lg:grid-cols-2'>
+        {apiInfoAddresses.map((item) => {
+          const title = item.route || item.description || t('API URL')
+          const v1Url = appendApiV1Path(item.url)
+
+          return (
+            <div
+              key={`${item.url}-${title}`}
+              className='border-border/70 bg-background flex flex-col gap-2 rounded-md border px-3 py-2 sm:flex-row sm:items-center sm:justify-start sm:gap-3'
+            >
+              <div className='flex shrink-0 flex-wrap items-center gap-2'>
+                <CopyButton
+                  value={item.url}
+                  variant='outline'
+                  size='sm'
+                  iconClassName='size-3.5'
+                  tooltip={t('Copy URL')}
+                  aria-label={t('Copy URL')}
+                >
+                  {t('Copy')}
+                </CopyButton>
+                <CopyButton
+                  value={v1Url}
+                  variant='outline'
+                  size='sm'
+                  iconClassName='size-3.5'
+                  tooltip={t('Copy with /v1')}
+                  aria-label={t('Copy with /v1')}
+                >
+                  {t('Copy with /v1')}
+                </CopyButton>
+              </div>
+
+              <div className='flex min-w-0 flex-1 items-center gap-2'>
+                <span
+                  className={cn(
+                    'size-2 shrink-0 rounded-full',
+                    getBgColorClass(item.color)
+                  )}
+                  aria-hidden='true'
+                />
+                <div className='min-w-0'>
+                  <div className='truncate text-sm font-medium'>{title}</div>
+                  <div className='text-muted-foreground truncate font-mono text-xs'>
+                    {item.url}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
 
 export function ApiKeys() {
   const { t } = useTranslation()
@@ -35,7 +147,12 @@ export function ApiKeys() {
           <ApiKeysPrimaryButtons />
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <ApiKeysTable />
+          <div className='flex h-full min-h-0 flex-col gap-4 overflow-y-auto md:overflow-hidden'>
+            <ApiKeysApiAddresses />
+            <div className='min-h-80 flex-1 md:min-h-0'>
+              <ApiKeysTable />
+            </div>
+          </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

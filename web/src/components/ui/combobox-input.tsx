@@ -33,6 +33,8 @@ interface ComboboxInputProps {
   options: ComboboxInputOption[]
   value?: string
   onValueChange: (value: string) => void
+  type?: React.HTMLInputTypeAttribute
+  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   placeholder?: string
   emptyText?: string
   className?: string
@@ -45,6 +47,8 @@ export function ComboboxInput({
   options,
   value = '',
   onValueChange,
+  type = 'text',
+  onKeyDown,
   placeholder = 'Select or type...',
   emptyText = 'No option found.',
   className,
@@ -112,7 +116,10 @@ export function ComboboxInput({
       return
     }
 
-    if (!open) return
+    if (!open) {
+      onKeyDown?.(e)
+      return
+    }
 
     switch (e.key) {
       case 'ArrowDown':
@@ -145,6 +152,8 @@ export function ComboboxInput({
         setSearchValue('')
         break
     }
+
+    if (!e.defaultPrevented) onKeyDown?.(e)
   }
 
   // Scroll highlighted item into view
@@ -158,12 +167,27 @@ export function ComboboxInput({
     open &&
     (filteredOptions.length > 0 || (allowCustomValue && searchValue.trim()))
 
+  if (type === 'password') {
+    return (
+      <Input
+        id={id}
+        type='password'
+        autoComplete='off'
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onValueChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        className={className}
+      />
+    )
+  }
+
   return (
     <div ref={containerRef} className='relative'>
       <Input
         ref={inputRef}
         id={id}
-        type='text'
+        type={type}
         role='combobox'
         aria-expanded={open}
         aria-haspopup='listbox'

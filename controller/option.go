@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/QuantumNous/new-api/setting/geoip_setting"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -76,6 +77,27 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+func isSensitiveOptionKey(key string) bool {
+	lowerKey := strings.ToLower(key)
+	return strings.HasSuffix(key, "Token") ||
+		strings.HasSuffix(key, "Secret") ||
+		strings.HasSuffix(key, "Key") ||
+		strings.HasSuffix(lowerKey, "secret") ||
+		strings.HasSuffix(lowerKey, "api_key") ||
+		strings.HasSuffix(lowerKey, "key")
+}
+
+func normalizeGeoIPOptionValue(key string, value string) (string, error) {
+	switch key {
+	case "geoip.mode":
+		return value, geoip_setting.ValidateMode(value)
+	case "geoip.blocked_countries":
+		return geoip_setting.NormalizeBlockedCountriesJSON(value)
+	default:
+		return value, nil
+	}
+}
+
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
 	optionValues := make(map[string]string)
@@ -85,12 +107,7 @@ func GetOptions(c *gin.Context) {
 			continue
 		}
 		value := common.Interface2String(v)
-		isSensitiveKey := strings.HasSuffix(k, "Token") ||
-			strings.HasSuffix(k, "Secret") ||
-			strings.HasSuffix(k, "Key") ||
-			strings.HasSuffix(k, "secret") ||
-			strings.HasSuffix(k, "api_key")
-		if isSensitiveKey {
+		if isSensitiveOptionKey(k) {
 			continue
 		}
 		options = append(options, &model.Option{
@@ -141,6 +158,12 @@ func UpdateOption(c *gin.Context) {
 	default:
 		option.Value = fmt.Sprintf("%v", option.Value)
 	}
+	normalizedValue, err := normalizeGeoIPOptionValue(option.Key, option.Value.(string))
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	option.Value = normalizedValue
 	switch option.Key {
 	case "QuotaForInviter", "QuotaForInvitee":
 		if isPositiveOptionValue(option.Value.(string)) && !operation_setting.IsPaymentComplianceConfirmed() {
@@ -236,6 +259,15 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case ratio_setting.GroupGroupRatioWalletDisplayOption:
+		err = ratio_setting.ValidateGroupGroupRatioWalletDisplay(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
 	case "gemini.safety_settings":
 		err = model_setting.ValidateGeminiSafetySettings(option.Value.(string))
 		if err != nil {
@@ -299,8 +331,17 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
-	case "ModelRequestRateLimitGroup":
-		err = setting.CheckModelRequestRateLimitGroup(option.Value.(string))
+	case "ModelRequestRateLimitCount",
+		"ModelRequestRateLimitDurationMinutes",
+		"ModelRequestRateLimitSuccessCount",
+		"ModelRequestRateLimitGroup",
+		"ModelRequestRateLimitUser",
+		"ModelRequestRateLimitDistillationEnabled",
+		"ModelRequestRateLimitDistillationThreshold",
+		"ModelRequestRateLimitDistillationRPM",
+		"ModelRequestRateLimitDistillationPenaltyMinutes",
+		"ModelRequestRateLimitDistillationObservationMinutes":
+		err = setting.ValidateModelRequestRateLimitOption(option.Key, option.Value.(string))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -328,6 +369,15 @@ func UpdateOption(c *gin.Context) {
 		}
 	case "console_setting.api_info":
 		err = console_setting.ValidateConsoleSettings(option.Value.(string), "ApiInfo")
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "console_setting.api_key_notice":
+		err = console_setting.ValidateAPIKeyNotice(option.Value.(string))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,

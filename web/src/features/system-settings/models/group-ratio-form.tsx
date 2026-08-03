@@ -52,6 +52,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 
 import {
   SettingsForm,
@@ -69,6 +70,7 @@ type GroupFormValues = {
   TopupGroupRatio: string
   UserUsableGroups: string
   GroupGroupRatio: string
+  GroupGroupRatioWalletDisplay: string
   AutoGroups: string
   MaxTokenAutoGroups: number
   DefaultUseAutoGroup: boolean
@@ -171,6 +173,9 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               topupGroupRatio={form.watch('TopupGroupRatio')}
               userUsableGroups={form.watch('UserUsableGroups')}
               groupGroupRatio={form.watch('GroupGroupRatio')}
+              groupGroupRatioWalletDisplay={form.watch(
+                'GroupGroupRatioWalletDisplay'
+              )}
               autoGroups={form.watch('AutoGroups')}
               maxTokenAutoGroupsField={
                 <FormField
@@ -338,6 +343,23 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                     {t(
                       'to override billing when a user in one group uses a token of another group.'
                     )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='GroupGroupRatioWalletDisplay'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Wallet display')}</FormLabel>
+                  <FormControl>
+                    <Textarea rows={6} {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Selected special ratio rules shown in the wallet.')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

@@ -23,6 +23,8 @@ For commercial licensing, please contact support@quantumnous.com
 // System Configuration Defaults
 export const DEFAULT_SYSTEM_NAME = 'New API'
 export const DEFAULT_LOGO = '/logo.png'
+export const DEFAULT_GEOIP_POPUP_MESSAGE =
+  'Your current region is not supported by this service. Please contact the administrator if you believe this is a mistake.'
 
 // LocalStorage Keys
 export const STORAGE_KEYS = {

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQueryClient, useIsFetching } from '@tanstack/react-query'
+import { useIsFetching, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, getRouteApi } from '@tanstack/react-router'
 import type { Table } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
@@ -24,6 +24,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { ComboboxInput } from '@/components/ui/combobox-input'
 import {
   Select,
   SelectContent,
@@ -37,13 +38,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { getUserGroups } from '@/lib/api'
 
 import { LOG_TYPE_ALL_VALUE, LOG_TYPE_FILTERS } from '../constants'
 import { buildSearchParams } from '../lib/filter'
+import { buildLogGroupOptions } from '../lib/group-filter'
 import { getDefaultTimeRange } from '../lib/utils'
 import type { CommonLogFilters } from '../types'
 import { CommonLogsStats } from './common-logs-stats'
 import { CompactDateTimeRangePicker } from './compact-date-time-range-picker'
+import { LogRefreshActions } from './log-refresh-actions'
 import {
   LogsFilterField,
   LogsFilterInput,
@@ -119,6 +123,18 @@ export function CommonLogsFilterBar<TData>(
   const { isAdminView: isAdmin } = useLogsViewScope()
   const { sensitiveVisible, setSensitiveVisible } = useUsageLogsContext()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
+  const groupQuery = useQuery({
+    queryKey: ['user-groups'],
+    queryFn: getUserGroups,
+    staleTime: 30_000,
+  })
+  const groupOptions = useMemo(
+    () =>
+      buildLogGroupOptions(
+        groupQuery.data?.success ? groupQuery.data.data : undefined
+      ),
+    [groupQuery.data]
+  )
 
   const searchState = useMemo<CommonLogDraft>(() => {
     const { start, end } = getDefaultTimeRange()
@@ -313,12 +329,15 @@ export function CommonLogsFilterBar<TData>(
   )
   const groupFilter = (
     <LogsFilterField>
-      <LogsFilterInput
+      <ComboboxInput
+        options={groupOptions}
         placeholder={t('Group')}
         type={sensitiveType}
         value={filters.group || ''}
-        onChange={(e) => handleChange('group', e.target.value)}
+        onValueChange={(value) => handleChange('group', value || undefined)}
         onKeyDown={handleKeyDown}
+        emptyText='No group found.'
+        allowCustomValue
       />
     </LogsFilterField>
   )
@@ -439,6 +458,13 @@ export function CommonLogsFilterBar<TData>(
       hasAdvancedActiveFilters={hasExpandedFilters}
       advancedFilterCount={expandedFilterCount}
       hasActiveFilters={hasAdditionalFilters}
+      refreshActions={
+        <LogRefreshActions
+          logCategory='common'
+          isAdminView={isAdmin}
+          scopeKey={JSON.stringify(searchParams)}
+        />
+      }
       onSearch={handleApply}
       searchLoading={fetchingLogs > 0}
       onReset={handleReset}

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -27,6 +27,7 @@ import type { z } from 'zod'
 import { Dialog } from '@/components/dialog'
 import { PasswordInput } from '@/components/password-input'
 import { Turnstile } from '@/components/turnstile'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -45,6 +46,7 @@ import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import { shouldShowVerificationEmailReminder } from '@/features/auth/lib/email-verification-reminder'
 import {
   getAffiliateCode,
   saveAffiliateCode,
@@ -82,6 +84,7 @@ export function SignUpForm({
     secondsLeft,
     isActive,
     sendCode,
+    lastSuccessfullySentEmail,
   } = useEmailVerification({
     turnstileToken,
     validateTurnstile,
@@ -108,6 +111,10 @@ export function SignUpForm({
     true
   const hasWeChatLogin = Boolean(status?.wechat_login)
   const turnstileReady = !isTurnstileEnabled || Boolean(turnstileToken)
+  const showVerificationEmailReminder = shouldShowVerificationEmailReminder(
+    emailValue || '',
+    lastSuccessfullySentEmail
+  )
 
   const wechatQrCodeUrl = useMemo(() => {
     return (
@@ -247,6 +254,18 @@ export function SignUpForm({
         className={cn('grid gap-4', className)}
         {...props}
       >
+        <Alert className='border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100 [&_[data-slot=alert-description]]:text-amber-900 dark:[&_[data-slot=alert-description]]:text-amber-100/90'>
+          <AlertTriangle className='size-4' />
+          <AlertTitle>
+            {t('Invitation rewards are manually reviewed')}
+          </AlertTitle>
+          <AlertDescription>
+            {t(
+              'Invitation rewards are manually reviewed. Please do not abuse the system.'
+            )}
+          </AlertDescription>
+        </Alert>
+
         {/* Username Field */}
         <FormField
           control={form.control}
@@ -343,6 +362,16 @@ export function SignUpForm({
                 {verificationCodeAction}
               </Button>
             </div>
+            {showVerificationEmailReminder && (
+              <Alert variant='destructive'>
+                <AlertTriangle className='size-4' />
+                <AlertDescription className='font-medium'>
+                  {t(
+                    "Didn't receive the email? Check your spam or junk folder. Your email provider may have filtered it."
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
           </>
         )}
 

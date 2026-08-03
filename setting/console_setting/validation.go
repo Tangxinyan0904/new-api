@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 var (
@@ -21,6 +22,15 @@ var (
 	}
 	slugRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 )
+
+const maxAPIKeyNoticeLength = 500
+
+func ValidateAPIKeyNotice(notice string) error {
+	if utf8.RuneCountInString(notice) > maxAPIKeyNoticeLength {
+		return fmt.Errorf("API 密钥公告不能超过 %d 个字符", maxAPIKeyNoticeLength)
+	}
+	return nil
+}
 
 func parseJSONArray(jsonStr string, typeName string) ([]map[string]interface{}, error) {
 	var list []map[string]interface{}

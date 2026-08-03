@@ -92,6 +92,32 @@ func TestUpdateUserSettingOnlyUpdatesSetting(t *testing.T) {
 	assert.Equal(t, "zh", got.GetSetting().Language)
 }
 
+func TestUpdateUserSettingDropsDeprecatedQuotaWarningEmailState(t *testing.T) {
+	setupUserUpdateTestState(t)
+
+	user := User{
+		Id:       3,
+		Username: "deprecated-setting-user",
+		Password: "password",
+		Status:   common.UserStatusEnabled,
+		Setting:  `{"notify_type":"email","quota_warning_email_sent":true}`,
+	}
+	require.NoError(t, DB.Create(&user).Error)
+
+	require.NoError(t, UpdateUserSetting(user.Id, dto.UserSetting{
+		NotifyType: dto.NotifyTypeWebhook,
+		Language:   "zh",
+	}))
+
+	var got User
+	require.NoError(t, DB.Select("setting").First(&got, user.Id).Error)
+	var rawSetting map[string]interface{}
+	require.NoError(t, common.Unmarshal([]byte(got.Setting), &rawSetting))
+	assert.NotContains(t, rawSetting, "quota_warning_email_sent")
+	assert.Equal(t, dto.NotifyTypeWebhook, got.GetSetting().NotifyType)
+	assert.Equal(t, "zh", got.GetSetting().Language)
+}
+
 func TestEnsureEmailAvailableRejectsExistingEmailCaseInsensitive(t *testing.T) {
 	setupUserUpdateTestState(t)
 

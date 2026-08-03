@@ -60,7 +60,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const groups = props.model.enable_groups || []
   const endpoints = props.model.supported_endpoint_types || []
   const modelIconKey = props.model.icon || props.model.vendor_icon
-  const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 28) : null
+  const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 32) : null
   const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
   const isDynamicPricing =
     props.model.billing_mode === 'tiered_expr' &&
@@ -110,10 +110,10 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           {dynamicSummary.primaryEntries.map((entry) => (
             <span
               key={entry.key}
-              className='text-muted-foreground whitespace-nowrap'
+              className='font-medium whitespace-nowrap text-[#7f8c8d] dark:text-[#94a3b8]'
             >
               {t(entry.shortLabel)}{' '}
-              <span className='text-foreground font-mono font-semibold'>
+              <span className='font-mono font-black text-[#2c3e50] dark:text-white'>
                 {entry.formatted}
               </span>
             </span>
@@ -122,7 +122,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       )
     } else {
       priceSummary = (
-        <span className='text-muted-foreground text-sm'>
+        <span className='text-sm font-medium text-[#7f8c8d] dark:text-[#94a3b8]'>
           {t('Dynamic Pricing')}
         </span>
       )
@@ -130,9 +130,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   } else if (isTokenBased) {
     priceSummary = (
       <>
-        <span className='text-muted-foreground whitespace-nowrap'>
+        <span className='font-medium whitespace-nowrap text-[#7f8c8d] dark:text-[#94a3b8]'>
           {t('Input')}{' '}
-          <span className='text-foreground font-mono font-semibold'>
+          <span className='font-mono font-black text-[#2c3e50] dark:text-white'>
             {formatPrice(
               props.model,
               'input',
@@ -144,9 +144,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             )}
           </span>
         </span>
-        <span className='text-muted-foreground whitespace-nowrap'>
+        <span className='font-medium whitespace-nowrap text-[#7f8c8d] dark:text-[#94a3b8]'>
           {t('Output')}{' '}
-          <span className='text-foreground font-mono font-semibold'>
+          <span className='font-mono font-black text-[#2c3e50] dark:text-white'>
             {formatPrice(
               props.model,
               'output',
@@ -159,9 +159,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           </span>
         </span>
         {hasCachedPrice && (
-          <span className='text-muted-foreground whitespace-nowrap'>
+          <span className='font-medium whitespace-nowrap text-[#7f8c8d] dark:text-[#94a3b8]'>
             {t('Cached')}{' '}
-            <span className='text-foreground font-mono font-semibold'>
+            <span className='font-mono font-black text-[#2c3e50] dark:text-white'>
               {formatPrice(
                 props.model,
                 'cache',
@@ -178,8 +178,8 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     )
   } else {
     priceSummary = (
-      <span className='text-muted-foreground whitespace-nowrap'>
-        <span className='text-foreground font-mono font-semibold'>
+      <span className='font-medium whitespace-nowrap text-[#7f8c8d] dark:text-[#94a3b8]'>
+        <span className='font-mono font-black text-[#2c3e50] dark:text-white'>
           {formatRequestPrice(
             props.model,
             showRechargePrice,
@@ -196,60 +196,62 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   return (
     <div
       className={cn(
-        'group relative flex flex-col rounded-xl border p-3 transition-colors sm:p-5',
-        'hover:bg-muted/20'
+        'group relative flex flex-col rounded-[1.75rem] border-[3px] border-[#ffd1dc] bg-white p-4 transition-all duration-300 sm:p-6',
+        'shadow-[3px_3px_0px_#ffd1dc] hover:-translate-y-1',
+        'dark:border-[#3b2d35] dark:bg-[#151d2a] dark:shadow-[3px_3px_0px_#3b2d35]'
       )}
     >
       {/* Header: icon + name + price + actions */}
-      <div className='flex items-start justify-between gap-2.5 sm:gap-3'>
-        <div className='flex min-w-0 items-start gap-2.5 sm:gap-3'>
-          <div className='bg-muted/40 flex size-9 shrink-0 items-center justify-center rounded-lg sm:size-10 sm:rounded-xl'>
+      <div className='flex items-start justify-between gap-4'>
+        <div className='flex min-w-0 items-start gap-3'>
+          <div className='flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#f0f8ff] dark:bg-[#1a2436]'>
             {modelIcon || (
-              <span className='text-muted-foreground text-sm font-bold'>
+              <span className='text-lg font-black text-[#64b5f6]'>
                 {initial}
               </span>
             )}
           </div>
           <div className='min-w-0'>
-            <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
+            <h3 className='text-foreground truncate font-mono text-[17px] leading-tight font-black'>
               {props.model.model_name}
             </h3>
-            <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm sm:mt-1 sm:gap-x-3'>
+            <div className='mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]'>
               {priceSummary}
             </div>
           </div>
         </div>
 
-        <div className='flex shrink-0 items-center gap-1.5'>
+        <div className='flex min-w-[5rem] shrink-0 flex-col items-stretch gap-2'>
           <button
             type='button'
             onClick={props.onClick}
-            className='text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors sm:px-2.5 sm:py-1.5'
+            className='inline-flex items-center justify-center gap-1.5 rounded-full border-2 border-[#64b5f6] px-4 py-1.5 text-[13px] font-bold text-[#64b5f6] transition-all hover:-translate-y-0.5 hover:bg-[#64b5f6] hover:text-white'
           >
             {t('Details')}
-            <ChevronRight className='size-3.5' />
+            <ChevronRight className='size-4' />
           </button>
           <button
             type='button'
             onClick={handleCopy}
-            className='text-muted-foreground hover:text-foreground hover:bg-muted rounded-md border p-1.5 transition-colors'
+            className='inline-flex items-center justify-center gap-1.5 rounded-full border-2 border-dashed border-[#ffb3c6] px-4 py-1.5 text-[13px] font-bold text-[#ff758f] transition-all hover:-translate-y-0.5 hover:border-solid hover:border-[#ffb3c6] hover:bg-[#ffb3c6] hover:text-white dark:border-[#ff758f]/50'
             title={t('Copy')}
           >
             <Copy className='size-3.5' />
+            <span>{t('Copy')}</span>
           </button>
         </div>
       </div>
 
       {/* Description */}
-      <p className='text-muted-foreground mt-2 line-clamp-1 flex-1 text-[13px] leading-relaxed sm:mt-4 sm:line-clamp-2 sm:min-h-[2.5rem]'>
+      <p className='mt-3 line-clamp-2 flex-1 text-[14px] leading-relaxed font-medium text-[#7f8c8d] dark:text-[#94a3b8]'>
         {props.model.description || t('No description available.')}
       </p>
 
       {/* Footer: left metadata and right performance summary share row alignment */}
-      <div className='mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 sm:mt-4'>
+      <div className='mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 border-t-2 border-dashed border-[#ffd1dc] pt-3 dark:border-[#3b2d35]'>
         <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
           {primaryGroup && (
-            <span className='text-muted-foreground text-sm font-medium'>
+            <span className='text-sm font-black text-[#ff758f]'>
               {primaryGroup}
             </span>
           )}
