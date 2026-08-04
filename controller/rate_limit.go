@@ -89,6 +89,18 @@ func ListDistillationPenalties(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+func ListSelfDistillationViolationRecords(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	items, total, err := model.ListUserDistillationViolationRecords(c.GetInt("id"), pageInfo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
+
 func ClearDistillationPenalty(c *gin.Context) {
 	userID, err := strconv.Atoi(c.Param("user_id"))
 	if err != nil || userID <= 0 {

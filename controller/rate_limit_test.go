@@ -74,6 +74,52 @@ func performRateLimitSettingsRequest(t *testing.T, body any) *httptest.ResponseR
 	return recorder
 }
 
+func TestListSelfDistillationViolationRecordsIsolatesAuthenticatedUserAndPaginates(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.DistillationViolationRecord{}))
+	records := []model.DistillationViolationRecord{
+		{
+			UserId: 301, CycleStartedAt: 1000, TriggeredAt: 1000,
+			RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+			Action: model.DistillationViolationActionTemporaryLimit, EffectiveUntil: 1600,
+		},
+		{
+			UserId: 301, CycleStartedAt: 1000, TriggeredAt: 1700,
+			RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+			Action: model.DistillationViolationActionPermanentBan,
+		},
+		{
+			UserId: 999, CycleStartedAt: 2000, TriggeredAt: 2000,
+			RequestCount: 300, DetectionThreshold: 300, PenaltyRPM: 20,
+			Action: model.DistillationViolationActionTemporaryLimit, EffectiveUntil: 2600,
+		},
+	}
+	require.NoError(t, db.Create(&records).Error)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/user/distillation/violations/self?p=1&page_size=1&user_id=999", nil)
+	ctx.Set("id", 301)
+
+	ListSelfDistillationViolationRecords(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Total int                                  `json:"total"`
+			Items []*model.DistillationViolationRecord `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.True(t, response.Success)
+	assert.Equal(t, 2, response.Data.Total)
+	require.Len(t, response.Data.Items, 1)
+	assert.Equal(t, records[1].Id, response.Data.Items[0].Id)
+	assert.Equal(t, model.DistillationViolationActionPermanentBan, response.Data.Items[0].Action)
+	assert.NotContains(t, recorder.Body.String(), "user_id")
+}
+
 func TestUpdateRateLimitSettingsPersistsCompleteConfiguration(t *testing.T) {
 	setupRateLimitControllerTest(t)
 
