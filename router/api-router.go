@@ -142,6 +142,7 @@ func SetApiRouter(router *gin.Engine) {
 				adminRoute.POST("/topup/complete", controller.AdminCompleteTopUp)
 				adminRoute.GET("/affiliate/transfer-requests", controller.ListAffiliateTransferRequests)
 				adminRoute.GET("/affiliate/transfer-requests/:id/detail", controller.GetAffiliateTransferRequestDetail)
+				adminRoute.POST("/affiliate/transfer-requests/approve-all", controller.ApproveAllAffiliateTransferRequests)
 				adminRoute.POST("/affiliate/transfer-requests/:id/approve", controller.ApproveAffiliateTransferRequest)
 				adminRoute.POST("/affiliate/transfer-requests/:id/reject", controller.RejectAffiliateTransferRequest)
 				adminRoute.GET("/search", controller.SearchUsers)

@@ -160,6 +160,81 @@ func TestApproveAffiliateTransferRequestDoesNotRecordUserLogWhenApprovalFails(t 
 	assert.Equal(t, "affiliate.transfer.approved_for_user", op["action"])
 }
 
+func TestApproveAllAffiliateTransferRequestsRecordsEveryApproval(t *testing.T) {
+	db := setupAffiliateTransferApproveAllControllerFixture(t, false)
+	recorder, ctx := newAffiliateTransferApproveAllContext()
+
+	ApproveAllAffiliateTransferRequests(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			ApprovedCount int `json:"approved_count"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.True(t, response.Success)
+	assert.Equal(t, 2, response.Data.ApprovedCount)
+
+	var logs []model.Log
+	require.NoError(t, db.Where("type = ?", model.LogTypeManage).Order("id ASC").Find(&logs).Error)
+	require.Len(t, logs, 4)
+
+	adminRequestIds := make([]int, 0, 2)
+	userRequestIds := make([]int, 0, 2)
+	for _, log := range logs {
+		other, err := common.StrToMap(log.Other)
+		require.NoError(t, err)
+		op, ok := other["op"].(map[string]interface{})
+		require.True(t, ok)
+		params, ok := op["params"].(map[string]interface{})
+		require.True(t, ok)
+		requestId := int(params["request_id"].(float64))
+		switch op["action"] {
+		case "affiliate.transfer.approve":
+			assert.Equal(t, 1, log.UserId)
+			adminRequestIds = append(adminRequestIds, requestId)
+		case "affiliate.transfer.approved_for_user":
+			assert.Contains(t, []int{302, 303}, log.UserId)
+			userRequestIds = append(userRequestIds, requestId)
+		default:
+			t.Fatalf("unexpected affiliate transfer log action: %v", op["action"])
+		}
+	}
+	assert.ElementsMatch(t, []int{7, 8}, adminRequestIds)
+	assert.ElementsMatch(t, []int{7, 8}, userRequestIds)
+}
+
+func TestApproveAllAffiliateTransferRequestsRollsBackWithoutLogs(t *testing.T) {
+	db := setupAffiliateTransferApproveAllControllerFixture(t, true)
+	recorder, ctx := newAffiliateTransferApproveAllContext()
+
+	ApproveAllAffiliateTransferRequests(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.False(t, response.Success)
+
+	var requests []model.AffiliateTransferRequest
+	require.NoError(t, db.Order("id ASC").Find(&requests).Error)
+	require.Len(t, requests, 2)
+	assert.Equal(t, model.AffiliateTransferStatusPending, requests[0].Status)
+	assert.Equal(t, model.AffiliateTransferStatusPending, requests[1].Status)
+
+	var firstUser model.User
+	require.NoError(t, db.First(&firstUser, 302).Error)
+	assert.Equal(t, 10, firstUser.Quota)
+	assert.Equal(t, 200, firstUser.AffQuota)
+
+	var logCount int64
+	require.NoError(t, db.Model(&model.Log{}).Where("type = ?", model.LogTypeManage).Count(&logCount).Error)
+	assert.Zero(t, logCount)
+}
+
 func setupAffiliateTransferApprovalControllerFixture(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
@@ -198,6 +273,78 @@ func newAffiliateTransferApprovalContext(requestID int) (*httptest.ResponseRecor
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/user/affiliate/transfer-requests/"+strconv.Itoa(requestID)+"/approve", nil)
 	ctx.Params = gin.Params{{Key: "id", Value: strconv.Itoa(requestID)}}
+	ctx.Set("id", 1)
+	ctx.Set("username", "root-admin")
+	ctx.Set("role", common.RoleRootUser)
+	return recorder, ctx
+}
+
+func setupAffiliateTransferApproveAllControllerFixture(t *testing.T, invalidSecond bool) *gorm.DB {
+	t.Helper()
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.Log{}))
+
+	users := []model.User{
+		{
+			Id:       1,
+			Username: "root-admin",
+			Password: "password",
+			Role:     common.RoleRootUser,
+			Status:   common.UserStatusEnabled,
+			AffCode:  "root",
+		},
+		{
+			Id:       302,
+			Username: "rebate-user-a",
+			Password: "password",
+			Status:   common.UserStatusEnabled,
+			AffCode:  "u302",
+			Quota:    10,
+			AffQuota: 200,
+		},
+		{
+			Id:       303,
+			Username: "rebate-user-b",
+			Password: "password",
+			Status:   common.UserStatusEnabled,
+			AffCode:  "u303",
+			Quota:    20,
+			AffQuota: 400,
+		},
+	}
+	if invalidSecond {
+		users[2].AffQuota = 399
+	}
+	require.NoError(t, db.Create(&users).Error)
+
+	requests := []model.AffiliateTransferRequest{
+		{
+			Id:                  7,
+			UserId:              302,
+			InviteRewardQuota:   200,
+			RechargeRebateQuota: 300,
+			TotalQuota:          500,
+			Status:              model.AffiliateTransferStatusPending,
+			CreatedAt:           1000,
+		},
+		{
+			Id:                  8,
+			UserId:              303,
+			InviteRewardQuota:   400,
+			RechargeRebateQuota: 200,
+			TotalQuota:          600,
+			Status:              model.AffiliateTransferStatusPending,
+			CreatedAt:           1001,
+		},
+	}
+	require.NoError(t, db.Create(&requests).Error)
+	return db
+}
+
+func newAffiliateTransferApproveAllContext() (*httptest.ResponseRecorder, *gin.Context) {
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/user/affiliate/transfer-requests/approve-all", nil)
 	ctx.Set("id", 1)
 	ctx.Set("username", "root-admin")
 	ctx.Set("role", common.RoleRootUser)

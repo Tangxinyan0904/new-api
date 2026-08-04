@@ -85,6 +85,27 @@ func ApproveAffiliateTransferRequest(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	recordAffiliateTransferApproval(c, detail)
+	common.ApiSuccess(c, nil)
+}
+
+type approveAllAffiliateTransferRequestsResult struct {
+	ApprovedCount int `json:"approved_count"`
+}
+
+func ApproveAllAffiliateTransferRequests(c *gin.Context) {
+	details, err := model.ApproveAllPendingAffiliateTransferRequests(c.GetInt("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	for _, detail := range details {
+		recordAffiliateTransferApproval(c, detail)
+	}
+	common.ApiSuccess(c, approveAllAffiliateTransferRequestsResult{ApprovedCount: len(details)})
+}
+
+func recordAffiliateTransferApproval(c *gin.Context, detail *model.AffiliateTransferRequestDetail) {
 	recordManageAudit(c, "affiliate.transfer.approve", affiliateTransferAuditParams(detail, ""))
 	userLogParams := map[string]interface{}{
 		"request_id": detail.Id,
@@ -100,7 +121,6 @@ func ApproveAffiliateTransferRequest(c *gin.Context) {
 		auditOperatorInfo(c),
 		nil,
 	)
-	common.ApiSuccess(c, nil)
 }
 
 type rejectAffiliateTransferRequestBody struct {

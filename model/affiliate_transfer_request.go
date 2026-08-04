@@ -456,6 +456,52 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 	}, nil
 }
 
+func approveAffiliateTransferRequestWithDB(tx *gorm.DB, request *AffiliateTransferRequest, reviewerId int) error {
+	if request.Status != AffiliateTransferStatusPending {
+		return errors.New("request is not pending")
+	}
+	if request.InviteRewardQuota < 0 || request.RechargeRebateQuota < 0 || request.TotalQuota <= 0 || request.TotalQuota > common.MaxQuota {
+		return errors.New("invalid affiliate transfer quota")
+	}
+
+	res := tx.Model(&AffiliateTransferRequest{}).
+		Where("id = ? AND status = ?", request.Id, AffiliateTransferStatusPending).
+		Updates(map[string]interface{}{
+			"status":        AffiliateTransferStatusApproved,
+			"reviewed_at":   common.GetTimestamp(),
+			"reviewed_by":   reviewerId,
+			"reject_reason": "",
+		})
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected != 1 {
+		return errors.New("request is not pending")
+	}
+
+	if request.InviteRewardQuota > 0 {
+		res = tx.Model(&User{}).
+			Where("id = ? AND aff_quota >= ?", request.UserId, request.InviteRewardQuota).
+			Update("aff_quota", gorm.Expr("aff_quota - ?", request.InviteRewardQuota))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return errors.New("insufficient invitation reward quota")
+		}
+	}
+	res = tx.Model(&User{}).
+		Where("id = ? AND quota <= ?", request.UserId, common.MaxQuota-request.TotalQuota).
+		Update("quota", gorm.Expr("quota + ?", request.TotalQuota))
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected != 1 {
+		return errors.New("transfer recipient does not exist or quota limit would be exceeded")
+	}
+	return nil
+}
+
 func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 	var approvedUserId int
 	var approvedQuota int
@@ -464,47 +510,8 @@ func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 		if err := lockForUpdate(tx).First(&request, "id = ?", requestId).Error; err != nil {
 			return err
 		}
-		if request.Status != AffiliateTransferStatusPending {
-			return errors.New("request is not pending")
-		}
-		if request.InviteRewardQuota < 0 || request.RechargeRebateQuota < 0 || request.TotalQuota <= 0 || request.TotalQuota > common.MaxQuota {
-			return errors.New("invalid affiliate transfer quota")
-		}
-
-		res := tx.Model(&AffiliateTransferRequest{}).
-			Where("id = ? AND status = ?", request.Id, AffiliateTransferStatusPending).
-			Updates(map[string]interface{}{
-				"status":        AffiliateTransferStatusApproved,
-				"reviewed_at":   common.GetTimestamp(),
-				"reviewed_by":   reviewerId,
-				"reject_reason": "",
-			})
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected != 1 {
-			return errors.New("request is not pending")
-		}
-
-		if request.InviteRewardQuota > 0 {
-			res = tx.Model(&User{}).
-				Where("id = ? AND aff_quota >= ?", request.UserId, request.InviteRewardQuota).
-				Update("aff_quota", gorm.Expr("aff_quota - ?", request.InviteRewardQuota))
-			if res.Error != nil {
-				return res.Error
-			}
-			if res.RowsAffected != 1 {
-				return errors.New("insufficient invitation reward quota")
-			}
-		}
-		res = tx.Model(&User{}).
-			Where("id = ? AND quota <= ?", request.UserId, common.MaxQuota-request.TotalQuota).
-			Update("quota", gorm.Expr("quota + ?", request.TotalQuota))
-		if res.Error != nil {
-			return res.Error
-		}
-		if res.RowsAffected != 1 {
-			return errors.New("transfer recipient does not exist or quota limit would be exceeded")
+		if err := approveAffiliateTransferRequestWithDB(tx, &request, reviewerId); err != nil {
+			return err
 		}
 		approvedUserId = request.UserId
 		approvedQuota = request.TotalQuota
@@ -517,6 +524,58 @@ func ApproveAffiliateTransferRequest(requestId int, reviewerId int) error {
 		common.SysLog("failed to increase user quota cache after affiliate transfer approval: " + err.Error())
 	}
 	return nil
+}
+
+func ApproveAllPendingAffiliateTransferRequests(reviewerId int) ([]*AffiliateTransferRequestDetail, error) {
+	approved := make([]*AffiliateTransferRequestDetail, 0)
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		requests := make([]AffiliateTransferRequest, 0)
+		if err := lockForUpdate(tx).
+			Where("status = ?", AffiliateTransferStatusPending).
+			Order("id ASC").
+			Find(&requests).Error; err != nil {
+			return err
+		}
+		if len(requests) == 0 {
+			return nil
+		}
+
+		userIds := make([]int, 0, len(requests))
+		for _, request := range requests {
+			userIds = append(userIds, request.UserId)
+		}
+		users := make([]User, 0, len(userIds))
+		if err := tx.Select("id", "username", "display_name").Where("id IN ?", userIds).Find(&users).Error; err != nil {
+			return err
+		}
+		usersById := make(map[int]User, len(users))
+		for _, user := range users {
+			usersById[user.Id] = user
+		}
+
+		for i := range requests {
+			request := &requests[i]
+			if err := approveAffiliateTransferRequestWithDB(tx, request, reviewerId); err != nil {
+				return err
+			}
+			user := usersById[request.UserId]
+			approved = append(approved, &AffiliateTransferRequestDetail{
+				AffiliateTransferRequest: *request,
+				Username:                 user.Username,
+				DisplayName:              user.DisplayName,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	for _, detail := range approved {
+		if err := cacheIncrUserQuota(detail.UserId, int64(detail.TotalQuota)); err != nil {
+			common.SysLog("failed to increase user quota cache after affiliate transfer approval: " + err.Error())
+		}
+	}
+	return approved, nil
 }
 
 func RejectAffiliateTransferRequest(requestId int, reviewerId int, reason string) error {

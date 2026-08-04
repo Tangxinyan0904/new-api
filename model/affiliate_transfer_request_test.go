@@ -242,6 +242,171 @@ func TestApproveAffiliateTransferRequestUpdatesCachedQuota(t *testing.T) {
 	assert.Equal(t, 550, quota)
 }
 
+func TestApproveAllPendingAffiliateTransferRequestsApprovesEveryPendingRequest(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+	useUserCacheMiniRedis(t)
+
+	firstOwner := User{
+		Username:    "batch-approval-first-owner",
+		Password:    "password",
+		AffCode:     "batch-approval-first-code",
+		AffQuota:    100,
+		Quota:       10,
+		Role:        common.RoleCommonUser,
+		Status:      common.UserStatusEnabled,
+		Group:       "default",
+		AuthVersion: 1,
+	}
+	secondOwner := User{
+		Username:    "batch-approval-second-owner",
+		Password:    "password",
+		AffCode:     "batch-approval-second-code",
+		AffQuota:    200,
+		Quota:       20,
+		Role:        common.RoleCommonUser,
+		Status:      common.UserStatusEnabled,
+		Group:       "default",
+		AuthVersion: 1,
+	}
+	ignoredOwner := User{
+		Username: "batch-approval-ignored-owner",
+		Password: "password",
+		AffCode:  "batch-approval-ignored-code",
+		Quota:    30,
+	}
+	require.NoError(t, DB.Create(&firstOwner).Error)
+	require.NoError(t, DB.Create(&secondOwner).Error)
+	require.NoError(t, DB.Create(&ignoredOwner).Error)
+	require.NoError(t, populateUserCache(firstOwner))
+	require.NoError(t, populateUserCache(secondOwner))
+
+	firstRequest := AffiliateTransferRequest{
+		UserId:              firstOwner.Id,
+		InviteRewardQuota:   100,
+		RechargeRebateQuota: 50,
+		TotalQuota:          150,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           100,
+	}
+	secondRequest := AffiliateTransferRequest{
+		UserId:              secondOwner.Id,
+		InviteRewardQuota:   200,
+		RechargeRebateQuota: 50,
+		TotalQuota:          250,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           200,
+	}
+	ignoredRequest := AffiliateTransferRequest{
+		UserId:     ignoredOwner.Id,
+		TotalQuota: 999,
+		Status:     AffiliateTransferStatusApproved,
+		CreatedAt:  50,
+	}
+	require.NoError(t, DB.Create(&firstRequest).Error)
+	require.NoError(t, DB.Create(&secondRequest).Error)
+	require.NoError(t, DB.Create(&ignoredRequest).Error)
+
+	approved, err := ApproveAllPendingAffiliateTransferRequests(99)
+	require.NoError(t, err)
+	require.Len(t, approved, 2)
+	assert.Equal(t, []int{firstRequest.Id, secondRequest.Id}, []int{approved[0].Id, approved[1].Id})
+	assert.Equal(t, firstOwner.Username, approved[0].Username)
+	assert.Equal(t, secondOwner.Username, approved[1].Username)
+
+	require.NoError(t, DB.First(&firstOwner, firstOwner.Id).Error)
+	require.NoError(t, DB.First(&secondOwner, secondOwner.Id).Error)
+	require.NoError(t, DB.First(&ignoredOwner, ignoredOwner.Id).Error)
+	assert.Equal(t, 160, firstOwner.Quota)
+	assert.Zero(t, firstOwner.AffQuota)
+	assert.Equal(t, 270, secondOwner.Quota)
+	assert.Zero(t, secondOwner.AffQuota)
+	assert.Equal(t, 30, ignoredOwner.Quota)
+
+	require.NoError(t, DB.First(&firstRequest, firstRequest.Id).Error)
+	require.NoError(t, DB.First(&secondRequest, secondRequest.Id).Error)
+	require.NoError(t, DB.First(&ignoredRequest, ignoredRequest.Id).Error)
+	assert.Equal(t, AffiliateTransferStatusApproved, firstRequest.Status)
+	assert.Equal(t, 99, firstRequest.ReviewedBy)
+	assert.Equal(t, AffiliateTransferStatusApproved, secondRequest.Status)
+	assert.Equal(t, 99, secondRequest.ReviewedBy)
+	assert.Equal(t, AffiliateTransferStatusApproved, ignoredRequest.Status)
+	assert.Zero(t, ignoredRequest.ReviewedBy)
+
+	firstCachedQuota, err := GetUserQuota(firstOwner.Id, false)
+	require.NoError(t, err)
+	secondCachedQuota, err := GetUserQuota(secondOwner.Id, false)
+	require.NoError(t, err)
+	assert.Equal(t, 160, firstCachedQuota)
+	assert.Equal(t, 270, secondCachedQuota)
+}
+
+func TestApproveAllPendingAffiliateTransferRequestsReturnsEmptyWithoutPendingRequests(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	approved, err := ApproveAllPendingAffiliateTransferRequests(99)
+
+	require.NoError(t, err)
+	assert.NotNil(t, approved)
+	assert.Empty(t, approved)
+}
+
+func TestApproveAllPendingAffiliateTransferRequestsRollsBackEntireBatch(t *testing.T) {
+	setupAffiliateTransferRequestFixture(t)
+
+	firstOwner := User{
+		Username: "batch-rollback-first-owner",
+		Password: "password",
+		AffCode:  "batch-rollback-first-code",
+		AffQuota: 100,
+		Quota:    10,
+	}
+	secondOwner := User{
+		Username: "batch-rollback-second-owner",
+		Password: "password",
+		AffCode:  "batch-rollback-second-code",
+		AffQuota: 50,
+		Quota:    20,
+	}
+	require.NoError(t, DB.Create(&firstOwner).Error)
+	require.NoError(t, DB.Create(&secondOwner).Error)
+
+	firstRequest := AffiliateTransferRequest{
+		UserId:              firstOwner.Id,
+		InviteRewardQuota:   100,
+		RechargeRebateQuota: 50,
+		TotalQuota:          150,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           100,
+	}
+	secondRequest := AffiliateTransferRequest{
+		UserId:              secondOwner.Id,
+		InviteRewardQuota:   100,
+		RechargeRebateQuota: 50,
+		TotalQuota:          150,
+		Status:              AffiliateTransferStatusPending,
+		CreatedAt:           200,
+	}
+	require.NoError(t, DB.Create(&firstRequest).Error)
+	require.NoError(t, DB.Create(&secondRequest).Error)
+
+	approved, err := ApproveAllPendingAffiliateTransferRequests(99)
+
+	require.Error(t, err)
+	assert.Nil(t, approved)
+	require.NoError(t, DB.First(&firstOwner, firstOwner.Id).Error)
+	require.NoError(t, DB.First(&secondOwner, secondOwner.Id).Error)
+	require.NoError(t, DB.First(&firstRequest, firstRequest.Id).Error)
+	require.NoError(t, DB.First(&secondRequest, secondRequest.Id).Error)
+	assert.Equal(t, 10, firstOwner.Quota)
+	assert.Equal(t, 100, firstOwner.AffQuota)
+	assert.Equal(t, 20, secondOwner.Quota)
+	assert.Equal(t, 50, secondOwner.AffQuota)
+	assert.Equal(t, AffiliateTransferStatusPending, firstRequest.Status)
+	assert.Zero(t, firstRequest.ReviewedBy)
+	assert.Equal(t, AffiliateTransferStatusPending, secondRequest.Status)
+	assert.Zero(t, secondRequest.ReviewedBy)
+}
+
 func TestAffiliateTransferRequestMultiConnectionConcurrentTerminalTransition(t *testing.T) {
 	concurrentDB, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
