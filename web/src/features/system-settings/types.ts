@@ -418,6 +418,12 @@ export type GeoIPSettings = Pick<
   | 'geoip.blocked_countries'
 >
 
+export type UpdateGeoIPOptionsRequest = Omit<
+  GeoIPSettings,
+  'geoip.maxmind_license_key'
+> &
+  Partial<Pick<GeoIPSettings, 'geoip.maxmind_license_key'>>
+
 export type UpstreamChannel = {
   id: number
   name: string

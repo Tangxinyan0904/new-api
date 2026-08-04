@@ -38,9 +38,9 @@ import {
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { formatQuota } from '@/lib/format'
 
-import { updateApiKey } from '../api'
+import { updateApiKeyGroup } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
-import type { ApiKey, ApiKeyFormData } from '../types'
+import type { ApiKey, ApiKeyGroupUpdateData } from '../types'
 import {
   ApiKeyGroupCombobox,
   type ApiKeyGroupOption,
@@ -50,16 +50,8 @@ import { useApiKeys } from './api-keys-provider'
 function getGroupUpdatePayload(
   apiKey: ApiKey,
   group: string
-): ApiKeyFormData & { id: number } {
+): ApiKeyGroupUpdateData {
   return {
-    id: apiKey.id,
-    name: apiKey.name,
-    remain_quota: apiKey.remain_quota,
-    expired_time: apiKey.expired_time,
-    unlimited_quota: apiKey.unlimited_quota,
-    model_limits_enabled: apiKey.model_limits_enabled,
-    model_limits: apiKey.model_limits || '',
-    allow_ips: apiKey.allow_ips || '',
     group,
     auto_groups: group === 'auto' ? (apiKey.auto_groups ?? []) : [],
     cross_group_retry: group === 'auto' ? !!apiKey.cross_group_retry : false,
@@ -229,7 +221,10 @@ export function EditableApiKeyGroupCell(props: {
   const { triggerRefresh } = useApiKeys()
   const mutation = useMutation({
     mutationFn: (group: string) =>
-      updateApiKey(getGroupUpdatePayload(props.apiKey, group)),
+      updateApiKeyGroup(
+        props.apiKey.id,
+        getGroupUpdatePayload(props.apiKey, group)
+      ),
     onSuccess: (result) => {
       if (result.success) {
         toast.success(t(SUCCESS_MESSAGES.API_KEY_UPDATED))

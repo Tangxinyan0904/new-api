@@ -48,9 +48,6 @@ interface AffiliateRewardsCardProps {
   transferring?: boolean
 }
 
-const DEFAULT_PROMOTION_TEXT =
-  '\u53d1\u73b0\u4e00\u4e2a\u8d85\u4f4e\u4ef7\u4e2d\u8f6c\uff0c\u9080\u8bf7\u6ce8\u518c\u90011\u5200\uff0c\u8fdb\u7fa4\u98861\u5200\uff0c\u8d85\u4f4e\u500d\u7387\u7b49\u4ef7\u522b\u4eba\u51e0\u5341\u5200\uff01'
-
 export function AffiliateRewardsCard({
   user,
   affiliateLink,
@@ -65,7 +62,7 @@ export function AffiliateRewardsCard({
   transferring,
 }: AffiliateRewardsCardProps) {
   const { t } = useTranslation()
-  const [promotionText, setPromotionText] = useState(DEFAULT_PROMOTION_TEXT)
+  const [promotionText, setPromotionText] = useState<string | null>(null)
 
   if (loading) {
     return (
@@ -107,7 +104,9 @@ export function AffiliateRewardsCard({
   const transferDisabled =
     !complianceConfirmed || transferring || actionState.disabled
   const invitedUsers = rebateSummary?.invited_users ?? []
-  const promotionCopyValue = [promotionText.trim(), affiliateLink]
+  const resolvedPromotionText =
+    promotionText ?? t('Share your referral link to invite others to join.')
+  const promotionCopyValue = [resolvedPromotionText.trim(), affiliateLink]
     .filter(Boolean)
     .join('\n')
 
@@ -216,7 +215,7 @@ export function AffiliateRewardsCard({
               </Label>
               <Textarea
                 id='affiliate-promotion-text'
-                value={promotionText}
+                value={resolvedPromotionText}
                 onChange={(event) => setPromotionText(event.target.value)}
                 className='bg-background/70 min-h-18 resize-none text-sm'
               />

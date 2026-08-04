@@ -45,10 +45,9 @@ export function LegalConsent(props: LegalConsentProps) {
   }
 
   return (
-    <Label
-      htmlFor='legal-consent'
+    <div
       className={cn(
-        'focus-within:ring-ring/60 flex cursor-pointer items-start gap-3 rounded-lg border-2 px-3 py-2.5 text-left text-sm leading-5 font-medium transition-colors focus-within:ring-3 focus-within:ring-offset-2',
+        'focus-within:ring-ring/60 flex items-start gap-3 rounded-lg border-2 px-3 py-2.5 text-left text-sm leading-5 font-medium transition-colors focus-within:ring-3 focus-within:ring-offset-2',
         props.checked
           ? 'border-primary/70 bg-primary/10 text-foreground hover:bg-primary/15'
           : 'border-destructive/70 bg-destructive/10 text-foreground hover:bg-destructive/15',
@@ -62,7 +61,12 @@ export function LegalConsent(props: LegalConsentProps) {
         className='border-foreground/70 bg-background mt-0.5 size-5 border-2 shadow-sm'
       />
       <span className='min-w-0 flex-1'>
-        {t('I have read and agree to the')}{' '}
+        <Label
+          htmlFor='legal-consent'
+          className='inline cursor-pointer text-sm leading-5 font-medium'
+        >
+          {t('I have read and agree to the')}
+        </Label>{' '}
         {hasUserAgreement && (
           <a
             href='/user-agreement'
@@ -86,6 +90,6 @@ export function LegalConsent(props: LegalConsentProps) {
         )}
         .
       </span>
-    </Label>
+    </div>
   )
 }

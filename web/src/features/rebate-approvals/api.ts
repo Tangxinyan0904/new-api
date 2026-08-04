@@ -6,6 +6,13 @@ import type {
   RebateApprovalListResponse,
 } from './types'
 
+export class RebateApprovalDetailError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RebateApprovalDetailError'
+  }
+}
+
 export async function getRebateTransferRequests(params: {
   p?: number
   page_size?: number
@@ -25,7 +32,9 @@ export async function approveRebateTransferRequest(
   id: number
 ): Promise<ApiResponse> {
   const res = await api.post(
-    `/api/user/affiliate/transfer-requests/${id}/approve`
+    `/api/user/affiliate/transfer-requests/${id}/approve`,
+    undefined,
+    { skipBusinessError: true, skipErrorHandler: true }
   )
   return res.data
 }
@@ -34,8 +43,19 @@ export async function getRebateTransferRequestDetail(
   id: number
 ): Promise<ApiResponse<RebateApprovalDetail>> {
   const res = await api.get(
-    `/api/user/affiliate/transfer-requests/${id}/detail`
+    `/api/user/affiliate/transfer-requests/${id}/detail`,
+    { skipBusinessError: true, skipErrorHandler: true }
   )
+  if (res.data?.success === false) {
+    throw new RebateApprovalDetailError(
+      res.data.message || 'Failed to load rebate request details.'
+    )
+  }
+  if (!res.data?.data) {
+    throw new RebateApprovalDetailError(
+      'Failed to load rebate request details.'
+    )
+  }
   return res.data
 }
 
@@ -45,7 +65,8 @@ export async function rejectRebateTransferRequest(
 ): Promise<ApiResponse> {
   const res = await api.post(
     `/api/user/affiliate/transfer-requests/${id}/reject`,
-    { reason }
+    { reason },
+    { skipBusinessError: true, skipErrorHandler: true }
   )
   return res.data
 }

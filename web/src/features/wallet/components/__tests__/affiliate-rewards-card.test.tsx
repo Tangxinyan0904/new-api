@@ -16,43 +16,35 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { expect, mock, test } from 'bun:test'
+import { expect, test } from 'bun:test'
 
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
 
-mock.module('../components/rebate-approvals-table', () => ({
-  RebateApprovalsTable: () => <div />,
-}))
+import { AffiliateRewardsCard } from '../affiliate-rewards-card'
 
-if (typeof document !== 'undefined' && document.compatMode !== 'CSS1Compat') {
-  Object.defineProperty(document, 'compatMode', {
-    configurable: true,
-    value: 'CSS1Compat',
-  })
-}
-
-const { RebateApprovals } = await import('../index')
-
-test('renders the rebate approvals title in the active locale', async () => {
+test('uses a neutral promotion message without a fixed reward claim', async () => {
   const i18n = createInstance()
   await i18n.init({
-    lng: 'fr',
-    resources: {
-      fr: {
-        translation: {
-          'Rebate Approvals': 'Approbation des remises',
-        },
-      },
-    },
+    lng: 'en',
+    resources: { en: { translation: {} } },
   })
 
-  const markup = renderToStaticMarkup(
+  const html = renderToStaticMarkup(
     <I18nextProvider i18n={i18n}>
-      <RebateApprovals />
+      <AffiliateRewardsCard
+        user={null}
+        affiliateLink='https://example.com/sign-up?aff=test'
+        rebateSummary={null}
+        minimumTransferQuota={500_000}
+        onRefresh={() => undefined}
+        onTransfer={() => undefined}
+        onOpenTransferHistory={() => undefined}
+      />
     </I18nextProvider>
   )
 
-  expect(markup).toContain('Approbation des remises')
+  expect(html).toContain('Share your referral link to invite others to join.')
+  expect(html).not.toContain('注册送1刀')
 })

@@ -20,6 +20,7 @@ import { api } from '@/lib/api'
 
 import type {
   ApiKey,
+  ApiKeyGroupUpdateData,
   ApiResponse,
   GetApiKeysParams,
   GetApiKeysResponse,
@@ -82,6 +83,14 @@ export async function updateApiKey(
   data: ApiKeyFormData & { id: number }
 ): Promise<ApiResponse<ApiKey>> {
   const res = await api.put('/api/token/', data)
+  return res.data
+}
+
+export async function updateApiKeyGroup(
+  id: number,
+  data: ApiKeyGroupUpdateData
+): Promise<ApiResponse<ApiKey>> {
+  const res = await api.put(`/api/token/${id}/group`, data)
   return res.data
 }
 

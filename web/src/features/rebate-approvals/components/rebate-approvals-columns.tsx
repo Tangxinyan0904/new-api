@@ -1,7 +1,5 @@
-import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
-import { toast } from 'sonner'
 
 import { StatusBadge } from '@/components/status-badge'
 import { formatQuota, formatTimestamp } from '@/lib/format'
@@ -16,30 +14,6 @@ import { RebateApprovalRowActions } from './rebate-approval-row-actions'
 
 export function useRebateApprovalsColumns(): ColumnDef<RebateApprovalRequest>[] {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
-
-  const refresh = () =>
-    queryClient.invalidateQueries({ queryKey: ['rebate-approvals'] })
-
-  const approve = async (id: number) => {
-    const res = await approveRebateTransferRequest(id)
-    if (res.success) {
-      toast.success(t('Approved'))
-      refresh()
-    } else {
-      toast.error(res.message || t('Approval failed'))
-    }
-  }
-
-  const reject = async (id: number) => {
-    const res = await rejectRebateTransferRequest(id)
-    if (res.success) {
-      toast.success(t('Rejected'))
-      refresh()
-    } else {
-      toast.error(res.message || t('Rejection failed'))
-    }
-  }
 
   return [
     {
@@ -132,8 +106,8 @@ export function useRebateApprovalsColumns(): ColumnDef<RebateApprovalRequest>[] 
         return (
           <RebateApprovalRowActions
             request={row.original}
-            onApprove={approve}
-            onReject={reject}
+            onApprove={approveRebateTransferRequest}
+            onReject={rejectRebateTransferRequest}
           />
         )
       },

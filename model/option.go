@@ -1,6 +1,8 @@
 package model
 
 import (
+	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -263,13 +265,28 @@ func UpdateOptionsBulk(values map[string]string) error {
 			return err
 		}
 	}
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i] == "geoip.mode" {
+			return false
+		}
+		if keys[j] == "geoip.mode" {
+			return true
+		}
+		return keys[i] < keys[j]
+	})
+
 	err := DB.Transaction(func(tx *gorm.DB) error {
-		for k, v := range values {
-			option := Option{Key: k}
-			if err := tx.FirstOrCreate(&option, Option{Key: k}).Error; err != nil {
+		for _, key := range keys {
+			value := values[key]
+			option := Option{Key: key}
+			if err := tx.FirstOrCreate(&option, Option{Key: key}).Error; err != nil {
 				return err
 			}
-			option.Value = v
+			option.Value = value
 			if err := tx.Save(&option).Error; err != nil {
 				return err
 			}
@@ -279,12 +296,49 @@ func UpdateOptionsBulk(values map[string]string) error {
 	if err != nil {
 		return err
 	}
-	for k, v := range values {
-		if err := updateOptionMap(k, v); err != nil {
+	for _, key := range keys {
+		if err := updateOptionMap(key, values[key]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func UpdateGeoIPOptions(values map[string]string) error {
+	requiredKeys := []string{
+		"geoip.database_path",
+		"geoip.download_url",
+		"geoip.popup_message",
+		"geoip.allow_private_loopback",
+		"geoip.blocked_countries",
+		"geoip.mode",
+	}
+	allowedKeys := make(map[string]struct{}, len(requiredKeys)+1)
+	for _, key := range requiredKeys {
+		allowedKeys[key] = struct{}{}
+		if _, ok := values[key]; !ok {
+			return fmt.Errorf("missing GeoIP option: %s", key)
+		}
+	}
+	allowedKeys["geoip.maxmind_license_key"] = struct{}{}
+	for key := range values {
+		if _, ok := allowedKeys[key]; !ok {
+			return fmt.Errorf("unsupported GeoIP option: %s", key)
+		}
+	}
+	if err := geoip_setting.ValidateMode(values["geoip.mode"]); err != nil {
+		return err
+	}
+	normalizedCountries, err := geoip_setting.NormalizeBlockedCountriesJSON(values["geoip.blocked_countries"])
+	if err != nil {
+		return err
+	}
+	normalizedValues := make(map[string]string, len(values))
+	for key, value := range values {
+		normalizedValues[key] = value
+	}
+	normalizedValues["geoip.blocked_countries"] = normalizedCountries
+	return UpdateOptionsBulk(normalizedValues)
 }
 
 func updateOptionMap(key string, value string) (err error) {

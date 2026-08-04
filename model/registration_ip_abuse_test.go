@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/glebarez/sqlite"
@@ -139,6 +140,53 @@ func TestRegisterSelfServiceUserBlocksFourthAccountAndRejectsLaterAttempts(t *te
 	assert.Equal(t, usersBefore, usersAfter)
 }
 
+func TestRegisterSelfServiceUserBlockAdvancesAuthStateAndRevokesSessions(t *testing.T) {
+	setupRegistrationIPAbuseTestDB(t)
+	useUserCacheMiniRedis(t)
+	const registrationIP = "203.0.113.23"
+	users := make([]*User, 0, RegistrationIPAccountLimit+1)
+
+	for index := 1; index <= RegistrationIPAccountLimit; index++ {
+		user := newRegistrationIPTestUser(index)
+		_, err := RegisterSelfServiceUser(user, 0, registrationIP, nil)
+		require.NoError(t, err)
+		require.NoError(t, populateUserCache(*user))
+		require.NoError(t, CreateUserSession(&UserSession{
+			SID:             fmt.Sprintf("registration-ip-block-%d", index),
+			UserID:          user.Id,
+			UserAuthVersion: user.AuthVersion,
+			RefreshHash:     fmt.Sprintf("registration-ip-refresh-%d", index),
+			ExpiresAt:       time.Now().Add(time.Hour).Unix(),
+		}))
+		users = append(users, user)
+	}
+
+	fourth := newRegistrationIPTestUser(RegistrationIPAccountLimit + 1)
+	result, err := RegisterSelfServiceUser(fourth, 0, registrationIP, nil)
+	require.NoError(t, err)
+	require.True(t, result.TriggeredBlock)
+	users = append(users, fourth)
+
+	for index, user := range users {
+		var stored User
+		require.NoError(t, DB.First(&stored, user.Id).Error)
+		assert.EqualValues(t, 2, stored.AuthVersion)
+		assert.Equal(t, common.UserStatusDisabled, stored.Status)
+
+		cached, cacheErr := GetUserCache(user.Id)
+		require.NoError(t, cacheErr)
+		assert.EqualValues(t, 2, cached.AuthVersion)
+		assert.Equal(t, common.UserStatusDisabled, cached.Status)
+
+		if index < RegistrationIPAccountLimit {
+			var session UserSession
+			require.NoError(t, DB.First(&session, "sid = ?", fmt.Sprintf("registration-ip-block-%d", index+1)).Error)
+			assert.Equal(t, UserSessionStatusRevoked, session.Status)
+			assert.Equal(t, "user_security_changed", session.RevokedReason)
+		}
+	}
+}
+
 func TestRegisterSelfServiceUserRollsBackProviderCallbackFailure(t *testing.T) {
 	db := setupRegistrationIPAbuseTestDB(t)
 	callbackErr := errors.New("provider binding failed")
@@ -208,6 +256,33 @@ func TestRegisterSelfServiceUserSerializesConcurrentThreshold(t *testing.T) {
 	assert.EqualValues(t, registrations, accountCount)
 }
 
+func TestRegisterSelfServiceUserDoesNotRecreateRestorationAfterConcurrentAdminDisable(t *testing.T) {
+	db := setupRegistrationIPAbuseTestDB(t)
+	const registrationIP = "203.0.113.24"
+	var existingUserIDs []int
+	for index := 1; index <= RegistrationIPAccountLimit; index++ {
+		user := newRegistrationIPTestUser(index)
+		_, err := RegisterSelfServiceUser(user, 0, registrationIP, nil)
+		require.NoError(t, err)
+		existingUserIDs = append(existingUserIDs, user.Id)
+	}
+
+	interleaved := installRegistrationIPAdminDisableInterleaving(t, db, existingUserIDs[0])
+	fourth := newRegistrationIPTestUser(RegistrationIPAccountLimit + 1)
+	result, err := RegisterSelfServiceUser(fourth, 0, registrationIP, nil)
+	require.NoError(t, err)
+	require.True(t, *interleaved)
+	assert.NotContains(t, result.AffectedUserIDs, existingUserIDs[0])
+
+	var user User
+	require.NoError(t, db.First(&user, existingUserIDs[0]).Error)
+	assert.Equal(t, common.UserStatusDisabled, user.Status)
+	var account RegistrationIPAccount
+	require.NoError(t, db.Where("user_id = ?", existingUserIDs[0]).First(&account).Error)
+	assert.False(t, account.RestoreEligible)
+	assert.Zero(t, account.AutoDisabledAt)
+}
+
 func TestUnblockRegistrationIPRestoresOnlyEligibleNonDeletedUsers(t *testing.T) {
 	db := setupRegistrationIPAbuseTestDB(t)
 	const registrationIP = "203.0.113.30"
@@ -250,6 +325,67 @@ func TestUnblockRegistrationIPRestoresOnlyEligibleNonDeletedUsers(t *testing.T) 
 	assert.Empty(t, idempotent.AffectedUserIDs)
 	require.NoError(t, db.Where("ip = ?", registrationIP).First(&state).Error)
 	assert.Equal(t, 2, state.CurrentCycle)
+}
+
+func TestUnblockRegistrationIPAdvancesAuthStateAndRevokesSessions(t *testing.T) {
+	setupRegistrationIPAbuseTestDB(t)
+	useUserCacheMiniRedis(t)
+	const registrationIP = "203.0.113.34"
+	userIDs := createBlockedRegistrationIPFixture(t, registrationIP)
+
+	for index, userID := range userIDs {
+		var user User
+		require.NoError(t, DB.First(&user, userID).Error)
+		require.NoError(t, populateUserCache(user))
+		require.NoError(t, CreateUserSession(&UserSession{
+			SID:             fmt.Sprintf("registration-ip-restore-%d", index),
+			UserID:          userID,
+			UserAuthVersion: user.AuthVersion,
+			RefreshHash:     fmt.Sprintf("registration-ip-restore-refresh-%d", index),
+			ExpiresAt:       time.Now().Add(time.Hour).Unix(),
+		}))
+	}
+
+	result, err := UnblockRegistrationIP(registrationIP)
+	require.NoError(t, err)
+	assert.ElementsMatch(t, userIDs, result.AffectedUserIDs)
+
+	for index, userID := range userIDs {
+		var stored User
+		require.NoError(t, DB.First(&stored, userID).Error)
+		assert.EqualValues(t, 3, stored.AuthVersion)
+		assert.Equal(t, common.UserStatusEnabled, stored.Status)
+
+		cached, cacheErr := GetUserCache(userID)
+		require.NoError(t, cacheErr)
+		assert.EqualValues(t, 3, cached.AuthVersion)
+		assert.Equal(t, common.UserStatusEnabled, cached.Status)
+
+		var session UserSession
+		require.NoError(t, DB.First(&session, "sid = ?", fmt.Sprintf("registration-ip-restore-%d", index)).Error)
+		assert.Equal(t, UserSessionStatusRevoked, session.Status)
+		assert.Equal(t, "user_security_changed", session.RevokedReason)
+	}
+}
+
+func TestUnblockRegistrationIPDoesNotOverrideConcurrentAdminDisable(t *testing.T) {
+	db := setupRegistrationIPAbuseTestDB(t)
+	const registrationIP = "203.0.113.35"
+	userIDs := createBlockedRegistrationIPFixture(t, registrationIP)
+
+	interleaved := installRegistrationIPAdminDisableInterleaving(t, db, userIDs[0])
+	result, err := UnblockRegistrationIP(registrationIP)
+	require.NoError(t, err)
+	require.True(t, *interleaved)
+	assert.NotContains(t, result.AffectedUserIDs, userIDs[0])
+
+	var user User
+	require.NoError(t, db.First(&user, userIDs[0]).Error)
+	assert.Equal(t, common.UserStatusDisabled, user.Status)
+	var account RegistrationIPAccount
+	require.NoError(t, db.Where("user_id = ?", userIDs[0]).First(&account).Error)
+	assert.False(t, account.RestoreEligible)
+	assert.Zero(t, account.AutoDisabledAt)
 }
 
 func TestSetUserStatusByAdminClearsAutomaticRestorationMarker(t *testing.T) {
@@ -405,6 +541,66 @@ func newRegistrationIPTestUser(index int) *User {
 	}
 }
 
+func installRegistrationIPAdminDisableInterleaving(t *testing.T, db *gorm.DB, userID int) *bool {
+	t.Helper()
+	const beforeCallback = "registration_ip_test:admin_disable_before_user_read"
+	const afterCallback = "registration_ip_test:admin_disable_after_user_read"
+	armed := false
+	mutateAfterUserRead := false
+	interleaved := false
+
+	applyAdminDisable := func(tx *gorm.DB) {
+		mutationDB := tx.Session(&gorm.Session{NewDB: true})
+		if err := mutationDB.Model(&User{}).
+			Where("id = ?", userID).
+			Update("status", common.UserStatusDisabled).Error; err != nil {
+			tx.AddError(err)
+			return
+		}
+		if err := mutationDB.Model(&RegistrationIPAccount{}).
+			Where("user_id = ?", userID).
+			Updates(map[string]interface{}{
+				"auto_disabled_at": 0,
+				"restore_eligible": false,
+			}).Error; err != nil {
+			tx.AddError(err)
+			return
+		}
+		interleaved = true
+	}
+
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register(beforeCallback, func(tx *gorm.DB) {
+		if !armed || tx.Statement.Table != "users" {
+			return
+		}
+		switch tx.Statement.Dest.(type) {
+		case *User:
+			armed = false
+			applyAdminDisable(tx)
+		case *[]int:
+			mutateAfterUserRead = true
+		}
+	}))
+	require.NoError(t, db.Callback().Query().After("gorm:after_query").Register(afterCallback, func(tx *gorm.DB) {
+		if tx.Statement.Table == "registration_ip_accounts" {
+			if _, ok := tx.Statement.Dest.(*[]int); ok {
+				armed = true
+			}
+			return
+		}
+		if !armed || !mutateAfterUserRead || tx.Statement.Table != "users" {
+			return
+		}
+		if _, ok := tx.Statement.Dest.(*[]int); !ok {
+			return
+		}
+		armed = false
+		mutateAfterUserRead = false
+		applyAdminDisable(tx)
+	}))
+	return &interleaved
+}
+
 func setupRegistrationIPAbuseTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -428,6 +624,7 @@ func setupRegistrationIPAbuseTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, db.AutoMigrate(
 		&User{},
 		&UserSession{},
+		&Token{},
 		&RegistrationIPState{},
 		&RegistrationIPAccount{},
 	))

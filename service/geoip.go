@@ -28,6 +28,10 @@ import (
 
 const defaultMaxMindCountryDownloadURL = "https://download.maxmind.com/app/geoip_download?edition_id=GeoLite2-Country&suffix=tar.gz&license_key=%s"
 
+const geoIPMaxDecompressedBytes int64 = 128 << 20
+
+var errGeoIPDatabaseTooLarge = errors.New("GeoIP database exceeds decompressed size limit")
+
 type GeoIPDecisionInput struct {
 	Mode             string
 	CountryCode      string
@@ -319,31 +323,49 @@ func geoIPDownloadFilename(resp *http.Response, rawURL string) string {
 }
 
 func extractGeoIPDatabaseBytes(filename string, data []byte) ([]byte, error) {
+	return extractGeoIPDatabaseBytesWithLimit(filename, data, geoIPMaxDecompressedBytes)
+}
+
+func extractGeoIPDatabaseBytesWithLimit(filename string, data []byte, maxBytes int64) ([]byte, error) {
+	if maxBytes <= 0 {
+		return nil, errors.New("GeoIP decompressed size limit must be positive")
+	}
 	lowerName := strings.ToLower(filename)
 	switch {
 	case strings.HasSuffix(lowerName, ".tar.gz") || strings.HasSuffix(lowerName, ".tgz"):
-		return extractMMDBFromTarGzip(data)
+		return extractMMDBFromTarGzip(data, maxBytes)
 	case strings.HasSuffix(lowerName, ".zip"):
-		return extractMMDBFromZip(data)
+		return extractMMDBFromZip(data, maxBytes)
 	case strings.HasSuffix(lowerName, ".mmdb.gz") || strings.HasSuffix(lowerName, ".gz"):
-		return gunzipBytes(data)
+		return gunzipBytes(data, maxBytes)
 	case strings.HasSuffix(lowerName, ".mmdb"):
-		return data, nil
+		return readGeoIPDatabaseBytes(bytes.NewReader(data), maxBytes)
 	default:
 		return nil, fmt.Errorf("unsupported GeoIP database archive type: %s", filename)
 	}
 }
 
-func gunzipBytes(data []byte) ([]byte, error) {
+func readGeoIPDatabaseBytes(reader io.Reader, maxBytes int64) ([]byte, error) {
+	value, err := io.ReadAll(io.LimitReader(reader, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(value)) > maxBytes {
+		return nil, fmt.Errorf("%w: maximum is %d bytes", errGeoIPDatabaseTooLarge, maxBytes)
+	}
+	return value, nil
+}
+
+func gunzipBytes(data []byte, maxBytes int64) ([]byte, error) {
 	reader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	defer reader.Close()
-	return io.ReadAll(reader)
+	return readGeoIPDatabaseBytes(reader, maxBytes)
 }
 
-func extractMMDBFromTarGzip(data []byte) ([]byte, error) {
+func extractMMDBFromTarGzip(data []byte, maxBytes int64) ([]byte, error) {
 	gzipReader, err := gzip.NewReader(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
@@ -362,12 +384,15 @@ func extractMMDBFromTarGzip(data []byte) ([]byte, error) {
 		if header == nil || header.FileInfo().IsDir() || !strings.HasSuffix(strings.ToLower(header.Name), ".mmdb") {
 			continue
 		}
-		return io.ReadAll(tarReader)
+		if header.Size > maxBytes {
+			return nil, fmt.Errorf("%w: maximum is %d bytes", errGeoIPDatabaseTooLarge, maxBytes)
+		}
+		return readGeoIPDatabaseBytes(tarReader, maxBytes)
 	}
 	return nil, errors.New("GeoIP archive does not contain an .mmdb file")
 }
 
-func extractMMDBFromZip(data []byte) ([]byte, error) {
+func extractMMDBFromZip(data []byte, maxBytes int64) ([]byte, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
@@ -376,11 +401,14 @@ func extractMMDBFromZip(data []byte) ([]byte, error) {
 		if file.FileInfo().IsDir() || !strings.HasSuffix(strings.ToLower(file.Name), ".mmdb") {
 			continue
 		}
+		if file.UncompressedSize64 > uint64(maxBytes) {
+			return nil, fmt.Errorf("%w: maximum is %d bytes", errGeoIPDatabaseTooLarge, maxBytes)
+		}
 		readCloser, err := file.Open()
 		if err != nil {
 			return nil, err
 		}
-		value, readErr := io.ReadAll(readCloser)
+		value, readErr := readGeoIPDatabaseBytes(readCloser, maxBytes)
 		closeErr := readCloser.Close()
 		if readErr != nil {
 			return nil, readErr

@@ -184,6 +184,55 @@ func TestUpdateTokenAutoGroupsTriStateAndNonAutoCleanup(t *testing.T) {
 	}
 }
 
+func TestUpdateTokenGroupPreservesQuotaChangedAfterListLoad(t *testing.T) {
+	configureTokenAutoGroupsTest(t, "5", `["default","vip"]`)
+	user := setupTokenAutoGroupsControllerTest(t)
+	token := seedToken(t, model.DB, user.Id, "narrow-group-update", "narrow-group-update-key")
+	token.Group = "auto"
+	token.CrossGroupRetry = true
+	require.NoError(t, token.SetAutoGroups([]string{"default", "vip"}))
+	require.NoError(t, model.DB.Save(token).Error)
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", token.Id).Updates(map[string]interface{}{
+		"remain_quota": 40,
+		"used_quota":   60,
+	}).Error)
+
+	request := map[string]any{
+		"group":                "vip",
+		"auto_groups":          []string{"default"},
+		"cross_group_retry":    true,
+		"remain_quota":         100,
+		"name":                 "stale-list-name",
+		"unlimited_quota":      false,
+		"model_limits":         "stale-model",
+		"model_limits_enabled": true,
+	}
+	ctx, recorder := newTokenAutoGroupsAuthenticatedContext(
+		t,
+		http.MethodPut,
+		"/api/token/"+stringInt(token.Id)+"/group",
+		request,
+		user.Id,
+	)
+	ctx.Params = append(ctx.Params, gin.Param{Key: "id", Value: stringInt(token.Id)})
+
+	UpdateTokenGroup(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	require.True(t, response.Success, response.Message)
+	var updated model.Token
+	require.NoError(t, model.DB.First(&updated, token.Id).Error)
+	assert.Equal(t, 40, updated.RemainQuota)
+	assert.Equal(t, 60, updated.UsedQuota)
+	assert.Equal(t, "narrow-group-update", updated.Name)
+	assert.True(t, updated.UnlimitedQuota)
+	assert.False(t, updated.ModelLimitsEnabled)
+	assert.Empty(t, updated.ModelLimits)
+	assert.Equal(t, "vip", updated.Group)
+	assert.False(t, updated.CrossGroupRetry)
+	assert.Empty(t, updated.AutoGroups)
+}
+
 func TestAddTokenRejectsInvalidAutoGroups(t *testing.T) {
 	tests := []struct {
 		name     string

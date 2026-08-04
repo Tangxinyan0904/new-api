@@ -1,13 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { Loader2 } from 'lucide-react'
+import { AlertCircle, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import { getRebateTransferRequestDetail } from '../api'
+import {
+  getRebateTransferRequestDetail,
+  RebateApprovalDetailError,
+} from '../api'
 import type { RebateApprovalDetail } from '../types'
 import { RebateInvitedUserList } from './rebate-invited-user-list'
 
@@ -174,7 +178,7 @@ export function RebateApprovalDetailDialog({
   onOpenChange,
 }: RebateApprovalDetailDialogProps) {
   const { t } = useTranslation()
-  const { data, isLoading } = useQuery({
+  const { data, error, isError, isFetching, isLoading, refetch } = useQuery({
     queryKey: ['rebate-approval-detail', requestId],
     queryFn: async () => {
       const result = await getRebateTransferRequestDetail(requestId)
@@ -187,14 +191,38 @@ export function RebateApprovalDetailDialog({
       {t('No details found.')}
     </div>
   )
-  if (isLoading) {
+  if (data) {
+    content = <DetailContent detail={data} />
+  } else if (isLoading) {
     content = (
       <div className='flex min-h-40 items-center justify-center'>
         <Loader2 className='text-muted-foreground size-5 animate-spin' />
       </div>
     )
-  } else if (data) {
-    content = <DetailContent detail={data} />
+  } else if (isError) {
+    const message =
+      error instanceof RebateApprovalDetailError
+        ? t(error.message)
+        : t('Failed to load rebate request details.')
+    content = (
+      <div
+        className='flex min-h-40 flex-col items-center justify-center gap-3 text-center'
+        role='alert'
+      >
+        <AlertCircle className='text-destructive size-6' />
+        <p className='text-muted-foreground max-w-sm text-sm'>{message}</p>
+        <Button
+          type='button'
+          size='sm'
+          variant='outline'
+          disabled={isFetching}
+          onClick={() => void refetch()}
+        >
+          {isFetching && <Loader2 className='size-4 animate-spin' />}
+          {t('Retry')}
+        </Button>
+      </div>
+    )
   }
 
   return (

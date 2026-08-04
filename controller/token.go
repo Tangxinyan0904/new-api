@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -34,6 +35,12 @@ func (input *tokenAutoGroupsInput) UnmarshalJSON(data []byte) error {
 type tokenRequest struct {
 	model.Token
 	AutoGroups tokenAutoGroupsInput `json:"auto_groups"`
+}
+
+type tokenGroupUpdateRequest struct {
+	Group           string               `json:"group"`
+	AutoGroups      tokenAutoGroupsInput `json:"auto_groups"`
+	CrossGroupRetry *bool                `json:"cross_group_retry"`
 }
 
 type tokenResponse struct {
@@ -434,6 +441,54 @@ func UpdateToken(c *gin.Context) {
 		"message": "",
 		"data":    buildMaskedTokenResponse(cleanToken),
 	})
+}
+
+func UpdateTokenGroup(c *gin.Context) {
+	tokenID, err := strconv.Atoi(c.Param("id"))
+	if err != nil || tokenID <= 0 {
+		common.ApiError(c, errors.New("invalid token ID"))
+		return
+	}
+	var request tokenGroupUpdateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	request.Group = strings.TrimSpace(request.Group)
+	token, err := model.GetTokenByIds(tokenID, c.GetInt("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if request.Group == "auto" {
+		if request.AutoGroups.Set && !setTokenAutoGroups(c, token, request.AutoGroups.Groups) {
+			return
+		}
+		if request.CrossGroupRetry != nil {
+			token.CrossGroupRetry = *request.CrossGroupRetry
+		}
+	} else {
+		userGroup, err := getTokenRequestUserGroup(c)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if !service.IsUserSelectableGroup(userGroup, request.Group) {
+			common.ApiErrorI18n(c, i18n.MsgTokenGroupInvalid, map[string]any{"Group": request.Group})
+			return
+		}
+		token.CrossGroupRetry = false
+		if err := token.SetAutoGroups(nil); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	token.Group = request.Group
+	if err := token.UpdateGroupSelection(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, buildMaskedTokenResponse(token))
 }
 
 type TokenBatch struct {

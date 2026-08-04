@@ -336,7 +336,7 @@ export function CommonLogsFilterBar<TData>(
         value={filters.group || ''}
         onValueChange={(value) => handleChange('group', value || undefined)}
         onKeyDown={handleKeyDown}
-        emptyText='No group found.'
+        emptyText={t('No group found.')}
         allowCustomValue
       />
     </LogsFilterField>

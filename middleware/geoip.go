@@ -29,7 +29,7 @@ func GeoIPAccessWithResolver(resolve GeoIPDecisionResolver) gin.HandlerFunc {
 			return
 		}
 
-		isAPI := isGeoIPAPIPath(c.Request.URL.Path)
+		isAPI := isGeoIPAPIPath(c)
 		if (isAPI && decision.RejectsAPI()) || (!isAPI && decision.RejectsWeb()) {
 			abortGeoIPRequest(c, decision, isAPI)
 			return
@@ -42,16 +42,17 @@ func isGeoIPStatusPath(requestPath string) bool {
 	return requestPath == "/api/geoip/status"
 }
 
-func isGeoIPAPIPath(requestPath string) bool {
+func isGeoIPAPIPath(c *gin.Context) bool {
+	requestPath := c.Request.URL.Path
 	if hasGeoIPPathPrefix(requestPath, "/api") {
 		return true
 	}
-	for _, prefix := range []string{"/v1", "/v1beta", "/mj", "/suno", "/kling", "/jimeng"} {
+	for _, prefix := range []string{"/v1", "/v1beta", "/pg", "/mj", "/suno", "/kling", "/jimeng"} {
 		if hasGeoIPPathPrefix(requestPath, prefix) {
 			return true
 		}
 	}
-	return false
+	return hasGeoIPPathPrefix(c.FullPath(), "/:mode/mj")
 }
 
 func hasGeoIPPathPrefix(requestPath string, prefix string) bool {

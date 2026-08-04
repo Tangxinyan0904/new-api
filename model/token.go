@@ -380,6 +380,31 @@ func (token *Token) Update() (err error) {
 	return err
 }
 
+func (token *Token) UpdateGroupSelection() error {
+	if token.Id <= 0 || token.UserId <= 0 {
+		return errors.New("invalid token group update")
+	}
+	result := DB.Model(&Token{}).
+		Where("id = ? AND user_id = ?", token.Id, token.UserId).
+		Updates(map[string]interface{}{
+			"group":             token.Group,
+			"auto_groups":       token.AutoGroups,
+			"cross_group_retry": token.CrossGroupRetry,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if err := DB.Where("id = ? AND user_id = ?", token.Id, token.UserId).First(token).Error; err != nil {
+		return err
+	}
+	if common.RedisEnabled {
+		if err := cacheDeleteToken(token.Key); err != nil {
+			common.SysLog("failed to invalidate token cache after group update: " + err.Error())
+		}
+	}
+	return nil
+}
+
 func (token *Token) SelectUpdate() (err error) {
 	defer func() {
 		if shouldUpdateRedis(true, err) {

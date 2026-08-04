@@ -97,6 +97,12 @@ export interface ApiKeyFormData {
   cross_group_retry: boolean
 }
 
+export interface ApiKeyGroupUpdateData {
+  group: string
+  auto_groups: string[]
+  cross_group_retry: boolean
+}
+
 export interface TokenAutoGroupsConfig {
   groups: string[]
   max_count: number

@@ -109,7 +109,7 @@ export function ApiKeyGroupCombobox({
             className={cn(
               'active:bg-background data-popup-open:border-ring data-popup-open:bg-background data-popup-open:ring-ring/20 relative w-full justify-between gap-2 text-start shadow-none transition-[background-color,border-color,box-shadow] duration-150 data-popup-open:ring-[3px]',
               compact
-                ? 'h-auto min-h-8 rounded-full border-2 border-dashed border-[#64b5f6] bg-[#f0f8ff] px-3 py-1 text-xs text-[#2196f3] hover:border-[#64b5f6] hover:bg-[#64b5f6] hover:text-white dark:border-[#42a5f5] dark:bg-[#1a2436] dark:text-[#42a5f5]'
+                ? 'border-border bg-muted/60 text-foreground hover:border-primary/50 hover:bg-muted hover:text-foreground dark:border-border dark:bg-muted/50 dark:text-foreground h-auto min-h-8 rounded-full border-2 border-dashed px-3 py-1 text-xs'
                 : 'border-input bg-muted/40 hover:bg-muted/55 hover:text-foreground h-auto min-h-14 rounded-lg px-3 py-2 sm:min-h-20 sm:gap-3 sm:px-4 sm:py-3',
               isAutoSelected &&
                 cn(

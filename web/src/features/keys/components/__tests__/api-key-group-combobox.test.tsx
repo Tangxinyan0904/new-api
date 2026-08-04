@@ -104,7 +104,7 @@ const options = [
   { value: 'vip', label: 'vip', desc: 'Priority group', ratio: 3 },
 ]
 
-function Harness(props: { initialValue: string }) {
+function Harness(props: { initialValue: string; compact?: boolean }) {
   const [value, setValue] = useState(props.initialValue)
 
   return (
@@ -113,6 +113,7 @@ function Harness(props: { initialValue: string }) {
         options={options}
         value={value}
         onValueChange={setValue}
+        compact={props.compact}
       />
       <output data-testid='selected-group'>{value}</output>
     </I18nextProvider>
@@ -290,5 +291,24 @@ describe('API key group combobox Auto effect', () => {
     await act(async () => root.unmount())
     container.remove()
     setReducedMotion(false)
+  })
+
+  test('uses theme semantic colors for the compact group trigger', async () => {
+    const container = document.createElement('div')
+    document.body.append(container)
+    const root = createRoot(container)
+
+    await act(async () =>
+      root.render(<Harness initialValue='default' compact />)
+    )
+
+    const trigger = getTrigger(container)
+    assert.doesNotMatch(trigger.className, /#[0-9a-f]{3,8}/i)
+    assert.equal(trigger.classList.contains('border-border'), true)
+    assert.equal(trigger.classList.contains('bg-muted/60'), true)
+    assert.equal(trigger.classList.contains('text-foreground'), true)
+
+    await act(async () => root.unmount())
+    container.remove()
   })
 })

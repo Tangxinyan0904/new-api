@@ -177,36 +177,50 @@ func RegisterSelfServiceUser(
 			Pluck("user_id", &cycleUserIDs).Error; err != nil {
 			return err
 		}
-		var enabledUserIDs []int
-		if err := tx.Model(&User{}).
-			Where("id IN ? AND status = ?", cycleUserIDs, common.UserStatusEnabled).
-			Pluck("id", &enabledUserIDs).Error; err != nil {
-			return err
-		}
-		sort.Ints(enabledUserIDs)
+		sort.Ints(cycleUserIDs)
 		now := time.Now().Unix()
-		if len(enabledUserIDs) > 0 {
-			if err := tx.Model(&User{}).
-				Where("id IN ?", enabledUserIDs).
-				Update("status", common.UserStatusDisabled).Error; err != nil {
+		for _, userID := range cycleUserIDs {
+			var candidate User
+			err := lockForUpdate(tx).
+				Select("id", "status").
+				Where("id = ?", userID).
+				First(&candidate).Error
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				continue
+			}
+			if err != nil {
+				return err
+			}
+			if candidate.Status != common.UserStatusEnabled {
+				continue
+			}
+			if _, err := IncrementUserAuthVersionWithTx(tx, userID); err != nil {
+				return err
+			}
+			if err := tx.Model(&candidate).Update("status", common.UserStatusDisabled).Error; err != nil {
 				return err
 			}
 			if err := tx.Model(&RegistrationIPAccount{}).
-				Where("user_id IN ?", enabledUserIDs).
+				Where(
+					"user_id = ? AND registration_ip = ? AND registration_cycle = ?",
+					userID,
+					canonicalIP,
+					state.CurrentCycle,
+				).
 				Updates(map[string]interface{}{
 					"auto_disabled_at": now,
 					"restore_eligible": true,
 				}).Error; err != nil {
 				return err
 			}
+			result.AffectedUserIDs = append(result.AffectedUserIDs, userID)
 		}
 		if err := tx.Model(&state).Update("blocked_at", now).Error; err != nil {
 			return err
 		}
 
 		result.TriggeredBlock = true
-		result.AffectedUserIDs = enabledUserIDs
-		for _, userID := range enabledUserIDs {
+		for _, userID := range result.AffectedUserIDs {
 			if userID == user.Id {
 				user.Status = common.UserStatusDisabled
 				break
@@ -220,12 +234,7 @@ func RegisterSelfServiceUser(
 
 	user.FinishInsert(inviterID)
 	for _, userID := range result.AffectedUserIDs {
-		if err := InvalidateUserCache(userID); err != nil {
-			common.SysLog(fmt.Sprintf("failed to invalidate user cache after registration IP block for user %d: %s", userID, err.Error()))
-		}
-		if err := InvalidateUserTokensCache(userID); err != nil {
-			common.SysLog(fmt.Sprintf("failed to invalidate token cache after registration IP block for user %d: %s", userID, err.Error()))
-		}
+		publishRegistrationIPUserSecurityChange(userID)
 	}
 	if result.TriggeredBlock {
 		logger.LogWarn(
@@ -284,18 +293,43 @@ func resetRegistrationIPState(rawIP string, allowlisted *bool) (*RegistrationIPM
 				return err
 			}
 			if len(eligibleUserIDs) > 0 {
-				if err := tx.Model(&User{}).
-					Where("id IN ? AND status = ?", eligibleUserIDs, common.UserStatusDisabled).
-					Pluck("id", &result.AffectedUserIDs).Error; err != nil {
-					return err
-				}
-				sort.Ints(result.AffectedUserIDs)
-				if len(result.AffectedUserIDs) > 0 {
-					if err := tx.Model(&User{}).
-						Where("id IN ?", result.AffectedUserIDs).
-						Update("status", common.UserStatusEnabled).Error; err != nil {
+				sort.Ints(eligibleUserIDs)
+				for _, userID := range eligibleUserIDs {
+					var candidate User
+					err := lockForUpdate(tx).
+						Select("id", "status").
+						Where("id = ?", userID).
+						First(&candidate).Error
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						continue
+					}
+					if err != nil {
 						return err
 					}
+					var account RegistrationIPAccount
+					err = tx.Where(
+						"user_id = ? AND registration_ip = ? AND registration_cycle = ? AND restore_eligible = ?",
+						userID,
+						canonicalIP,
+						state.CurrentCycle,
+						true,
+					).First(&account).Error
+					if errors.Is(err, gorm.ErrRecordNotFound) {
+						continue
+					}
+					if err != nil {
+						return err
+					}
+					if candidate.Status != common.UserStatusDisabled {
+						continue
+					}
+					if _, err := IncrementUserAuthVersionWithTx(tx, userID); err != nil {
+						return err
+					}
+					if err := tx.Model(&candidate).Update("status", common.UserStatusEnabled).Error; err != nil {
+						return err
+					}
+					result.AffectedUserIDs = append(result.AffectedUserIDs, userID)
 				}
 				if err := tx.Model(&RegistrationIPAccount{}).
 					Where(
@@ -333,7 +367,7 @@ func resetRegistrationIPState(rawIP string, allowlisted *bool) (*RegistrationIPM
 		return nil, err
 	}
 	for _, userID := range result.AffectedUserIDs {
-		invalidateRegistrationIPUserCaches(userID)
+		publishRegistrationIPUserSecurityChange(userID)
 	}
 	return &result, nil
 }
@@ -378,9 +412,12 @@ func SetUserStatusByAdmin(userID int, status int) error {
 	return nil
 }
 
-func invalidateRegistrationIPUserCaches(userID int) {
-	if err := InvalidateUserCache(userID); err != nil {
-		common.SysLog(fmt.Sprintf("failed to invalidate registration IP user cache for user %d: %s", userID, err.Error()))
+func publishRegistrationIPUserSecurityChange(userID int) {
+	if err := PublishUserAuthCache(userID); err != nil {
+		common.SysLog(fmt.Sprintf("failed to publish registration IP user cache for user %d: %s", userID, err.Error()))
+	}
+	if _, err := RevokeAllUserSessions(userID, "user_security_changed"); err != nil {
+		common.SysLog(fmt.Sprintf("failed to revoke registration IP user sessions for user %d: %s", userID, err.Error()))
 	}
 	if err := InvalidateUserTokensCache(userID); err != nil {
 		common.SysLog(fmt.Sprintf("failed to invalidate registration IP token cache for user %d: %s", userID, err.Error()))

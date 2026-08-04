@@ -1,12 +1,16 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -141,6 +145,24 @@ type WalletSpecialRatioRule struct {
 	BaseRatio    float64 `json:"base_ratio"`
 }
 
+var walletSpecialRatioDiagnosticKeys sync.Map
+
+func warnInvalidWalletSpecialRatio(userGroup, billingGroup, reason string) {
+	key := userGroup + "\x00" + billingGroup + "\x00" + reason
+	if _, loaded := walletSpecialRatioDiagnosticKeys.LoadOrStore(key, struct{}{}); loaded {
+		return
+	}
+	logger.LogWarn(
+		context.Background(),
+		fmt.Sprintf(
+			"wallet special ratio rule omitted: user_group=%q billing_group=%q reason=%q",
+			userGroup,
+			billingGroup,
+			reason,
+		),
+	)
+}
+
 func GetWalletSpecialRatioRules() []WalletSpecialRatioRule {
 	snapshot := ratio_setting.GetWalletRatioSettingsSnapshot()
 	return buildWalletSpecialRatioRules(
@@ -157,16 +179,31 @@ func buildWalletSpecialRatioRules(
 ) []WalletSpecialRatioRule {
 	rules := make([]WalletSpecialRatioRule, 0)
 	for userGroup, targets := range display {
-		userRatios, ok := special[userGroup]
-		if !ok {
-			continue
-		}
+		userRatios, hasUserRatios := special[userGroup]
 		for billingGroup, visible := range targets {
+			if !visible {
+				continue
+			}
+			if !hasUserRatios {
+				warnInvalidWalletSpecialRatio(userGroup, billingGroup, "missing special ratio group")
+				continue
+			}
 			specialRatio, specialOK := userRatios[billingGroup]
+			if !specialOK {
+				warnInvalidWalletSpecialRatio(userGroup, billingGroup, "missing special ratio")
+				continue
+			}
 			baseRatio, baseOK := base[billingGroup]
-			if !visible || !specialOK || !baseOK ||
-				math.IsNaN(specialRatio) || math.IsInf(specialRatio, 0) ||
-				math.IsNaN(baseRatio) || math.IsInf(baseRatio, 0) {
+			if !baseOK {
+				warnInvalidWalletSpecialRatio(userGroup, billingGroup, "missing base ratio")
+				continue
+			}
+			if math.IsNaN(specialRatio) || math.IsInf(specialRatio, 0) {
+				warnInvalidWalletSpecialRatio(userGroup, billingGroup, "non-finite special ratio")
+				continue
+			}
+			if math.IsNaN(baseRatio) || math.IsInf(baseRatio, 0) {
+				warnInvalidWalletSpecialRatio(userGroup, billingGroup, "non-finite base ratio")
 				continue
 			}
 			rules = append(rules, WalletSpecialRatioRule{

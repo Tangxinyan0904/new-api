@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Download, Save } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -42,7 +43,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DEFAULT_GEOIP_POPUP_MESSAGE } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 
-import { downloadGeoIPDatabase } from '../api'
+import { downloadGeoIPDatabase, updateGeoIPOptions } from '../api'
 import {
   SettingsForm,
   SettingsSwitchContent,
@@ -50,8 +51,11 @@ import {
 } from '../components/settings-form-layout'
 import { SettingsPageFormActions } from '../components/settings-page-context'
 import { SettingsSection } from '../components/settings-section'
-import { useUpdateOption } from '../hooks/use-update-option'
-import type { GeoIPMode, GeoIPSettings } from '../types'
+import type {
+  GeoIPMode,
+  GeoIPSettings,
+  UpdateGeoIPOptionsRequest,
+} from '../types'
 import { countryOptions } from './countries'
 
 const geoIPModes: Array<{
@@ -172,7 +176,8 @@ const valuesEqual = (a: unknown, b: unknown) => {
 
 export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
   const { t } = useTranslation()
-  const updateOption = useUpdateOption()
+  const queryClient = useQueryClient()
+  const updateGeoIP = useMutation({ mutationFn: updateGeoIPOptions })
   const [isDownloading, setIsDownloading] = useState(false)
   const displayDefaults = useMemo<GeoIPSettings>(() => {
     const popupMessage = defaultValues['geoip.popup_message']
@@ -214,12 +219,23 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
       return
     }
 
-    for (const key of updates) {
-      const value = normalized[key]
-      await updateOption.mutateAsync({
-        key,
-        value: Array.isArray(value) ? JSON.stringify(value) : value,
-      })
+    const request: UpdateGeoIPOptionsRequest = { ...normalized }
+    if (request['geoip.maxmind_license_key'] === '') {
+      delete request['geoip.maxmind_license_key']
+    }
+    try {
+      const response = await updateGeoIP.mutateAsync(request)
+      if (!response.success) {
+        toast.error(response.message || t('Failed to update setting'))
+        return
+      }
+      await queryClient.invalidateQueries({ queryKey: ['system-options'] })
+      toast.success(t('Setting updated successfully'))
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : t('Failed to update setting')
+      )
+      return
     }
 
     baselineRef.current = normalizeDefaults(normalized)
@@ -248,7 +264,7 @@ export function GeoIPSection({ defaultValues }: GeoIPSectionProps) {
         <SettingsForm onSubmit={form.handleSubmit(onSubmit)}>
           <SettingsPageFormActions
             onSave={form.handleSubmit(onSubmit)}
-            isSaving={updateOption.isPending}
+            isSaving={updateGeoIP.isPending}
             saveLabel='Save GeoIP settings'
           />
 

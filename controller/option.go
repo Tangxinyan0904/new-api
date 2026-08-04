@@ -138,6 +138,73 @@ type OptionUpdateRequest struct {
 	Value any    `json:"value"`
 }
 
+type GeoIPOptionsUpdateRequest struct {
+	Mode                 *string   `json:"geoip.mode"`
+	DatabasePath         *string   `json:"geoip.database_path"`
+	DownloadURL          *string   `json:"geoip.download_url"`
+	MaxMindLicenseKey    *string   `json:"geoip.maxmind_license_key"`
+	PopupMessage         *string   `json:"geoip.popup_message"`
+	AllowPrivateLoopback *bool     `json:"geoip.allow_private_loopback"`
+	BlockedCountries     *[]string `json:"geoip.blocked_countries"`
+}
+
+func UpdateGeoIPOptions(c *gin.Context) {
+	var request GeoIPOptionsUpdateRequest
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorMsg(c, "invalid GeoIP settings")
+		return
+	}
+	if request.Mode == nil || request.DatabasePath == nil || request.DownloadURL == nil ||
+		request.PopupMessage == nil || request.AllowPrivateLoopback == nil || request.BlockedCountries == nil {
+		common.ApiErrorMsg(c, "incomplete GeoIP settings")
+		return
+	}
+	mode := strings.TrimSpace(*request.Mode)
+	if err := geoip_setting.ValidateMode(mode); err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	databasePath := strings.TrimSpace(*request.DatabasePath)
+	if databasePath == "" {
+		common.ApiErrorMsg(c, "GeoIP database path is required")
+		return
+	}
+	popupMessage := strings.TrimSpace(*request.PopupMessage)
+	if popupMessage == "" {
+		common.ApiErrorMsg(c, "GeoIP popup message is required")
+		return
+	}
+	countryBytes, err := common.Marshal(*request.BlockedCountries)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	normalizedCountries, err := geoip_setting.NormalizeBlockedCountriesJSON(string(countryBytes))
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	values := map[string]string{
+		"geoip.mode":                   mode,
+		"geoip.database_path":          databasePath,
+		"geoip.download_url":           strings.TrimSpace(*request.DownloadURL),
+		"geoip.popup_message":          popupMessage,
+		"geoip.allow_private_loopback": strconv.FormatBool(*request.AllowPrivateLoopback),
+		"geoip.blocked_countries":      normalizedCountries,
+	}
+	if request.MaxMindLicenseKey != nil {
+		values["geoip.maxmind_license_key"] = strings.TrimSpace(*request.MaxMindLicenseKey)
+	}
+	if err := model.UpdateGeoIPOptions(values); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	recordManageAudit(c, "option.update", map[string]interface{}{
+		"key": "geoip",
+	})
+	common.ApiSuccess(c, nil)
+}
+
 func UpdateOption(c *gin.Context) {
 	var option OptionUpdateRequest
 	err := common.DecodeJson(c.Request.Body, &option)

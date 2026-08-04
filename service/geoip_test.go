@@ -104,6 +104,37 @@ func TestExtractGeoIPDatabaseBytesRejectsArchiveWithoutMMDB(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestExtractGeoIPDatabaseBytesEnforcesExactDecompressedLimit(t *testing.T) {
+	const limit = int64(4)
+	tests := []struct {
+		name     string
+		filename string
+		archive  func([]byte) []byte
+	}{
+		{name: "direct", filename: "Country.mmdb", archive: func(value []byte) []byte { return value }},
+		{name: "gzip", filename: "Country.mmdb.gz", archive: func(value []byte) []byte { return gzipBytes(t, value) }},
+		{name: "tar gzip", filename: "Country.tar.gz", archive: func(value []byte) []byte {
+			return tarGzipBytes(t, "folder/Country.mmdb", value)
+		}},
+		{name: "zip", filename: "Country.zip", archive: func(value []byte) []byte {
+			return zipBytes(t, "folder/Country.mmdb", value)
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name+" accepts boundary", func(t *testing.T) {
+			want := []byte("1234")
+			got, err := extractGeoIPDatabaseBytesWithLimit(test.filename, test.archive(want), limit)
+			require.NoError(t, err)
+			require.Equal(t, want, got)
+		})
+		t.Run(test.name+" rejects over boundary", func(t *testing.T) {
+			_, err := extractGeoIPDatabaseBytesWithLimit(test.filename, test.archive([]byte("12345")), limit)
+			require.ErrorIs(t, err, errGeoIPDatabaseTooLarge)
+		})
+	}
+}
+
 func gzipBytes(t *testing.T, value []byte) []byte {
 	t.Helper()
 
