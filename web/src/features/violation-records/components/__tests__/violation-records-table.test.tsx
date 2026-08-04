@@ -1,4 +1,3 @@
-import { afterAll, afterEach, beforeEach, mock, test } from 'bun:test'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { afterAll, afterEach, beforeEach, mock, test } from 'bun:test'
 import assert from 'node:assert/strict'
 
 import { Window } from 'happy-dom'
