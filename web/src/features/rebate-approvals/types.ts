@@ -20,6 +20,10 @@ export interface RebateApprovalListResponse {
   page_size?: number
 }
 
+export interface RebateApproveAllResult {
+  approved_count: number
+}
+
 export interface RebateApprovalRechargeSource {
   invited_user_id: number
   invited_display_name: string

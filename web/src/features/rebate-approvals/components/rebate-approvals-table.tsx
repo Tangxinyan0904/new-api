@@ -5,8 +5,12 @@ import { useTranslation } from 'react-i18next'
 import { DataTablePage, useDataTable } from '@/components/data-table'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 
-import { getRebateTransferRequests } from '../api'
+import {
+  approveAllPendingRebateTransferRequests,
+  getRebateTransferRequests,
+} from '../api'
 import { useRebateApprovalsColumns } from './rebate-approvals-columns'
+import { RebateApproveAllAction } from './rebate-approve-all-action'
 
 const route = getRouteApi('/_authenticated/rebate-approvals/')
 
@@ -56,6 +60,17 @@ export function RebateApprovalsTable() {
     },
     placeholderData: (previousData) => previousData,
   })
+  const pendingCountQuery = useQuery({
+    queryKey: ['rebate-approvals', 'pending-count'],
+    queryFn: async () => {
+      const result = await getRebateTransferRequests({
+        p: 1,
+        page_size: 1,
+        status: 'pending',
+      })
+      return result.data?.total ?? 0
+    },
+  })
 
   const { table } = useDataTable({
     data: data?.items || [],
@@ -82,6 +97,13 @@ export function RebateApprovalsTable() {
       skeletonKeyPrefix='rebate-approvals-skeleton'
       applyHeaderSize
       toolbarProps={{
+        preActions: (
+          <RebateApproveAllAction
+            pendingCount={pendingCountQuery.data ?? 0}
+            isCountLoading={pendingCountQuery.isLoading}
+            onApproveAll={approveAllPendingRebateTransferRequests}
+          />
+        ),
         filters: [
           {
             columnId: 'status',

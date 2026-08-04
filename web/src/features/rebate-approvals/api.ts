@@ -2,6 +2,7 @@ import { api } from '@/lib/api'
 
 import type {
   ApiResponse,
+  RebateApproveAllResult,
   RebateApprovalDetail,
   RebateApprovalListResponse,
 } from './types'
@@ -33,6 +34,17 @@ export async function approveRebateTransferRequest(
 ): Promise<ApiResponse> {
   const res = await api.post(
     `/api/user/affiliate/transfer-requests/${id}/approve`,
+    undefined,
+    { skipBusinessError: true, skipErrorHandler: true }
+  )
+  return res.data
+}
+
+export async function approveAllPendingRebateTransferRequests(): Promise<
+  ApiResponse<RebateApproveAllResult>
+> {
+  const res = await api.post(
+    '/api/user/affiliate/transfer-requests/approve-all',
     undefined,
     { skipBusinessError: true, skipErrorHandler: true }
   )
