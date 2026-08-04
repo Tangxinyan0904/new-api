@@ -15,16 +15,14 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const distillationDetectionWindow = time.Minute
-
 type distillationRuntimeStore interface {
-	RequestWithCount(ctx context.Context, key string, maximum int, window time.Duration) (bool, int, error)
-	Delete(ctx context.Context, keys ...string) error
+	Take(ctx context.Context, key string, maximum int, now time.Time) (distillationCounterResult, error)
+	Delete(ctx context.Context, now time.Time, keys ...string) error
 }
 
 type distillationPenaltyStore interface {
 	Get(userID int, now int64) (*model.DistillationPenalty, error)
-	Advance(userID int, now int64, penaltySeconds int64, observationSeconds int64) (*model.DistillationPenalty, error)
+	Advance(trigger model.DistillationTrigger) (*model.DistillationPenalty, error)
 }
 
 type distillationRateLimitDependencies struct {
@@ -62,6 +60,7 @@ func ClearDistillationRateLimitState(ctx context.Context, userID int) error {
 	}
 	return runtimeStore.Delete(
 		ctx,
+		time.Now(),
 		distillationDetectionKey(userID),
 		distillationTemporaryKey(userID),
 	)
@@ -96,68 +95,61 @@ func checkDistillationRateLimit(
 	}
 
 	if penalty != nil && penalty.Phase(now.Unix()) == model.DistillationPenaltyPhaseTemporary {
-		return enforceDistillationTemporaryLimit(ctx, userID, settings.RPM, dependencies.runtime)
+		return enforceDistillationTemporaryLimit(ctx, userID, settings.RPM, now, dependencies.runtime)
 	}
 
-	allowed, count, err := dependencies.runtime.RequestWithCount(
+	counter, err := dependencies.runtime.Take(
 		ctx,
 		distillationDetectionKey(userID),
 		settings.Threshold,
-		distillationDetectionWindow,
+		now,
 	)
 	if err != nil {
 		return newDistillationStorageError(err)
 	}
-	if count < settings.Threshold {
+	if counter.Crossed {
+		transitioned, transitionErr := dependencies.penalties.Advance(model.DistillationTrigger{
+			UserID:             userID,
+			TriggeredAt:        now.Unix(),
+			PenaltySeconds:     int64(settings.PenaltyMinutes) * 60,
+			ObservationSeconds: int64(settings.ObservationMinutes) * 60,
+			RequestCount:       counter.Count,
+			DetectionThreshold: settings.Threshold,
+			PenaltyRPM:         settings.RPM,
+		})
+		if transitionErr != nil {
+			_ = dependencies.runtime.Delete(ctx, now, distillationDetectionKey(userID))
+			return newDistillationStorageError(transitionErr)
+		}
+		if transitioned == nil {
+			_ = dependencies.runtime.Delete(ctx, now, distillationDetectionKey(userID))
+			return newDistillationStorageError(errors.New("distillation transition returned no state"))
+		}
 		return nil
 	}
-
-	transitioned, err := dependencies.penalties.Advance(
-		userID,
-		now.Unix(),
-		int64(settings.PenaltyMinutes)*60,
-		int64(settings.ObservationMinutes)*60,
-	)
-	if err != nil {
-		_ = dependencies.runtime.Delete(ctx, distillationDetectionKey(userID))
-		return newDistillationStorageError(err)
-	}
-	if transitioned == nil {
-		return newDistillationStorageError(errors.New("distillation transition returned no state"))
-	}
-	if err := dependencies.runtime.Delete(ctx, distillationDetectionKey(userID)); err != nil {
-		return newDistillationStorageError(err)
-	}
-	if allowed {
+	if counter.Allowed {
 		return nil
 	}
-
-	switch transitioned.Phase(now.Unix()) {
-	case model.DistillationPenaltyPhaseTemporary:
-		return enforceDistillationTemporaryLimit(ctx, userID, settings.RPM, dependencies.runtime)
-	case model.DistillationPenaltyPhasePermanent:
-		return newDistillationBannedError()
-	default:
-		return newDistillationStorageError(fmt.Errorf("unexpected post-threshold penalty phase %s", transitioned.Phase(now.Unix())))
-	}
+	return enforceDistillationTemporaryLimit(ctx, userID, settings.RPM, now, dependencies.runtime)
 }
 
 func enforceDistillationTemporaryLimit(
 	ctx context.Context,
 	userID int,
 	rpm int,
+	now time.Time,
 	runtimeStore distillationRuntimeStore,
 ) *types.NewAPIError {
-	allowed, _, err := runtimeStore.RequestWithCount(
+	counter, err := runtimeStore.Take(
 		ctx,
 		distillationTemporaryKey(userID),
 		rpm,
-		distillationDetectionWindow,
+		now,
 	)
 	if err != nil {
 		return newDistillationStorageError(err)
 	}
-	if allowed {
+	if counter.Allowed {
 		return nil
 	}
 	return types.NewErrorWithStatusCode(

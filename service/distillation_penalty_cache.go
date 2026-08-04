@@ -70,17 +70,12 @@ func (cachedDistillationPenaltyStore) Get(userID int, now int64) (*model.Distill
 	return penalty, nil
 }
 
-func (cachedDistillationPenaltyStore) Advance(
-	userID int,
-	now int64,
-	penaltySeconds int64,
-	observationSeconds int64,
-) (*model.DistillationPenalty, error) {
-	penalty, err := model.AdvanceDistillationPenalty(userID, now, penaltySeconds, observationSeconds)
+func (cachedDistillationPenaltyStore) Advance(trigger model.DistillationTrigger) (*model.DistillationPenalty, error) {
+	penalty, err := model.AdvanceDistillationPenalty(trigger)
 	if err != nil {
 		return nil, err
 	}
-	if err := invalidateDistillationPenaltyCache(userID); err != nil {
+	if err := invalidateDistillationPenaltyCache(trigger.UserID); err != nil {
 		return nil, err
 	}
 	return penalty, nil

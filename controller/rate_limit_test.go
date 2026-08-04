@@ -171,7 +171,7 @@ func TestUpdateOptionRejectsInvalidUserRateLimitMap(t *testing.T) {
 
 func TestListDistillationPenaltiesReturnsPaginatedSearchResultsAndExcludesExpiredRows(t *testing.T) {
 	setupRateLimitControllerTest(t)
-	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}, &model.DistillationViolationRecord{}))
 
 	now := time.Now().Unix()
 	require.NoError(t, model.DB.Create(&[]model.User{
@@ -252,7 +252,7 @@ func TestListDistillationPenaltiesReturnsPaginatedSearchResultsAndExcludesExpire
 
 func TestClearDistillationPenaltyIsIdempotentInvalidatesCachedBanAndRecordsAudit(t *testing.T) {
 	setupRateLimitControllerTest(t)
-	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}, &model.DistillationViolationRecord{}))
 
 	now := time.Now().Unix()
 	require.NoError(t, model.DB.Create(&[]model.User{
@@ -318,7 +318,7 @@ func TestClearDistillationPenaltyIsIdempotentInvalidatesCachedBanAndRecordsAudit
 
 func TestClearDistillationPenaltyResetsDetectionWindow(t *testing.T) {
 	setupRateLimitControllerTest(t)
-	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}, &model.DistillationViolationRecord{}))
 	require.NoError(t, model.DB.Create(&model.User{
 		Id:       1,
 		Username: "root-admin",
@@ -360,7 +360,7 @@ func TestClearDistillationPenaltyResetsDetectionWindow(t *testing.T) {
 
 func TestClearDistillationPenaltyRejectsNonPositiveUserID(t *testing.T) {
 	setupRateLimitControllerTest(t)
-	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.DistillationPenalty{}, &model.DistillationViolationRecord{}))
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)

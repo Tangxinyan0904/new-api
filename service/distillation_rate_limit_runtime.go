@@ -3,107 +3,212 @@ package service
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/go-redis/redis/v8"
 )
 
-var distillationMemoryRuntime common.InMemoryRateLimiter
+const (
+	distillationMemoryPartitionCount = 32
+	distillationCounterTTL           = 2 * time.Minute
+)
 
-var distillationSlidingWindowScript = redis.NewScript(`
-local now = tonumber(ARGV[1])
-local window = tonumber(ARGV[2])
-local maximum = tonumber(ARGV[3])
+var distillationFixedMinuteScript = redis.NewScript(`
+local maximum = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local count = redis.call('INCR', KEYS[1])
 
-redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', now - window)
-local count = redis.call('ZCARD', KEYS[1])
-if count >= maximum then
-  redis.call('PEXPIRE', KEYS[1], window)
-  redis.call('PEXPIRE', KEYS[2], window)
-  return {0, count}
+if count == 1 then
+  redis.call('PEXPIRE', KEYS[1], ttl)
 end
 
-local sequence = redis.call('INCR', KEYS[2])
-local member = tostring(now) .. '-' .. tostring(sequence)
-redis.call('ZADD', KEYS[1], now, member)
-redis.call('PEXPIRE', KEYS[1], window)
-redis.call('PEXPIRE', KEYS[2], window)
-return {1, count + 1}
+local allowed = 0
+if count <= maximum then
+  allowed = 1
+end
+
+local crossed = 0
+if count == maximum then
+  crossed = 1
+end
+
+return {allowed, count, crossed}
 `)
 
-type memoryDistillationRuntimeStore struct{}
+type distillationCounterResult struct {
+	Allowed bool
+	Count   int
+	Crossed bool
+}
 
-func (memoryDistillationRuntimeStore) RequestWithCount(
+type distillationMemoryCounter struct {
+	minute        int64
+	count         int
+	touchedMinute int64
+}
+
+type distillationMemoryPartition struct {
+	mu       sync.Mutex
+	counters map[string]distillationMemoryCounter
+}
+
+type memoryDistillationRuntimeStore struct {
+	partitions [distillationMemoryPartitionCount]distillationMemoryPartition
+}
+
+func newMemoryDistillationRuntimeStore() *memoryDistillationRuntimeStore {
+	store := &memoryDistillationRuntimeStore{}
+	for index := range store.partitions {
+		store.partitions[index].counters = make(map[string]distillationMemoryCounter)
+	}
+	return store
+}
+
+func (store *memoryDistillationRuntimeStore) Take(
 	_ context.Context,
 	key string,
 	maximum int,
-	window time.Duration,
-) (bool, int, error) {
-	distillationMemoryRuntime.Init(2 * time.Minute)
-	allowed, count := distillationMemoryRuntime.RequestWithCount(key, maximum, int64(window.Seconds()))
-	return allowed, count, nil
+	now time.Time,
+) (distillationCounterResult, error) {
+	if maximum <= 0 {
+		return distillationCounterResult{Allowed: true}, nil
+	}
+	minute := now.Unix() / 60
+	partition := store.partition(key)
+	partition.mu.Lock()
+	defer partition.mu.Unlock()
+
+	counter := partition.counters[key]
+	if counter.minute != minute {
+		counter.minute = minute
+		counter.count = 0
+	}
+	counter.count++
+	counter.touchedMinute = minute
+	partition.counters[key] = counter
+	return distillationCounterResult{
+		Allowed: counter.count <= maximum,
+		Count:   counter.count,
+		Crossed: counter.count == maximum,
+	}, nil
 }
 
-func (memoryDistillationRuntimeStore) Delete(_ context.Context, keys ...string) error {
+func (store *memoryDistillationRuntimeStore) Delete(
+	_ context.Context,
+	_ time.Time,
+	keys ...string,
+) error {
 	for _, key := range keys {
-		distillationMemoryRuntime.Delete(key)
+		partition := store.partition(key)
+		partition.mu.Lock()
+		delete(partition.counters, key)
+		partition.mu.Unlock()
 	}
 	return nil
+}
+
+func (store *memoryDistillationRuntimeStore) partition(key string) *distillationMemoryPartition {
+	hash := uint32(2166136261)
+	for index := range len(key) {
+		hash ^= uint32(key[index])
+		hash *= 16777619
+	}
+	return &store.partitions[hash%distillationMemoryPartitionCount]
+}
+
+func (store *memoryDistillationRuntimeStore) cleanupExpired(now time.Time) {
+	oldestActiveMinute := now.Unix()/60 - 2
+	for index := range store.partitions {
+		partition := &store.partitions[index]
+		partition.mu.Lock()
+		for key, counter := range partition.counters {
+			if counter.touchedMinute < oldestActiveMinute {
+				delete(partition.counters, key)
+			}
+		}
+		partition.mu.Unlock()
+	}
+}
+
+var (
+	distillationMemoryRuntime     = newMemoryDistillationRuntimeStore()
+	distillationMemoryCleanupOnce sync.Once
+)
+
+func startDistillationMemoryCleanup() {
+	distillationMemoryCleanupOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(time.Minute)
+			defer ticker.Stop()
+			for now := range ticker.C {
+				distillationMemoryRuntime.cleanupExpired(now)
+			}
+		}()
+	})
 }
 
 type redisDistillationRuntimeStore struct {
 	client *redis.Client
 }
 
-func (store redisDistillationRuntimeStore) RequestWithCount(
+func (store redisDistillationRuntimeStore) Take(
 	ctx context.Context,
 	key string,
 	maximum int,
-	window time.Duration,
-) (bool, int, error) {
+	now time.Time,
+) (distillationCounterResult, error) {
 	if maximum <= 0 {
-		return true, 0, nil
-	}
-	windowMilliseconds := window.Milliseconds()
-	if windowMilliseconds <= 0 {
-		windowMilliseconds = 1
+		return distillationCounterResult{Allowed: true}, nil
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	result, err := distillationSlidingWindowScript.Run(
+	result, err := distillationFixedMinuteScript.Run(
 		commandCtx,
 		store.client,
-		[]string{key, key + ":sequence"},
-		time.Now().UnixMilli(),
-		windowMilliseconds,
+		[]string{distillationMinuteKey(key, now)},
 		maximum,
+		distillationCounterTTL.Milliseconds(),
 	).Int64Slice()
 	if err != nil {
-		return false, 0, err
+		return distillationCounterResult{}, err
 	}
-	if len(result) != 2 {
-		return false, 0, fmt.Errorf("unexpected distillation rate limit result length %d", len(result))
+	if len(result) != 3 {
+		return distillationCounterResult{}, fmt.Errorf("unexpected distillation rate limit result length %d", len(result))
 	}
-	return result[0] == 1, int(result[1]), nil
+	return distillationCounterResult{
+		Allowed: result[0] == 1,
+		Count:   int(result[1]),
+		Crossed: result[2] == 1,
+	}, nil
 }
 
-func (store redisDistillationRuntimeStore) Delete(ctx context.Context, keys ...string) error {
+func (store redisDistillationRuntimeStore) Delete(
+	ctx context.Context,
+	now time.Time,
+	keys ...string,
+) error {
 	if len(keys) == 0 {
 		return nil
 	}
-	redisKeys := make([]string, 0, len(keys)*2)
+	minuteKeys := make([]string, 0, len(keys))
 	for _, key := range keys {
-		redisKeys = append(redisKeys, key, key+":sequence")
+		minuteKeys = append(minuteKeys, distillationMinuteKey(key, now))
 	}
 	commandCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	return store.client.Unlink(commandCtx, redisKeys...).Err()
+	return store.client.Unlink(commandCtx, minuteKeys...).Err()
+}
+
+func distillationMinuteKey(key string, now time.Time) string {
+	return fmt.Sprintf("%s:%d", key, now.Unix()/60)
 }
 
 func currentDistillationRuntimeStore() (distillationRuntimeStore, error) {
 	if !common.RedisEnabled {
-		return memoryDistillationRuntimeStore{}, nil
+		startDistillationMemoryCleanup()
+		return distillationMemoryRuntime, nil
 	}
 	if common.RDB == nil {
 		return nil, fmt.Errorf("Redis is enabled but unavailable")
