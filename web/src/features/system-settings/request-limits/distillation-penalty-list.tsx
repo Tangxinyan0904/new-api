@@ -119,7 +119,7 @@ function PenaltyMobileCard(props: PenaltyRowProps) {
         </div>
         <div>
           <dt className='text-muted-foreground text-xs'>
-            {t('Permanent ban time')}
+            {t('Permanent non-stream ban time')}
           </dt>
           <dd className='mt-1 break-words tabular-nums'>
             {formatTimestampToDate(props.penalty.permanently_banned_at)}
@@ -150,7 +150,7 @@ function PenaltiesDesktopTable(props: DistillationPenaltyListProps) {
             <TableHead>{t('First trigger')}</TableHead>
             <TableHead>{t('Temporary limit ends')}</TableHead>
             <TableHead>{t('Observation ends')}</TableHead>
-            <TableHead>{t('Permanent ban time')}</TableHead>
+            <TableHead>{t('Permanent non-stream ban time')}</TableHead>
             <TableHead>{t('Updated')}</TableHead>
             <TableHead className='text-right'>{t('Actions')}</TableHead>
           </TableRow>

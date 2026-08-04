@@ -38,7 +38,9 @@ const permanentRecord: DistillationViolationRecord = {
 
 test('maps violation actions to stable display labels', () => {
   expect(getViolationActionLabel('temporary_limit')).toBe('Temporary limit')
-  expect(getViolationActionLabel('permanent_ban')).toBe('Permanent ban')
+  expect(getViolationActionLabel('permanent_ban')).toBe(
+    'Permanent non-stream ban'
+  )
   expect(getViolationActionLabel('future_action')).toBe('Unknown')
 })
 

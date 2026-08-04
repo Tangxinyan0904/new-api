@@ -25,7 +25,7 @@ export function getViolationActionLabel(action: string): string {
     case 'temporary_limit':
       return 'Temporary limit'
     case 'permanent_ban':
-      return 'Permanent ban'
+      return 'Permanent non-stream ban'
     default:
       return 'Unknown'
   }

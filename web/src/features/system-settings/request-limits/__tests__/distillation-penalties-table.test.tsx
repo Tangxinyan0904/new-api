@@ -82,9 +82,9 @@ function renderPenaltiesTable(data: PageData<DistillationPenalty>): string {
 }
 
 describe('distillation penalty display helpers', () => {
-  test('uses a destructive badge for permanent bans', () => {
+  test('uses a destructive badge for permanent non-stream bans', () => {
     expect(getDistillationPenaltyPhaseConfig('permanent')).toEqual({
-      labelKey: 'Permanent ban',
+      labelKey: 'Permanent non-stream ban',
       variant: 'destructive',
     })
   })
@@ -108,7 +108,11 @@ describe('DistillationPenaltiesTable', () => {
     expect(html).toContain('alice')
     expect(html).toContain('User ID 41')
     expect(html).toContain('Temporary limit')
-    expect(html).toContain('Permanent ban')
+    expect(html).toContain('Permanent non-stream ban')
+    expect(html).toContain('Permanent non-stream ban time')
+    expect(html).toContain(
+      'Review temporary limits, observation periods, and permanent non-stream bans.'
+    )
     expect(html).toContain(formatTimestampToDate(1_750_000_000))
     expect(html).toContain(formatTimestampToDate(1_750_003_000))
     expect(html).toContain('Clear penalty')
@@ -127,7 +131,7 @@ describe('DistillationPenaltiesTable', () => {
 
     expect(html).toContain('No active distillation penalties')
     expect(html).toContain(
-      'Temporary limits, observation periods, and permanent bans will appear here.'
+      'Temporary limits, observation periods, and permanent non-stream bans will appear here.'
     )
   })
 })

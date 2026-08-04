@@ -131,7 +131,7 @@ export function DistillationPenaltiesTable() {
         </h3>
         <p className='text-muted-foreground mt-1 text-sm'>
           {t(
-            'Review temporary limits, observation periods, and permanent bans.'
+            'Review temporary limits, observation periods, and permanent non-stream bans.'
           )}
         </p>
       </div>
@@ -210,7 +210,7 @@ export function DistillationPenaltiesTable() {
             <EmptyTitle>{t('No active distillation penalties')}</EmptyTitle>
             <EmptyDescription>
               {t(
-                'Temporary limits, observation periods, and permanent bans will appear here.'
+                'Temporary limits, observation periods, and permanent non-stream bans will appear here.'
               )}
             </EmptyDescription>
           </EmptyHeader>

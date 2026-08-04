@@ -37,5 +37,5 @@ export function getDistillationPenaltyPhaseConfig(
   if (phase === 'observation') {
     return { labelKey: 'Observation period', variant: 'outline' }
   }
-  return { labelKey: 'Permanent ban', variant: 'destructive' }
+  return { labelKey: 'Permanent non-stream ban', variant: 'destructive' }
 }

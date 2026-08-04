@@ -206,7 +206,7 @@ test('renders violation records and enables next page from server total', async 
     assert.match(host.textContent || '', /2023-11-14/)
     assert.match(host.textContent || '', /200 \/ 200/)
     assert.match(host.textContent || '', /Temporary limit/)
-    assert.match(host.textContent || '', /Permanent ban/)
+    assert.match(host.textContent || '', /Permanent non-stream ban/)
     assert.match(host.textContent || '', /Permanent/)
     assert.deepEqual(apiCalls, [
       '/api/user/distillation/violations/self?p=1&page_size=20',
