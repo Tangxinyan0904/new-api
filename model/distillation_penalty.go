@@ -44,6 +44,16 @@ type DistillationPenaltyListItem struct {
 	UpdatedAt             int64                    `json:"updated_at"`
 }
 
+type DistillationTrigger struct {
+	UserID             int
+	TriggeredAt        int64
+	PenaltySeconds     int64
+	ObservationSeconds int64
+	RequestCount       int
+	DetectionThreshold int
+	PenaltyRPM         int
+}
+
 func (penalty *DistillationPenalty) Phase(now int64) DistillationPenaltyPhase {
 	if penalty == nil {
 		return DistillationPenaltyPhaseClean
@@ -103,17 +113,19 @@ func GetDistillationPenalty(userID int, now int64) (*DistillationPenalty, error)
 	return &penalty, nil
 }
 
-func AdvanceDistillationPenalty(
-	userID int,
-	now int64,
-	penaltySeconds int64,
-	observationSeconds int64,
-) (*DistillationPenalty, error) {
+func AdvanceDistillationPenalty(trigger DistillationTrigger) (*DistillationPenalty, error) {
+	userID := trigger.UserID
+	now := trigger.TriggeredAt
+	penaltySeconds := trigger.PenaltySeconds
+	observationSeconds := trigger.ObservationSeconds
 	if userID <= 0 {
 		return nil, fmt.Errorf("user ID must be positive")
 	}
 	if now < 0 || penaltySeconds <= 0 || observationSeconds <= 0 {
 		return nil, fmt.Errorf("distillation transition timestamps and durations must be positive")
+	}
+	if trigger.RequestCount <= 0 || trigger.DetectionThreshold <= 0 || trigger.RequestCount < trigger.DetectionThreshold || trigger.PenaltyRPM <= 0 {
+		return nil, fmt.Errorf("distillation trigger counters and limits must be positive")
 	}
 	if penaltySeconds > math.MaxInt64-now {
 		return nil, fmt.Errorf("distillation penalty timestamp overflow")
@@ -144,6 +156,15 @@ func AdvanceDistillationPenalty(
 					return result.Error
 				}
 				if result.RowsAffected > 0 {
+					if err := createDistillationViolationRecord(
+						tx,
+						trigger,
+						now,
+						DistillationViolationActionTemporaryLimit,
+						temporaryUntil,
+					); err != nil {
+						return err
+					}
 					transitioned = candidate
 					return nil
 				}
@@ -158,7 +179,22 @@ func AdvanceDistillationPenalty(
 				transitioned = current
 				return nil
 			case DistillationPenaltyPhaseObservation:
-				if err := tx.Model(&current).Where("permanently_banned_at = ?", 0).Update("permanently_banned_at", now).Error; err != nil {
+				result := tx.Model(&current).
+					Where("permanently_banned_at = ?", 0).
+					Update("permanently_banned_at", now)
+				if result.Error != nil {
+					return result.Error
+				}
+				if result.RowsAffected == 0 {
+					continue
+				}
+				if err := createDistillationViolationRecord(
+					tx,
+					trigger,
+					current.FirstTriggeredAt,
+					DistillationViolationActionPermanentBan,
+					0,
+				); err != nil {
 					return err
 				}
 				current.PermanentlyBannedAt = now

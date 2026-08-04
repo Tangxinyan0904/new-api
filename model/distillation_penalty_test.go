@@ -26,7 +26,7 @@ func setupDistillationPenaltyFixture(t *testing.T) *gorm.DB {
 
 	DB = db
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
-	require.NoError(t, db.AutoMigrate(&DistillationPenalty{}, &User{}))
+	require.NoError(t, db.AutoMigrate(&DistillationPenalty{}, &DistillationViolationRecord{}, &User{}))
 
 	t.Cleanup(func() {
 		DB = originalDB
@@ -39,19 +39,28 @@ func setupDistillationPenaltyFixture(t *testing.T) *gorm.DB {
 func TestAdvanceDistillationPenaltyCreatesTemporaryThenBansInObservation(t *testing.T) {
 	setupDistillationPenaltyFixture(t)
 
-	first, err := AdvanceDistillationPenalty(7, 1000, 600, 3600)
+	first, err := AdvanceDistillationPenalty(DistillationTrigger{
+		UserID: 7, TriggeredAt: 1000, PenaltySeconds: 600, ObservationSeconds: 3600,
+		RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, DistillationPenaltyPhaseTemporary, first.Phase(1000))
 	assert.Equal(t, int64(1000), first.FirstTriggeredAt)
 	assert.Equal(t, int64(1600), first.TemporaryLimitedUntil)
 	assert.Equal(t, int64(5200), first.ObservationUntil)
 
-	duringTemporary, err := AdvanceDistillationPenalty(7, 1200, 600, 3600)
+	duringTemporary, err := AdvanceDistillationPenalty(DistillationTrigger{
+		UserID: 7, TriggeredAt: 1200, PenaltySeconds: 600, ObservationSeconds: 3600,
+		RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+	})
 	require.NoError(t, err)
 	assert.Zero(t, duringTemporary.PermanentlyBannedAt)
 	assert.Equal(t, int64(1000), duringTemporary.FirstTriggeredAt)
 
-	second, err := AdvanceDistillationPenalty(7, 1700, 600, 3600)
+	second, err := AdvanceDistillationPenalty(DistillationTrigger{
+		UserID: 7, TriggeredAt: 1700, PenaltySeconds: 600, ObservationSeconds: 3600,
+		RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, DistillationPenaltyPhasePermanent, second.Phase(1700))
 	assert.Equal(t, int64(1700), second.PermanentlyBannedAt)
@@ -60,10 +69,16 @@ func TestAdvanceDistillationPenaltyCreatesTemporaryThenBansInObservation(t *test
 func TestAdvanceDistillationPenaltyObservationExpiryStartsNewFirstStrike(t *testing.T) {
 	setupDistillationPenaltyFixture(t)
 
-	_, err := AdvanceDistillationPenalty(8, 1000, 600, 3600)
+	_, err := AdvanceDistillationPenalty(DistillationTrigger{
+		UserID: 8, TriggeredAt: 1000, PenaltySeconds: 600, ObservationSeconds: 3600,
+		RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+	})
 	require.NoError(t, err)
 
-	renewed, err := AdvanceDistillationPenalty(8, 5200, 600, 3600)
+	renewed, err := AdvanceDistillationPenalty(DistillationTrigger{
+		UserID: 8, TriggeredAt: 5200, PenaltySeconds: 600, ObservationSeconds: 3600,
+		RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+	})
 	require.NoError(t, err)
 	assert.Equal(t, DistillationPenaltyPhaseTemporary, renewed.Phase(5200))
 	assert.Equal(t, int64(5200), renewed.FirstTriggeredAt)
@@ -96,7 +111,10 @@ func TestGetDistillationPenaltyDeletesExpiredObservation(t *testing.T) {
 
 func TestClearDistillationPenaltyIsIdempotent(t *testing.T) {
 	setupDistillationPenaltyFixture(t)
-	_, err := AdvanceDistillationPenalty(10, 1000, 600, 3600)
+	_, err := AdvanceDistillationPenalty(DistillationTrigger{
+		UserID: 10, TriggeredAt: 1000, PenaltySeconds: 600, ObservationSeconds: 3600,
+		RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, ClearDistillationPenalty(10))
@@ -105,6 +123,11 @@ func TestClearDistillationPenaltyIsIdempotent(t *testing.T) {
 	penalty, err := GetDistillationPenalty(10, 1000)
 	require.NoError(t, err)
 	assert.Nil(t, penalty)
+
+	var records []DistillationViolationRecord
+	require.NoError(t, DB.Where("user_id = ?", 10).Find(&records).Error)
+	require.Len(t, records, 1)
+	assert.Equal(t, DistillationViolationActionTemporaryLimit, records[0].Action)
 }
 
 func TestListDistillationPenaltiesFiltersExpiredRowsAndSearchesUsers(t *testing.T) {
@@ -138,7 +161,10 @@ func TestListDistillationPenaltiesFiltersExpiredRowsAndSearchesUsers(t *testing.
 
 func TestAdvanceDistillationPenaltyConcurrentSecondTriggerWritesOnePermanentState(t *testing.T) {
 	setupDistillationPenaltyFixture(t)
-	_, err := AdvanceDistillationPenalty(30, 1000, 600, 3600)
+	_, err := AdvanceDistillationPenalty(DistillationTrigger{
+		UserID: 30, TriggeredAt: 1000, PenaltySeconds: 600, ObservationSeconds: 3600,
+		RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+	})
 	require.NoError(t, err)
 
 	start := make(chan struct{})
@@ -152,7 +178,10 @@ func TestAdvanceDistillationPenaltyConcurrentSecondTriggerWritesOnePermanentStat
 			defer workers.Done()
 			ready.Done()
 			<-start
-			_, transitionErr := AdvanceDistillationPenalty(30, 1700, 600, 3600)
+			_, transitionErr := AdvanceDistillationPenalty(DistillationTrigger{
+				UserID: 30, TriggeredAt: 1700, PenaltySeconds: 600, ObservationSeconds: 3600,
+				RequestCount: 200, DetectionThreshold: 200, PenaltyRPM: 10,
+			})
 			results <- transitionErr
 		}()
 	}
@@ -177,4 +206,10 @@ func TestAdvanceDistillationPenaltyConcurrentSecondTriggerWritesOnePermanentStat
 	var count int64
 	require.NoError(t, DB.Model(&DistillationPenalty{}).Where("user_id = ?", 30).Count(&count).Error)
 	assert.Equal(t, int64(1), count)
+
+	var records []DistillationViolationRecord
+	require.NoError(t, DB.Where("user_id = ?", 30).Order("id ASC").Find(&records).Error)
+	require.Len(t, records, 2)
+	assert.Equal(t, DistillationViolationActionTemporaryLimit, records[0].Action)
+	assert.Equal(t, DistillationViolationActionPermanentBan, records[1].Action)
 }
