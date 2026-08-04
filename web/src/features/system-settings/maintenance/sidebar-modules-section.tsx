@@ -128,6 +128,12 @@ export function SidebarModulesSection({
         title: t('Profile'),
         description: t('Personal settings and profile management.'),
       },
+      violations: {
+        title: t('Violation Records'),
+        description: t(
+          'Control whether users can review their distillation violation history.'
+        ),
+      },
     },
     admin: {
       channel: {
