@@ -21,6 +21,7 @@
 - Locale JSON files may only be changed through a temporary `web/scripts/add-missing-keys.mjs`, followed by `bun run i18n:sync`, then removal of the temporary script.
 - New Go tests use `testify/require` for fatal setup assertions and `testify/assert` for non-fatal value checks.
 - Production code is written only after its focused test has failed for the expected missing behavior.
+- Run happy-dom component test files in separate Bun processes. Existing test files each install their own global `window` and `document`; running several of them in one Bun process races those globals even though every file passes independently.
 
 ---
 
@@ -505,7 +506,8 @@ Fetch `getRebateTransferRequests({ p: 1, page_size: 1, status: 'pending' })` und
 Run from `web`:
 
 ```powershell
-bun test src/features/rebate-approvals/components/__tests__/rebate-approve-all-action.test.tsx src/features/rebate-approvals/components/__tests__/rebate-approval-row-actions.test.tsx
+bun test src/features/rebate-approvals/components/__tests__/rebate-approve-all-action.test.tsx
+bun test src/features/rebate-approvals/components/__tests__/rebate-approval-row-actions.test.tsx
 bun run typecheck
 ```
 
@@ -688,7 +690,11 @@ Read `_reports/_sync-report.json` and require `missingCount: 0` for every locale
 Run from `web`:
 
 ```powershell
-bun test src/features/keys/components/__tests__/api-key-notice.test.tsx src/features/rebate-approvals src/features/violation-records
+bun test src/features/keys/components/__tests__/api-key-notice.test.tsx
+bun test src/features/rebate-approvals/components/__tests__/rebate-approve-all-action.test.tsx
+bun test src/features/rebate-approvals/components/__tests__/rebate-approval-row-actions.test.tsx
+bun test src/features/violation-records/components/__tests__/violation-records-table.test.tsx
+bun test src/features/violation-records/lib/__tests__/violation-display.test.ts
 bun run typecheck
 bun run lint
 bun run format:check
@@ -733,7 +739,13 @@ Expected: PASS without race, migration, or serialization failures.
 Run from `web`:
 
 ```powershell
-bun test src/features/rebate-approvals src/features/violation-records src/features/keys/components/__tests__/api-key-notice.test.tsx src/components/data-table/toolbar/__tests__/toolbar.test.tsx
+bun test src/features/rebate-approvals/components/__tests__/rebate-approve-all-action.test.tsx
+bun test src/features/rebate-approvals/components/__tests__/rebate-approval-row-actions.test.tsx
+bun test src/features/rebate-approvals/components/__tests__/rebate-approval-detail-dialog.test.tsx
+bun test src/features/violation-records/components/__tests__/violation-records-table.test.tsx
+bun test src/features/violation-records/lib/__tests__/violation-display.test.ts
+bun test src/features/keys/components/__tests__/api-key-notice.test.tsx
+bun test src/components/data-table/toolbar/__tests__/toolbar.test.tsx
 bun run typecheck
 bun run lint
 bun run format:check
