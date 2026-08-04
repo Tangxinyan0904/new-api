@@ -51,5 +51,12 @@ describe('ApiKeyNotice', () => {
     expect(html).toContain('API Key Notice')
     expect(html).toContain('whitespace-pre-wrap')
     expect(html).toContain('Keep this key private.\nRotate it regularly.')
+    expect(html).toMatch(
+      /data-slot="alert-title"[^>]*class="[^"]*text-sm[^"]*leading-5/
+    )
+    expect(html).toMatch(
+      /data-slot="alert-description"[^>]*class="[^"]*text-sm[^"]*leading-5[^"]*break-words/
+    )
+    expect(html).not.toContain('text-xs')
   })
 })

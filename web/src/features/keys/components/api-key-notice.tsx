@@ -41,8 +41,10 @@ export function ApiKeyNotice(props: ApiKeyNoticeProps) {
       )}
     >
       <Megaphone aria-hidden='true' />
-      <AlertTitle className='text-xs'>{t('API Key Notice')}</AlertTitle>
-      <AlertDescription className='max-h-12 overflow-y-auto text-left text-xs break-words whitespace-pre-wrap'>
+      <AlertTitle className='text-sm leading-5'>
+        {t('API Key Notice')}
+      </AlertTitle>
+      <AlertDescription className='max-h-12 overflow-y-auto text-left text-sm leading-5 break-words whitespace-pre-wrap'>
         {notice}
       </AlertDescription>
     </Alert>
