@@ -32,6 +32,9 @@ type distillationRateLimitDependencies struct {
 }
 
 func CheckDistillationRateLimit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *types.NewAPIError {
+	if relayInfo.IsStream {
+		return nil
+	}
 	runtimeStore, err := currentDistillationRuntimeStore()
 	if err != nil {
 		return newDistillationStorageError(err)
@@ -73,6 +76,9 @@ func checkDistillationRateLimit(
 	settings setting.DistillationRateLimitSettings,
 	dependencies distillationRateLimitDependencies,
 ) *types.NewAPIError {
+	if isStream {
+		return nil
+	}
 	if userID <= 0 || dependencies.runtime == nil || dependencies.penalties == nil {
 		return newDistillationStorageError(errors.New("invalid distillation rate limit context"))
 	}
@@ -87,7 +93,7 @@ func checkDistillationRateLimit(
 	if penalty != nil && penalty.Phase(now.Unix()) == model.DistillationPenaltyPhasePermanent {
 		return newDistillationBannedError()
 	}
-	if isStream || !settings.Enabled {
+	if !settings.Enabled {
 		return nil
 	}
 	if err := setting.ValidateDistillationRateLimitSettings(settings); err != nil {
@@ -162,7 +168,7 @@ func enforceDistillationTemporaryLimit(
 
 func newDistillationBannedError() *types.NewAPIError {
 	return types.NewErrorWithStatusCode(
-		errors.New("model API access is permanently suspended after repeated distillation detection; contact an administrator to restore access"),
+		errors.New("non-stream model API access is permanently suspended after repeated distillation detection; streaming requests remain available; contact an administrator to restore access"),
 		types.ErrorCodeDistillationBanned,
 		http.StatusForbidden,
 		types.ErrOptionWithSkipRetry(),

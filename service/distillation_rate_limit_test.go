@@ -3,12 +3,17 @@ package service
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -96,12 +101,33 @@ func enabledDistillationSettings() setting.DistillationRateLimitSettings {
 	}
 }
 
-func TestDistillationRateLimitStreamsSkipDetectionButHonorPermanentBan(t *testing.T) {
+func TestDistillationRateLimitStreamBypassesUnavailableRuntimeStore(t *testing.T) {
+	previousRedisEnabled := common.RedisEnabled
+	previousRDB := common.RDB
+	common.RedisEnabled = true
+	common.RDB = nil
+	t.Cleanup(func() {
+		common.RedisEnabled = previousRedisEnabled
+		common.RDB = previousRDB
+	})
+
+	relayContext, _ := gin.CreateTestContext(httptest.NewRecorder())
+	relayContext.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	err := CheckDistillationRateLimit(relayContext, &relaycommon.RelayInfo{
+		UserId:   7,
+		IsStream: true,
+	})
+	assert.Nil(t, err)
+}
+
+func TestDistillationRateLimitStreamsBypassAllDistillationState(t *testing.T) {
 	runtimeStore := &fakeDistillationRuntimeStore{}
 	penaltyStore := &fakeDistillationPenaltyStore{
 		current: &model.DistillationPenalty{
 			TemporaryLimitedUntil: 1600,
 			ObservationUntil:      5200,
+			PermanentlyBannedAt:   1100,
 		},
 	}
 	dependencies := distillationRateLimitDependencies{
@@ -110,15 +136,47 @@ func TestDistillationRateLimitStreamsSkipDetectionButHonorPermanentBan(t *testin
 		now:       func() time.Time { return time.Unix(1200, 0) },
 	}
 
-	err := checkDistillationRateLimit(context.Background(), 7, true, enabledDistillationSettings(), dependencies)
+	err := checkDistillationRateLimit(
+		context.Background(),
+		7,
+		true,
+		enabledDistillationSettings(),
+		dependencies,
+	)
+
 	assert.Nil(t, err)
 	assert.Empty(t, runtimeStore.requestKeys)
+	assert.Zero(t, penaltyStore.getCalls)
+	assert.Zero(t, penaltyStore.advanceCalls)
+}
 
-	penaltyStore.current.PermanentlyBannedAt = 1100
-	err = checkDistillationRateLimit(context.Background(), 7, true, enabledDistillationSettings(), dependencies)
+func TestDistillationRateLimitPermanentPenaltyBlocksNonStreamRequests(t *testing.T) {
+	runtimeStore := &fakeDistillationRuntimeStore{}
+	penaltyStore := &fakeDistillationPenaltyStore{
+		current: &model.DistillationPenalty{
+			PermanentlyBannedAt: 1100,
+		},
+	}
+	dependencies := distillationRateLimitDependencies{
+		runtime:   runtimeStore,
+		penalties: penaltyStore,
+		now:       func() time.Time { return time.Unix(1200, 0) },
+	}
+
+	err := checkDistillationRateLimit(
+		context.Background(),
+		7,
+		false,
+		enabledDistillationSettings(),
+		dependencies,
+	)
+
 	require.NotNil(t, err)
 	assert.Equal(t, types.ErrorCodeDistillationBanned, err.GetErrorCode())
-	assert.Equal(t, 403, err.StatusCode)
+	assert.Equal(t, http.StatusForbidden, err.StatusCode)
+	assert.Contains(t, err.Error(), "non-stream")
+	assert.Empty(t, runtimeStore.requestKeys)
+	assert.Equal(t, 1, penaltyStore.getCalls)
 }
 
 func TestDistillationThresholdRequestPassesThenTemporaryRPMIsEnforced(t *testing.T) {

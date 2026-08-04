@@ -316,7 +316,16 @@ func TestClearDistillationPenaltyIsIdempotentInvalidatesCachedBanAndRecordsAudit
 	relayRecorder := httptest.NewRecorder()
 	relayCtx, _ := gin.CreateTestContext(relayRecorder)
 	relayCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	banError := service.CheckDistillationRateLimit(relayCtx, &relaycommon.RelayInfo{UserId: 51, IsStream: true})
+	streamError := service.CheckDistillationRateLimit(
+		relayCtx,
+		&relaycommon.RelayInfo{UserId: 51, IsStream: true},
+	)
+	assert.Nil(t, streamError)
+
+	banError := service.CheckDistillationRateLimit(
+		relayCtx,
+		&relaycommon.RelayInfo{UserId: 51, IsStream: false},
+	)
 	require.NotNil(t, banError)
 
 	performClear := func() *httptest.ResponseRecorder {
@@ -343,7 +352,10 @@ func TestClearDistillationPenaltyIsIdempotentInvalidatesCachedBanAndRecordsAudit
 	require.NoError(t, model.DB.Model(&model.DistillationPenalty{}).Where("user_id = ?", 51).Count(&penaltyCount).Error)
 	assert.Zero(t, penaltyCount)
 
-	afterClearError := service.CheckDistillationRateLimit(relayCtx, &relaycommon.RelayInfo{UserId: 51, IsStream: true})
+	afterClearError := service.CheckDistillationRateLimit(
+		relayCtx,
+		&relaycommon.RelayInfo{UserId: 51, IsStream: false},
+	)
 	assert.Nil(t, afterClearError)
 
 	var auditLogs []model.Log
