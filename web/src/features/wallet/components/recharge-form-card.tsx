@@ -145,7 +145,10 @@ export function RechargeFormCard({
 
   if (loading) {
     return (
-      <Card data-card-hover='false' className='gap-0 overflow-hidden py-0'>
+      <Card
+        data-card-hover='false'
+        className='h-full gap-0 overflow-hidden py-0'
+      >
         <CardHeader className='border-b p-3 !pb-3 sm:p-5 sm:!pb-5'>
           <Skeleton className='h-6 w-32' />
           <Skeleton className='mt-2 h-4 w-48' />
@@ -201,6 +204,7 @@ export function RechargeFormCard({
       icon={<WalletCards className='h-4 w-4' />}
       iconTone='success'
       disableHoverEffect
+      className='h-full'
       action={
         onOpenBilling ? (
           <Button

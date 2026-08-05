@@ -70,7 +70,7 @@ export function SpecialRatioRulesCard(props: SpecialRatioRulesCardProps) {
       icon={<Percent className='size-4' />}
       iconTone='info'
       disableHoverEffect
-      className='h-fit'
+      className='h-full'
       contentClassName='py-3 sm:py-4'
     >
       {state.display === 'loading' && (
@@ -135,10 +135,9 @@ export function SpecialRatioRulesCard(props: SpecialRatioRulesCardProps) {
                       </Tooltip>
                       <p className='text-muted-foreground mt-1 text-xs leading-5'>
                         {t(
-                          'Current ratio: {{currentRatio}}x, ratio after upgrading to {{group}}: {{upgradeRatio}}x',
+                          'Current ratio: {{currentRatio}}x, ratio after upgrade: {{upgradeRatio}}x',
                           {
                             currentRatio: summary.currentRatio,
-                            group: summary.upgradeGroup,
                             upgradeRatio: summary.upgradeRatio,
                           }
                         )}

@@ -56,11 +56,17 @@ describe('wallet special ratio card', () => {
     ).toEqual({ display: 'rules', available: true })
   })
 
-  test('selects one, two, and three-card grid classes', () => {
+  test('stretches every visible card in multi-column layouts', () => {
     expect(getWalletPrimaryGridClass(false, false)).toContain('grid-cols-1')
-    expect(getWalletPrimaryGridClass(true, false)).toContain('xl:grid-cols-2')
-    expect(getWalletPrimaryGridClass(false, true)).toContain('xl:grid-cols-2')
-    expect(getWalletPrimaryGridClass(true, true)).toContain('2xl:grid-cols-3')
+    const twoCardClasses = getWalletPrimaryGridClass(true, false)
+    const threeCardClasses = getWalletPrimaryGridClass(true, true)
+
+    expect(twoCardClasses).toContain('xl:grid-cols-2')
+    expect(twoCardClasses).toContain('xl:items-stretch')
+    expect(twoCardClasses).not.toContain('items-start')
+    expect(threeCardClasses).toContain('2xl:grid-cols-3')
+    expect(threeCardClasses).toContain('2xl:items-stretch')
+    expect(threeCardClasses).not.toContain('items-start')
   })
 
   test('describes the current ratio and the upgrade target ratio', () => {

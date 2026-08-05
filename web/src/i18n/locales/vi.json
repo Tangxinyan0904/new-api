@@ -1244,6 +1244,7 @@
     "Current Password": "Mật khẩu hiện tại",
     "Current Price": "Giá hiện tại",
     "Current quota": "Hạn mức hiện tại",
+    "Current ratio: {{currentRatio}}x, ratio after upgrade: {{upgradeRatio}}x": "Tỷ lệ hiện tại: {{currentRatio}}x; tỷ lệ sau khi nâng cấp: {{upgradeRatio}}x",
     "Current ratio: {{currentRatio}}x, ratio after upgrading to {{group}}: {{upgradeRatio}}x": "Tỷ lệ hiện tại: {{currentRatio}}x; tỷ lệ sau khi nâng cấp lên {{group}}: {{upgradeRatio}}x",
     "Current Value": "Present value",
     "Current version": "Phiên bản hiện tại",

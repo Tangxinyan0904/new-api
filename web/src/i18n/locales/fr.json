@@ -1244,6 +1244,7 @@
     "Current Password": "Mot de passe actuel",
     "Current Price": "Prix actuel",
     "Current quota": "Quota actuel",
+    "Current ratio: {{currentRatio}}x, ratio after upgrade: {{upgradeRatio}}x": "Ratio actuel : {{currentRatio}}x ; ratio après la mise à niveau : {{upgradeRatio}}x",
     "Current ratio: {{currentRatio}}x, ratio after upgrading to {{group}}: {{upgradeRatio}}x": "Ratio actuel : {{currentRatio}}x ; ratio après passage à {{group}} : {{upgradeRatio}}x",
     "Current Value": "Valeur actuelle",
     "Current version": "Version actuelle",

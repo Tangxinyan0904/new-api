@@ -50,10 +50,10 @@ export function getWalletPrimaryGridClass(
   specialRatiosAvailable: boolean
 ): string {
   if (subscriptionAvailable && specialRatiosAvailable) {
-    return 'grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3 2xl:items-start'
+    return 'grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-3 2xl:items-stretch'
   }
   if (subscriptionAvailable || specialRatiosAvailable) {
-    return 'grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-start'
+    return 'grid grid-cols-1 gap-4 xl:grid-cols-2 xl:items-stretch'
   }
   return 'grid grid-cols-1 gap-4'
 }

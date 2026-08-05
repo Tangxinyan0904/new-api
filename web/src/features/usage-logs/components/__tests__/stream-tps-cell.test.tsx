@@ -16,24 +16,36 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
+import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { I18nextProvider } from 'react-i18next'
 
-mock.module('react-i18next', () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}))
+const i18n = createInstance()
+await i18n.init({
+  lng: 'en',
+  resources: {
+    en: {
+      translation: {
+        Stream: 'Stream',
+      },
+    },
+  },
+})
 
 const { StreamTpsCell } = await import('../timing-metrics-cell')
 
 describe('StreamTpsCell', () => {
   test('hides throughput when the compact log column only needs stream status', () => {
     const html = renderToStaticMarkup(
-      <StreamTpsCell
-        isStream
-        tokensPerSecond={42}
-        showTokensPerSecond={false}
-      />
+      <I18nextProvider i18n={i18n}>
+        <StreamTpsCell
+          isStream
+          tokensPerSecond={42}
+          showTokensPerSecond={false}
+        />
+      </I18nextProvider>
     )
 
     expect(html).toContain('Stream')

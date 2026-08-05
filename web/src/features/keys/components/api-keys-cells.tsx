@@ -111,24 +111,27 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   }, [resolvedFullKey, resolveRealKey, apiKey.id, markKeyCopied])
 
   let copyIcon = <Copy className='size-3.5' />
+  let copyLabel = t('Copy')
   let copyTooltip = t('Copy API key')
   if (isLoading) {
     copyIcon = <Loader2 className='size-3.5 animate-spin' />
+    copyLabel = t('Loading...')
     copyTooltip = t('Loading...')
   } else if (isCopied) {
     copyIcon = <Check className='size-3.5 text-green-600' />
+    copyLabel = t('Copied!')
     copyTooltip = t('Copied!')
   }
 
   return (
-    <div className='flex max-w-full min-w-0 items-center'>
+    <div className='flex w-full max-w-full min-w-0 items-center gap-2'>
       <Popover open={popoverOpen} onOpenChange={handlePopoverOpen}>
         <PopoverTrigger
           render={
             <Button
               variant='ghost'
               size='sm'
-              className='text-muted-foreground h-7 max-w-full min-w-0 justify-start truncate px-0 font-mono text-xs hover:bg-transparent aria-expanded:bg-transparent'
+              className='text-muted-foreground h-7 min-w-0 flex-1 justify-start truncate px-0 font-mono text-xs hover:bg-transparent aria-expanded:bg-transparent'
             />
           }
         >
@@ -163,15 +166,18 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
         <TooltipTrigger
           render={
             <Button
-              variant='ghost'
-              size='icon'
-              className='size-7 shrink-0'
+              variant='outline'
+              size='xs'
+              className='h-7 w-24 shrink-0 px-2 hover:translate-y-0 hover:scale-100'
               onClick={handleCopy}
               disabled={isLoading}
             />
           }
         >
           {copyIcon}
+          <span className='min-w-0 truncate' aria-live='polite'>
+            {copyLabel}
+          </span>
         </TooltipTrigger>
         <TooltipContent>{copyTooltip}</TooltipContent>
       </Tooltip>

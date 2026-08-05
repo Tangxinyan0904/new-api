@@ -293,7 +293,7 @@ describe('API key group combobox Auto effect', () => {
     setReducedMotion(false)
   })
 
-  test('uses theme semantic colors for the compact group trigger', async () => {
+  test('uses the shared outline action treatment for the compact group trigger', async () => {
     const container = document.createElement('div')
     document.body.append(container)
     const root = createRoot(container)
@@ -304,9 +304,9 @@ describe('API key group combobox Auto effect', () => {
 
     const trigger = getTrigger(container)
     assert.doesNotMatch(trigger.className, /#[0-9a-f]{3,8}/i)
-    assert.equal(trigger.classList.contains('border-border'), true)
-    assert.equal(trigger.classList.contains('bg-muted/60'), true)
-    assert.equal(trigger.classList.contains('text-foreground'), true)
+    assert.equal(trigger.classList.contains('border-outline-action'), true)
+    assert.equal(trigger.classList.contains('bg-outline-action-surface'), true)
+    assert.equal(trigger.classList.contains('text-outline-action'), true)
 
     await act(async () => root.unmount())
     container.remove()

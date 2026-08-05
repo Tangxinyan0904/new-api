@@ -62,7 +62,8 @@ const { QueryClient, QueryClientProvider } =
   await import('@tanstack/react-query')
 const { api } = await import('@/lib/api')
 const { ApiKeysProvider } = await import('../api-keys-provider')
-const { EditableApiKeyGroupCell } = await import('../api-keys-cells')
+const { ApiKeyCell, EditableApiKeyGroupCell } =
+  await import('../api-keys-cells')
 
 const i18n = createInstance()
 await i18n.use(initReactI18next).init({
@@ -106,6 +107,42 @@ const apiKey: ApiKey = {
 after(() => {
   apiClient.put = originalPut
   domWindow.close()
+})
+
+test('keeps the outline Copy action at a fixed size beside the masked API key', async () => {
+  const host = document.createElement('div')
+  document.body.append(host)
+  const root = createRoot(host)
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+
+  await act(async () => {
+    root.render(
+      <QueryClientProvider client={queryClient}>
+        <I18nextProvider i18n={i18n}>
+          <ApiKeysProvider>
+            <ApiKeyCell apiKey={apiKey} />
+          </ApiKeysProvider>
+        </I18nextProvider>
+      </QueryClientProvider>
+    )
+  })
+
+  const copyButton = [...host.querySelectorAll('button')].find(
+    (button) => button.textContent?.trim() === 'Copy'
+  )
+  assert.ok(copyButton)
+  assert.equal(copyButton.classList.contains('border-outline-action'), true)
+  assert.equal(copyButton.classList.contains('h-7'), true)
+  assert.equal(copyButton.classList.contains('w-24'), true)
+  assert.equal(copyButton.classList.contains('shrink-0'), true)
+  assert.equal(copyButton.classList.contains('hover:translate-y-0'), true)
+  assert.equal(copyButton.classList.contains('hover:scale-100'), true)
+
+  await act(async () => root.unmount())
+  queryClient.clear()
+  host.remove()
 })
 
 test('inline group switching sends only group-selection fields', async () => {
