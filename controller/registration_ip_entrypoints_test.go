@@ -420,3 +420,6 @@ func (provider *registrationIPTestOAuthProvider) SetProviderUserID(user *model.U
 	user.GitHubId = providerUserID
 }
 func (provider *registrationIPTestOAuthProvider) GetProviderPrefix() string { return "oauth_" }
+func (provider *registrationIPTestOAuthProvider) ProviderUserIDColumn() string {
+	return "github_id"
+}
