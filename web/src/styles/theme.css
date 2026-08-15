@@ -203,9 +203,9 @@ For commercial licensing, please contact support@quantumnous.com
   --outline-action: oklch(0.79 0.13 244);
   --outline-action-surface: oklch(0.36 0 0);
   --outline-action-foreground: oklch(0.18 0.03 250);
-  --api-key-action: oklch(0.84 0.16 224);
-  --api-key-action-surface: oklch(0.18 0.035 236);
-  --api-key-action-foreground: oklch(0.16 0.035 236);
+  --api-key-action: oklch(0.76 0.1 85);
+  --api-key-action-surface: oklch(0.19 0.02 85);
+  --api-key-action-foreground: oklch(0.17 0.025 85);
   --secondary: oklch(0.335 0 0);
   --secondary-foreground: oklch(0.9 0.05 250);
   --muted: oklch(0.305 0 0);
