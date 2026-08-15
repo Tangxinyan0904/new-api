@@ -24,13 +24,20 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
 
 mock.module('../faceted-filter', () => ({
-  DataTableFacetedFilter: (props: { title: string }) => (
-    <span>{props.title} filter</span>
+  DataTableFacetedFilter: (props: {
+    title: string
+    buttonVariant?: string
+  }) => (
+    <span data-filter-button-variant={props.buttonVariant}>
+      {props.title} filter
+    </span>
   ),
 }))
 
 mock.module('../view-options', () => ({
-  DataTableViewOptions: () => null,
+  DataTableViewOptions: (props: { buttonVariant?: string }) => (
+    <span data-view-button-variant={props.buttonVariant}>View options</span>
+  ),
 }))
 
 const { DataTableToolbar } = await import('../toolbar')
@@ -80,5 +87,26 @@ describe('DataTableToolbar', () => {
     expect(actionIndex).toBeGreaterThanOrEqual(0)
     expect(statusIndex).toBeLessThan(noticeIndex)
     expect(noticeIndex).toBeLessThan(actionIndex)
+  })
+
+  test('forwards a scoped control variant to filters and view options', () => {
+    const html = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <DataTableToolbar
+          table={table}
+          filters={[
+            {
+              columnId: 'status',
+              title: 'Status',
+              options: [],
+            },
+          ]}
+          controlButtonVariant='apiKeyAction'
+        />
+      </I18nextProvider>
+    )
+
+    expect(html).toContain('data-filter-button-variant="apiKeyAction"')
+    expect(html).toContain('data-view-button-variant="apiKeyAction"')
   })
 })

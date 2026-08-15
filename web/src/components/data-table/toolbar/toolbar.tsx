@@ -122,6 +122,10 @@ export type DataTableToolbarProps<TData> = {
    */
   hideViewOptions?: boolean
   /**
+   * Optional variant for faceted-filter and View Options buttons.
+   */
+  controlButtonVariant?: React.ComponentProps<typeof Button>['variant']
+  /**
    * Optional view-mode toggle (e.g. table vs. card) rendered in the right
    * action cluster, before the View Options dropdown. Typically a
    * {@link DataTableViewModeToggle}. Omitted by default.
@@ -270,6 +274,7 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
             title={filter.title}
             options={filter.options}
             singleSelect={filter.singleSelect}
+            buttonVariant={props.controlButtonVariant}
           />
         )
       }),
@@ -316,7 +321,10 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   ) : null
 
   const viewOptionsNode = !props.hideViewOptions ? (
-    <DataTableViewOptions table={props.table} />
+    <DataTableViewOptions
+      table={props.table}
+      buttonVariant={props.controlButtonVariant}
+    />
   ) : null
 
   const viewToggleNode = props.viewToggle ?? null

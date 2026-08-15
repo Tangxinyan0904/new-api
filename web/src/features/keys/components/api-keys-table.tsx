@@ -337,6 +337,7 @@ export function ApiKeysTable() {
             singleSelect: true,
           },
         ],
+        controlButtonVariant: 'apiKeyAction',
         afterFilters: <ApiKeyNotice notice={status?.api_key_notice} />,
       }}
       mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type Table } from '@tanstack/react-table'
+import type { Table } from '@tanstack/react-table'
 import * as React from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -32,10 +32,12 @@ import {
 
 type DataTableViewOptionsProps<TData> = {
   table: Table<TData>
+  buttonVariant?: React.ComponentProps<typeof Button>['variant']
 }
 
 export function DataTableViewOptions<TData>({
   table,
+  buttonVariant,
 }: DataTableViewOptionsProps<TData>) {
   const { t } = useTranslation()
 
@@ -55,7 +57,7 @@ export function DataTableViewOptions<TData>({
       <DropdownMenuTrigger
         render={
           <Button
-            variant='outline'
+            variant={buttonVariant ?? 'outline'}
             className='shrink-0'
             aria-label={t('View')}
           />
