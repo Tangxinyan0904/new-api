@@ -20,7 +20,18 @@ import { expect, test } from 'bun:test'
 
 import { formatLogQuota } from '@/lib/format'
 
-import { renderAuditContent } from '../format'
+import { getTokensPerSecond, renderAuditContent } from '../format'
+
+test('calculates generated tokens per second for a completed request', () => {
+  expect(getTokensPerSecond(120, 2)).toBe(60)
+})
+
+test('omits throughput when output tokens or request duration are invalid', () => {
+  expect(getTokensPerSecond(0, 2)).toBeNull()
+  expect(getTokensPerSecond(120, 0)).toBeNull()
+  expect(getTokensPerSecond(Number.POSITIVE_INFINITY, 2)).toBeNull()
+  expect(getTokensPerSecond(120, Number.NaN)).toBeNull()
+})
 
 test('renders the distillation penalty clear audit action', () => {
   const content = renderAuditContent(

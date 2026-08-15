@@ -201,6 +201,15 @@ export function getThroughputColor(
   return 'danger'
 }
 
+export function getTokensPerSecond(
+  completionTokens: number,
+  useTimeSec: number
+): number | null {
+  if (!Number.isFinite(completionTokens) || completionTokens <= 0) return null
+  if (!Number.isFinite(useTimeSec) || useTimeSec <= 0) return null
+  return completionTokens / useTimeSec
+}
+
 /**
  * Get response color using throughput only when enough output tokens exist.
  */

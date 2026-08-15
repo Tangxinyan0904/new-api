@@ -319,7 +319,7 @@ export function DataTableRowActions<TData>({
       </div>
 
       <Button
-        variant='outline'
+        variant='apiKeyAction'
         size='xs'
         className='w-full justify-center px-2 whitespace-nowrap hover:translate-y-0 hover:scale-100'
         onClick={handleOpenCCSwitch}

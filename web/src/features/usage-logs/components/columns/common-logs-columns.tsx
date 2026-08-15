@@ -48,6 +48,7 @@ import {
 } from '../../lib/cache-metrics'
 import {
   formatModelName,
+  getTokensPerSecond,
   getTieredBillingSummary,
   hasAnyCacheTokens,
   parseLogOther,
@@ -647,17 +648,21 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         if (!isTimingLogType(log.type)) return null
 
         const other = parseLogOther(log.other)
+        const tokensPerSecond = getTokensPerSecond(
+          log.completion_tokens,
+          log.use_time
+        )
 
         return (
           <StreamTpsCell
             isStream={log.is_stream}
-            showTokensPerSecond={false}
+            tokensPerSecond={tokensPerSecond}
             streamStatus={other?.stream_status}
           />
         )
       },
       meta: { label: t('Stream') },
-      size: 50,
+      size: 72,
     },
     {
       accessorKey: 'prompt_tokens',

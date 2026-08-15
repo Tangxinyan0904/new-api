@@ -37,18 +37,25 @@ await i18n.init({
 const { StreamTpsCell } = await import('../timing-metrics-cell')
 
 describe('StreamTpsCell', () => {
-  test('hides throughput when the compact log column only needs stream status', () => {
+  test('shows rounded throughput beneath stream status by default', () => {
     const html = renderToStaticMarkup(
       <I18nextProvider i18n={i18n}>
-        <StreamTpsCell
-          isStream
-          tokensPerSecond={42}
-          showTokensPerSecond={false}
-        />
+        <StreamTpsCell isStream tokensPerSecond={42.4} />
       </I18nextProvider>
     )
 
     expect(html).toContain('Stream')
-    expect(html).not.toContain('t/s')
+    expect(html).toContain('42 t/s')
+  })
+
+  test('shows an unavailable marker when throughput cannot be calculated', () => {
+    const html = renderToStaticMarkup(
+      <I18nextProvider i18n={i18n}>
+        <StreamTpsCell isStream tokensPerSecond={null} />
+      </I18nextProvider>
+    )
+
+    expect(html).toContain('Stream')
+    expect(html).toContain('—')
   })
 })

@@ -31,6 +31,8 @@ const buttonVariants = cva(
           'bg-gradient-to-br from-[#64b5f6] to-[#2196f3] text-white shadow-[0_6px_16px_-4px_rgba(100,181,246,0.5)] hover:-translate-y-[3px] hover:scale-[1.03] hover:shadow-[0_8px_20px_-2px_rgba(100,181,246,0.6)]',
         outline:
           'border-outline-action bg-outline-action-surface text-outline-action hover:bg-outline-action hover:text-outline-action-foreground border-2 border-dashed shadow-none hover:-translate-y-[3px] hover:scale-[1.03]',
+        apiKeyAction:
+          'border-api-key-action bg-api-key-action-surface text-api-key-action hover:bg-api-key-action hover:text-api-key-action-foreground border-2 border-dashed shadow-none hover:-translate-y-[3px] hover:scale-[1.03]',
         pay: 'bg-gradient-to-br from-[#ffb3c6] to-[#ff758f] text-white shadow-[0_6px_16px_-4px_rgba(255,117,143,0.5)] hover:-translate-y-[3px] hover:scale-[1.03] hover:shadow-[0_8px_20px_-2px_rgba(255,117,143,0.6)]',
         image:
           'bg-gradient-to-br from-[#a855f7] to-[#b388ff] text-white shadow-[0_6px_16px_-4px_rgba(179,136,255,0.5)] hover:-translate-y-[3px] hover:scale-[1.03]',

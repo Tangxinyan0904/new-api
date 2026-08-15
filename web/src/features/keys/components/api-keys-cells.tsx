@@ -166,7 +166,7 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
         <TooltipTrigger
           render={
             <Button
-              variant='outline'
+              variant='apiKeyAction'
               size='xs'
               className='h-7 w-24 shrink-0 px-2 hover:translate-y-0 hover:scale-100'
               onClick={handleCopy}

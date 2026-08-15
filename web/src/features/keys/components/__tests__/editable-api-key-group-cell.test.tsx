@@ -109,7 +109,7 @@ after(() => {
   domWindow.close()
 })
 
-test('keeps the outline Copy action at a fixed size beside the masked API key', async () => {
+test('keeps the dedicated API key Copy action at a fixed size beside the masked key', async () => {
   const host = document.createElement('div')
   document.body.append(host)
   const root = createRoot(host)
@@ -133,7 +133,9 @@ test('keeps the outline Copy action at a fixed size beside the masked API key', 
     (button) => button.textContent?.trim() === 'Copy'
   )
   assert.ok(copyButton)
-  assert.equal(copyButton.classList.contains('border-outline-action'), true)
+  assert.equal(copyButton.classList.contains('border-api-key-action'), true)
+  assert.equal(copyButton.classList.contains('bg-api-key-action-surface'), true)
+  assert.equal(copyButton.classList.contains('text-api-key-action'), true)
   assert.equal(copyButton.classList.contains('h-7'), true)
   assert.equal(copyButton.classList.contains('w-24'), true)
   assert.equal(copyButton.classList.contains('shrink-0'), true)

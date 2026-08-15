@@ -51,6 +51,9 @@ For commercial licensing, please contact support@quantumnous.com
   --color-outline-action: var(--outline-action);
   --color-outline-action-surface: var(--outline-action-surface);
   --color-outline-action-foreground: var(--outline-action-foreground);
+  --color-api-key-action: var(--api-key-action);
+  --color-api-key-action-surface: var(--api-key-action-surface);
+  --color-api-key-action-foreground: var(--api-key-action-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -117,6 +120,9 @@ For commercial licensing, please contact support@quantumnous.com
   --outline-action: oklch(0.54 0.17 247);
   --outline-action-surface: oklch(0.975 0.018 244);
   --outline-action-foreground: oklch(1 0 0);
+  --api-key-action: oklch(0.54 0.17 247);
+  --api-key-action-surface: oklch(0.975 0.018 244);
+  --api-key-action-foreground: oklch(1 0 0);
   --secondary: oklch(0.95 0 0);
   --secondary-foreground: oklch(0.42 0.16 250);
   --muted: oklch(0.97 0 0);
@@ -197,6 +203,9 @@ For commercial licensing, please contact support@quantumnous.com
   --outline-action: oklch(0.79 0.13 244);
   --outline-action-surface: oklch(0.36 0 0);
   --outline-action-foreground: oklch(0.18 0.03 250);
+  --api-key-action: oklch(0.84 0.16 224);
+  --api-key-action-surface: oklch(0.18 0.035 236);
+  --api-key-action-foreground: oklch(0.16 0.035 236);
   --secondary: oklch(0.335 0 0);
   --secondary-foreground: oklch(0.9 0.05 250);
   --muted: oklch(0.305 0 0);

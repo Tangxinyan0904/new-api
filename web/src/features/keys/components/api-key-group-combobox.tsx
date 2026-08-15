@@ -101,7 +101,7 @@ export function ApiKeyGroupCombobox({
         render={
           <Button
             type='button'
-            variant='outline'
+            variant={compact ? 'apiKeyAction' : 'outline'}
             role='combobox'
             aria-expanded={open}
             data-auto-group-effect={isAutoSelected ? 'trigger' : undefined}
