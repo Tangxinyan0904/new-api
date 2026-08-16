@@ -8,6 +8,8 @@ import (
 	"gorm.io/gorm"
 )
 
+var ErrChannelMonitorLeaseLost = errors.New("channel monitor lease lost")
+
 const (
 	ChannelMonitorProviderOpenAI    = "openai"
 	ChannelMonitorProviderAnthropic = "anthropic"
@@ -215,4 +217,106 @@ func DeleteChannelMonitor(id int) error {
 		}
 		return tx.Delete(&ChannelMonitor{}, "id = ?", id).Error
 	})
+}
+
+func FindDueChannelMonitorIDs(now int64, limit int) ([]int, error) {
+	if limit < 1 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	ids := make([]int, 0)
+	err := DB.Model(&ChannelMonitor{}).
+		Where("enabled = ?", true).
+		Where("schedule_blocked_reason = ?", "").
+		Where("next_check_at > 0 AND next_check_at <= ?", now).
+		Where("lease_until = 0 OR lease_until < ?", now).
+		Order("next_check_at ASC, id ASC").
+		Limit(limit).
+		Pluck("id", &ids).Error
+	return ids, err
+}
+
+func ClaimChannelMonitor(id int, owner string, now int64, leaseUntil int64, manual bool) (*ChannelMonitor, bool, error) {
+	owner = strings.TrimSpace(owner)
+	if id <= 0 || owner == "" || leaseUntil <= now {
+		return nil, false, errors.New("invalid channel monitor lease claim")
+	}
+
+	query := DB.Model(&ChannelMonitor{}).
+		Where("id = ?", id).
+		Where("enabled = ?", true).
+		Where("schedule_blocked_reason = ?", "").
+		Where("lease_until = 0 OR lease_until < ?", now)
+	if !manual {
+		query = query.Where("next_check_at > 0 AND next_check_at <= ?", now)
+	}
+	result := query.Updates(map[string]any{
+		"lease_owner": owner,
+		"lease_until": leaseUntil,
+		"updated_at":  now,
+	})
+	if result.Error != nil {
+		return nil, false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, false, nil
+	}
+
+	monitor, err := GetChannelMonitor(id)
+	if err != nil {
+		return nil, false, err
+	}
+	if monitor == nil {
+		return nil, false, errors.New("claimed channel monitor no longer exists")
+	}
+	return monitor, true, nil
+}
+
+func CommitChannelMonitorRun(id int, owner string, checks []ChannelMonitorCheck, completedAt int64, nextCheckAt int64, blockedReason string) error {
+	if id <= 0 || strings.TrimSpace(owner) == "" || completedAt <= 0 {
+		return errors.New("invalid channel monitor run commit")
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		for index := range checks {
+			checks[index].MonitorID = id
+			checks[index].CheckedAt = completedAt
+		}
+		if len(checks) > 0 {
+			if err := tx.Create(&checks).Error; err != nil {
+				return err
+			}
+		}
+
+		result := tx.Model(&ChannelMonitor{}).
+			Where("id = ? AND lease_owner = ?", id, owner).
+			Updates(map[string]any{
+				"last_checked_at":         completedAt,
+				"next_check_at":           nextCheckAt,
+				"schedule_blocked_reason": blockedReason,
+				"lease_owner":             "",
+				"lease_until":             0,
+				"updated_at":              completedAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrChannelMonitorLeaseLost
+		}
+		return nil
+	})
+}
+
+func ReleaseChannelMonitorLease(id int, owner string) error {
+	if id <= 0 || strings.TrimSpace(owner) == "" {
+		return errors.New("invalid channel monitor lease release")
+	}
+	return DB.Model(&ChannelMonitor{}).
+		Where("id = ? AND lease_owner = ?", id, owner).
+		Updates(map[string]any{
+			"lease_owner": "",
+			"lease_until": 0,
+		}).Error
 }

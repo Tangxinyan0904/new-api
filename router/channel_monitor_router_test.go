@@ -18,6 +18,7 @@ func TestChannelMonitorRoutesUseChannelPermissions(t *testing.T) {
 	assertChannelMonitorRoutePermission(t, http.MethodGet, "/:id", authz.ChannelRead, controller.GetChannelMonitor)
 	assertChannelMonitorRoutePermission(t, http.MethodPut, "/:id", authz.ChannelSensitiveWrite, controller.UpdateChannelMonitor)
 	assertChannelMonitorRoutePermission(t, http.MethodDelete, "/:id", authz.ChannelSensitiveWrite, controller.DeleteChannelMonitor)
+	assertChannelMonitorRoutePermission(t, http.MethodPost, "/:id/run", authz.ChannelOperate, controller.RunChannelMonitorNow)
 }
 
 func TestChannelMonitorRoutesRegisterWithoutConflict(t *testing.T) {

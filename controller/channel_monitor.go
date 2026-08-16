@@ -154,6 +154,23 @@ func DeleteChannelMonitor(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
+func RunChannelMonitorNow(c *gin.Context) {
+	monitor, ok := requireChannelMonitor(c)
+	if !ok {
+		return
+	}
+	checks, err := service.RunChannelMonitorNow(c.Request.Context(), monitor.ID)
+	if errors.Is(err, service.ErrChannelMonitorBusy) {
+		channelMonitorAPIError(c, http.StatusConflict, err)
+		return
+	}
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	common.ApiSuccess(c, checks)
+}
+
 func requireChannelMonitor(c *gin.Context) (*model.ChannelMonitor, bool) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {

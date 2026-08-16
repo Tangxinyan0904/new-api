@@ -28,4 +28,5 @@ var channelMonitorPermissionRoutes = []permissionRoute{
 	{method: http.MethodGet, path: "/:id", permission: authz.ChannelRead, handler: controller.GetChannelMonitor},
 	{method: http.MethodPut, path: "/:id", permission: authz.ChannelSensitiveWrite, handler: controller.UpdateChannelMonitor},
 	{method: http.MethodDelete, path: "/:id", permission: authz.ChannelSensitiveWrite, handler: controller.DeleteChannelMonitor},
+	{method: http.MethodPost, path: "/:id/run", permission: authz.ChannelOperate, handler: controller.RunChannelMonitorNow},
 }

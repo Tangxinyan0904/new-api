@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -123,6 +125,43 @@ func TestCreateChannelMonitorStoresCreatorAndReturnsMaskedCredential(t *testing.
 	assert.Equal(t, 42, stored.CreatedBy)
 	assert.NotEmpty(t, stored.APIKeyEncrypted)
 	assert.NotContains(t, stored.APIKeyEncrypted, "monitor-create-secret")
+}
+
+func TestRunChannelMonitorNowReturnsConflictForActiveLease(t *testing.T) {
+	setupChannelMonitorControllerTestDB(t)
+	monitor := &model.ChannelMonitor{
+		InternalName:        "internal monitor",
+		PublicName:          "Public Monitor",
+		Provider:            model.ChannelMonitorProviderOpenAI,
+		APIMode:             model.ChannelMonitorAPIModeChatCompletions,
+		Endpoint:            "https://example.com",
+		APIKeyEncrypted:     "ciphertext",
+		PrimaryModel:        "gpt-test",
+		ExtraModels:         "[]",
+		IntervalSeconds:     60,
+		DegradedThresholdMs: 6000,
+		TimeoutSeconds:      30,
+		Enabled:             true,
+		NextCheckAt:         100,
+		LeaseOwner:          "active-owner",
+		LeaseUntil:          time.Now().Unix() + 600,
+	}
+	require.NoError(t, model.CreateChannelMonitor(monitor))
+
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.POST("/channel-monitor/:id/run", RunChannelMonitorNow)
+	recorder := httptest.NewRecorder()
+	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/channel-monitor/"+strconv.Itoa(monitor.ID)+"/run", nil))
+
+	assert.Equal(t, http.StatusConflict, recorder.Code)
+	var response struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	assert.False(t, response.Success)
+	assert.NotEmpty(t, response.Message)
 }
 
 func setupChannelMonitorControllerTestDB(t *testing.T) {
