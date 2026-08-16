@@ -111,6 +111,25 @@ export const channelStatusDetailSchema = z.object({
   timeline: z.array(channelStatusTimelinePointSchema).max(60),
 })
 
+export const publicChannelStatusMonitorSchema = z.object({
+  id: z.number().int().positive(),
+  public_name: z.string(),
+  provider: channelStatusProviderSchema,
+  primary_model: z.string(),
+  status: channelStatusSchema,
+  latency_ms: z.number().int().nonnegative().nullable(),
+  error_category: channelStatusErrorCategorySchema,
+  availability_1d: z.number().finite().nullable(),
+  last_checked_at: z.number().int().nonnegative(),
+})
+
+export const publicChannelStatusSummarySchema = z.object({
+  overall_status: channelStatusSchema,
+  last_updated_at: z.number().int().nonnegative(),
+  counts: channelStatusCountsSchema,
+  monitors: z.array(publicChannelStatusMonitorSchema),
+})
+
 export const CHANNEL_STATUS_PROVIDER_LABELS = {
   openai: 'OpenAI',
   anthropic: 'Anthropic',
@@ -130,3 +149,9 @@ export type ChannelStatusItem = z.infer<typeof channelStatusItemSchema>
 export type ChannelStatusResponse = z.infer<typeof channelStatusResponseSchema>
 export type ChannelModelStatus = z.infer<typeof channelModelStatusSchema>
 export type ChannelStatusDetail = z.infer<typeof channelStatusDetailSchema>
+export type PublicChannelStatusMonitor = z.infer<
+  typeof publicChannelStatusMonitorSchema
+>
+export type PublicChannelStatusSummary = z.infer<
+  typeof publicChannelStatusSummarySchema
+>

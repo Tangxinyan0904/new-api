@@ -23,9 +23,11 @@ import { api } from '@/lib/api'
 import {
   channelStatusDetailSchema,
   channelStatusResponseSchema,
+  publicChannelStatusSummarySchema,
   type ChannelStatusDays,
   type ChannelStatusDetail,
   type ChannelStatusResponse,
+  type PublicChannelStatusSummary,
 } from './types'
 
 const apiEnvelopeSchema = z.object({
@@ -39,6 +41,7 @@ export const channelStatusQueryKeys = {
   status: (days: ChannelStatusDays) =>
     ['channel-monitors', 'status', days] as const,
   detail: (id: number) => ['channel-monitors', 'status-detail', id] as const,
+  publicSummary: ['channel-monitors', 'public-summary'] as const,
 }
 
 function parseApiData<T>(payload: unknown, schema: z.ZodType<T>): T {
@@ -63,4 +66,9 @@ export async function getChannelStatusDetail(
 ): Promise<ChannelStatusDetail> {
   const response = await api.get(`/api/channel-monitor/status/${id}`)
   return parseApiData(response.data, channelStatusDetailSchema)
+}
+
+export async function getPublicChannelStatus(): Promise<PublicChannelStatusSummary> {
+  const response = await api.get('/api/channel-monitor/public-summary')
+  return parseApiData(response.data, publicChannelStatusSummarySchema)
 }
