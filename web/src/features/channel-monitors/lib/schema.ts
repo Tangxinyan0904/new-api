@@ -57,7 +57,11 @@ const channelMonitorFormBaseSchema = z.object({
     .min(1, 'Primary model is required')
     .max(256, 'Primary model is too long'),
   extra_models: z.array(
-    z.string().trim().min(1, 'Extra model cannot be empty').max(256)
+    z
+      .string()
+      .trim()
+      .min(1, 'Extra model cannot be empty')
+      .max(256, 'Extra model is too long')
   ),
   interval_seconds: z
     .number()

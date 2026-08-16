@@ -126,6 +126,17 @@ describe('channel monitor form schema', () => {
     expect(result.success).toBe(false)
   })
 
+  test('returns a translatable error for an oversized extra model name', () => {
+    const result = getChannelMonitorFormSchema(false).safeParse({
+      ...VALID_INPUT,
+      extra_models: ['a'.repeat(257)],
+    })
+
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.error.issues[0]?.message).toBe('Extra model is too long')
+  })
+
   test('requires a credential on create and allows an empty replacement on edit', () => {
     expect(
       getChannelMonitorFormSchema(false).safeParse({
