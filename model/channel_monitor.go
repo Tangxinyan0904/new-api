@@ -1,0 +1,104 @@
+package model
+
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
+
+const (
+	ChannelMonitorProviderOpenAI    = "openai"
+	ChannelMonitorProviderAnthropic = "anthropic"
+	ChannelMonitorProviderGemini    = "gemini"
+
+	ChannelMonitorAPIModeChatCompletions = "chat_completions"
+	ChannelMonitorAPIModeResponses       = "responses"
+	ChannelMonitorAPIModeMessages        = "messages"
+	ChannelMonitorAPIModeGenerateContent = "generate_content"
+
+	ChannelMonitorStatusOperational = "operational"
+	ChannelMonitorStatusDegraded    = "degraded"
+	ChannelMonitorStatusFailed      = "failed"
+)
+
+type ChannelMonitor struct {
+	ID                    int    `json:"id" gorm:"primaryKey"`
+	InternalName          string `json:"internal_name" gorm:"size:128;not null"`
+	PublicName            string `json:"public_name" gorm:"size:128;not null"`
+	Provider              string `json:"provider" gorm:"size:32;not null;index"`
+	APIMode               string `json:"api_mode" gorm:"size:32;not null"`
+	Endpoint              string `json:"endpoint" gorm:"type:text;not null"`
+	APIKeyEncrypted       string `json:"-" gorm:"type:text;not null"`
+	APIKeySuffix          string `json:"-" gorm:"size:16"`
+	PrimaryModel          string `json:"primary_model" gorm:"size:256;not null"`
+	ExtraModels           string `json:"extra_models" gorm:"type:text;not null"`
+	IntervalSeconds       int    `json:"interval_seconds" gorm:"not null"`
+	DegradedThresholdMs   int    `json:"degraded_threshold_ms" gorm:"not null"`
+	TimeoutSeconds        int    `json:"timeout_seconds" gorm:"not null"`
+	Enabled               bool   `json:"enabled" gorm:"not null;index:idx_channel_monitor_due,priority:1;index:idx_channel_monitor_public,priority:2"`
+	PublicEnabled         bool   `json:"public_enabled" gorm:"not null;index:idx_channel_monitor_public,priority:1"`
+	LastCheckedAt         int64  `json:"last_checked_at" gorm:"bigint;index"`
+	NextCheckAt           int64  `json:"next_check_at" gorm:"bigint;index:idx_channel_monitor_due,priority:2"`
+	ScheduleBlockedReason string `json:"schedule_blocked_reason" gorm:"type:text"`
+	LeaseOwner            string `json:"lease_owner" gorm:"size:128"`
+	LeaseUntil            int64  `json:"lease_until" gorm:"bigint;index:idx_channel_monitor_due,priority:3"`
+	CreatedBy             int    `json:"created_by" gorm:"index"`
+	CreatedAt             int64  `json:"created_at" gorm:"bigint;index"`
+	UpdatedAt             int64  `json:"updated_at" gorm:"bigint;index"`
+}
+
+func (monitor *ChannelMonitor) BeforeCreate(_ *gorm.DB) error {
+	now := time.Now().Unix()
+	if monitor.CreatedAt == 0 {
+		monitor.CreatedAt = now
+	}
+	if monitor.UpdatedAt == 0 {
+		monitor.UpdatedAt = now
+	}
+	return nil
+}
+
+func (monitor *ChannelMonitor) BeforeUpdate(_ *gorm.DB) error {
+	monitor.UpdatedAt = time.Now().Unix()
+	return nil
+}
+
+type ChannelMonitorCheck struct {
+	ID            int64  `json:"id" gorm:"primaryKey"`
+	MonitorID     int    `json:"monitor_id" gorm:"not null;index:idx_channel_monitor_check_model_time,priority:1"`
+	Model         string `json:"model" gorm:"size:256;not null;index:idx_channel_monitor_check_model_time,priority:2"`
+	Status        string `json:"status" gorm:"size:32;not null;index"`
+	LatencyMs     int64  `json:"latency_ms" gorm:"bigint"`
+	ErrorCategory string `json:"error_category" gorm:"size:32"`
+	HTTPStatus    int    `json:"http_status"`
+	ErrorMessage  string `json:"error_message" gorm:"type:text"`
+	CheckedAt     int64  `json:"checked_at" gorm:"bigint;not null;index:idx_channel_monitor_check_model_time,priority:3;index:idx_channel_monitor_check_cleanup"`
+}
+
+type ChannelMonitorHourlyRollup struct {
+	ID                 int64  `json:"id" gorm:"primaryKey"`
+	MonitorID          int    `json:"monitor_id" gorm:"not null;uniqueIndex:idx_channel_monitor_hour_bucket,priority:1"`
+	Model              string `json:"model" gorm:"size:256;not null;uniqueIndex:idx_channel_monitor_hour_bucket,priority:2"`
+	BucketStart        int64  `json:"bucket_start" gorm:"bigint;not null;uniqueIndex:idx_channel_monitor_hour_bucket,priority:3;index"`
+	TotalCount         int64  `json:"total_count" gorm:"bigint;not null"`
+	OperationalCount   int64  `json:"operational_count" gorm:"bigint;not null"`
+	DegradedCount      int64  `json:"degraded_count" gorm:"bigint;not null"`
+	FailedCount        int64  `json:"failed_count" gorm:"bigint;not null"`
+	LatencySumMs       int64  `json:"latency_sum_ms" gorm:"bigint;not null"`
+	LatencySampleCount int64  `json:"latency_sample_count" gorm:"bigint;not null"`
+	ComputedAt         int64  `json:"computed_at" gorm:"bigint;not null"`
+}
+
+type ChannelMonitorDailyRollup struct {
+	ID                 int64  `json:"id" gorm:"primaryKey"`
+	MonitorID          int    `json:"monitor_id" gorm:"not null;uniqueIndex:idx_channel_monitor_day_bucket,priority:1"`
+	Model              string `json:"model" gorm:"size:256;not null;uniqueIndex:idx_channel_monitor_day_bucket,priority:2"`
+	BucketStart        int64  `json:"bucket_start" gorm:"bigint;not null;uniqueIndex:idx_channel_monitor_day_bucket,priority:3;index"`
+	TotalCount         int64  `json:"total_count" gorm:"bigint;not null"`
+	OperationalCount   int64  `json:"operational_count" gorm:"bigint;not null"`
+	DegradedCount      int64  `json:"degraded_count" gorm:"bigint;not null"`
+	FailedCount        int64  `json:"failed_count" gorm:"bigint;not null"`
+	LatencySumMs       int64  `json:"latency_sum_ms" gorm:"bigint;not null"`
+	LatencySampleCount int64  `json:"latency_sample_count" gorm:"bigint;not null"`
+	ComputedAt         int64  `json:"computed_at" gorm:"bigint;not null"`
+}
