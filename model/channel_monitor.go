@@ -1,6 +1,8 @@
 package model
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -101,4 +103,107 @@ type ChannelMonitorDailyRollup struct {
 	LatencySumMs       int64  `json:"latency_sum_ms" gorm:"bigint;not null"`
 	LatencySampleCount int64  `json:"latency_sample_count" gorm:"bigint;not null"`
 	ComputedAt         int64  `json:"computed_at" gorm:"bigint;not null"`
+}
+
+type ChannelMonitorListFilter struct {
+	Page          int
+	PageSize      int
+	Search        string
+	Provider      string
+	Enabled       *bool
+	PublicEnabled *bool
+}
+
+func ListChannelMonitors(filter ChannelMonitorListFilter) ([]*ChannelMonitor, int64, error) {
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 10
+	}
+	if filter.PageSize > 100 {
+		filter.PageSize = 100
+	}
+
+	query := DB.Model(&ChannelMonitor{})
+	if search := strings.ToLower(strings.TrimSpace(filter.Search)); search != "" {
+		pattern := "%" + search + "%"
+		query = query.Where(
+			"LOWER(internal_name) LIKE ? OR LOWER(public_name) LIKE ? OR LOWER(primary_model) LIKE ?",
+			pattern,
+			pattern,
+			pattern,
+		)
+	}
+	if provider := strings.TrimSpace(filter.Provider); provider != "" {
+		query = query.Where("provider = ?", provider)
+	}
+	if filter.Enabled != nil {
+		query = query.Where("enabled = ?", *filter.Enabled)
+	}
+	if filter.PublicEnabled != nil {
+		query = query.Where("public_enabled = ?", *filter.PublicEnabled)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	items := make([]*ChannelMonitor, 0)
+	err := query.
+		Order("id DESC").
+		Limit(filter.PageSize).
+		Offset((filter.Page - 1) * filter.PageSize).
+		Find(&items).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+func GetChannelMonitor(id int) (*ChannelMonitor, error) {
+	if id <= 0 {
+		return nil, nil
+	}
+	var monitor ChannelMonitor
+	err := DB.First(&monitor, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &monitor, nil
+}
+
+func CreateChannelMonitor(monitor *ChannelMonitor) error {
+	if monitor == nil {
+		return errors.New("channel monitor is required")
+	}
+	return DB.Create(monitor).Error
+}
+
+func UpdateChannelMonitor(monitor *ChannelMonitor) error {
+	if monitor == nil || monitor.ID <= 0 {
+		return errors.New("valid channel monitor is required")
+	}
+	return DB.Save(monitor).Error
+}
+
+func DeleteChannelMonitor(id int) error {
+	if id <= 0 {
+		return errors.New("valid channel monitor ID is required")
+	}
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("monitor_id = ?", id).Delete(&ChannelMonitorCheck{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("monitor_id = ?", id).Delete(&ChannelMonitorHourlyRollup{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("monitor_id = ?", id).Delete(&ChannelMonitorDailyRollup{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&ChannelMonitor{}, "id = ?", id).Error
+	})
 }
