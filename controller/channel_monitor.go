@@ -94,6 +94,7 @@ func CreateChannelMonitor(c *gin.Context) {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	service.InvalidateChannelMonitorPublicSummaryCache()
 	item, err := channelMonitorToAdminDTO(monitor)
 	if err != nil {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
@@ -134,6 +135,7 @@ func UpdateChannelMonitor(c *gin.Context) {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	service.InvalidateChannelMonitorPublicSummaryCache()
 	item, err := channelMonitorToAdminDTO(monitor)
 	if err != nil {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
@@ -151,7 +153,96 @@ func DeleteChannelMonitor(c *gin.Context) {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	service.InvalidateChannelMonitorPublicSummaryCache()
 	common.ApiSuccess(c, nil)
+}
+
+func GetChannelMonitorHistory(c *gin.Context) {
+	monitor, ok := requireChannelMonitor(c)
+	if !ok {
+		return
+	}
+	pageInfo := common.GetPageQuery(c)
+	startTime, err := parseChannelMonitorInt64Query(c, "start_time")
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+	endTime, err := parseChannelMonitorInt64Query(c, "end_time")
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusBadRequest, err)
+		return
+	}
+	if startTime > 0 && endTime > 0 && startTime > endTime {
+		channelMonitorAPIError(c, http.StatusBadRequest, errors.New("start_time must not exceed end_time"))
+		return
+	}
+	items, total, err := model.ListChannelMonitorHistory(model.ChannelMonitorHistoryFilter{
+		MonitorID:     monitor.ID,
+		Page:          pageInfo.Page,
+		PageSize:      pageInfo.PageSize,
+		Model:         c.Query("model"),
+		Status:        c.Query("status"),
+		ErrorCategory: c.Query("error_category"),
+		StartTime:     startTime,
+		EndTime:       endTime,
+	})
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func GetChannelMonitorPublicSummary(c *gin.Context) {
+	summary, err := service.GetChannelMonitorPublicSummary()
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	common.ApiSuccess(c, summary)
+}
+
+func GetChannelMonitorStatus(c *gin.Context) {
+	days := 1
+	if raw := strings.TrimSpace(c.Query("days")); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil {
+			channelMonitorAPIError(c, http.StatusBadRequest, errors.New("invalid channel monitor availability days"))
+			return
+		}
+		days = value
+	}
+	if days != 1 && days != 3 && days != 7 {
+		channelMonitorAPIError(c, http.StatusBadRequest, errors.New("channel monitor availability days must be 1, 3, or 7"))
+		return
+	}
+	status, err := service.GetPublishedChannelMonitorStatus(days)
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	common.ApiSuccess(c, status)
+}
+
+func GetChannelMonitorStatusDetail(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		channelMonitorAPIError(c, http.StatusBadRequest, errors.New("invalid channel monitor ID"))
+		return
+	}
+	detail, err := service.GetPublishedChannelMonitorDetail(id)
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	if detail == nil {
+		channelMonitorAPIError(c, http.StatusNotFound, errors.New("channel monitor not found"))
+		return
+	}
+	common.ApiSuccess(c, detail)
 }
 
 func RunChannelMonitorNow(c *gin.Context) {
@@ -236,6 +327,18 @@ func parseChannelMonitorBoolQuery(c *gin.Context, key string) (*bool, error) {
 		return nil, errors.New("invalid " + key + " filter")
 	}
 	return &value, nil
+}
+
+func parseChannelMonitorInt64Query(c *gin.Context, key string) (int64, error) {
+	raw := strings.TrimSpace(c.Query(key))
+	if raw == "" {
+		return 0, nil
+	}
+	value, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || value < 0 {
+		return 0, errors.New("invalid " + key + " filter")
+	}
+	return value, nil
 }
 
 func channelMonitorAPIError(c *gin.Context, status int, err error) {

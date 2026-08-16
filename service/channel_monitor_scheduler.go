@@ -21,6 +21,8 @@ const (
 	channelMonitorCredentialBlockedReason = "credential_decryption_failed"
 	channelMonitorMinimumLeaseSeconds     = 60
 	channelMonitorMaximumLeaseSeconds     = 2460
+	channelMonitorHistoryBatchSize        = 500
+	channelMonitorHistoryInterval         = time.Minute
 )
 
 var (
@@ -31,11 +33,12 @@ var (
 )
 
 type channelMonitorSchedulerConfig struct {
-	Owner       string
-	WorkerCount int
-	BatchSize   int
-	Client      *http.Client
-	Now         func() time.Time
+	Owner            string
+	WorkerCount      int
+	BatchSize        int
+	Client           *http.Client
+	Now              func() time.Time
+	AggregateHistory func(time.Time) error
 }
 
 type channelMonitorScheduler struct {
@@ -45,6 +48,9 @@ type channelMonitorScheduler struct {
 	workers   sync.WaitGroup
 	startOnce sync.Once
 	stopOnce  sync.Once
+
+	maintenanceMu        sync.Mutex
+	lastMaintenanceRunAt time.Time
 }
 
 func newChannelMonitorScheduler(config channelMonitorSchedulerConfig) *channelMonitorScheduler {
@@ -59,6 +65,11 @@ func newChannelMonitorScheduler(config channelMonitorSchedulerConfig) *channelMo
 	}
 	if config.Now == nil {
 		config.Now = channelMonitorSchedulerNow
+	}
+	if config.AggregateHistory == nil {
+		config.AggregateHistory = func(now time.Time) error {
+			return model.AggregateChannelMonitorHistory(now, time.Local, channelMonitorHistoryBatchSize)
+		}
 	}
 	return &channelMonitorScheduler{
 		config: config,
@@ -91,7 +102,8 @@ func (scheduler *channelMonitorScheduler) start(ctx context.Context) {
 }
 
 func (scheduler *channelMonitorScheduler) scan(ctx context.Context) error {
-	now := scheduler.config.Now().Unix()
+	runAt := scheduler.config.Now()
+	now := runAt.Unix()
 	ids, err := model.FindDueChannelMonitorIDs(now, scheduler.config.BatchSize)
 	if err != nil {
 		return err
@@ -122,7 +134,17 @@ func (scheduler *channelMonitorScheduler) scan(ctx context.Context) error {
 			return ctx.Err()
 		}
 	}
-	return nil
+	return scheduler.aggregateHistory(runAt)
+}
+
+func (scheduler *channelMonitorScheduler) aggregateHistory(runAt time.Time) error {
+	scheduler.maintenanceMu.Lock()
+	defer scheduler.maintenanceMu.Unlock()
+	if !scheduler.lastMaintenanceRunAt.IsZero() && runAt.Before(scheduler.lastMaintenanceRunAt.Add(channelMonitorHistoryInterval)) {
+		return nil
+	}
+	scheduler.lastMaintenanceRunAt = runAt
+	return scheduler.config.AggregateHistory(runAt)
 }
 
 func (scheduler *channelMonitorScheduler) wait() {
@@ -205,6 +227,7 @@ func runClaimedChannelMonitorWithDependencies(
 		if err := model.CommitChannelMonitorRun(monitor.ID, owner, checks, completedAt, 0, channelMonitorCredentialBlockedReason); err != nil {
 			return nil, err
 		}
+		InvalidateChannelMonitorPublicSummaryCache()
 		return checks, nil
 	}
 
@@ -230,6 +253,7 @@ func runClaimedChannelMonitorWithDependencies(
 	if err := model.CommitChannelMonitorRun(monitor.ID, owner, checks, completedAt, nextCheckAt, ""); err != nil {
 		return nil, err
 	}
+	InvalidateChannelMonitorPublicSummaryCache()
 	return checks, nil
 }
 

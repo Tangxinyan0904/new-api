@@ -23,6 +23,7 @@ const (
 	ChannelMonitorStatusOperational = "operational"
 	ChannelMonitorStatusDegraded    = "degraded"
 	ChannelMonitorStatusFailed      = "failed"
+	ChannelMonitorStatusUnknown     = "unknown"
 
 	ChannelMonitorErrorNetwork         = "network"
 	ChannelMonitorErrorTLS             = "tls"
@@ -125,6 +126,17 @@ type ChannelMonitorListFilter struct {
 	PublicEnabled *bool
 }
 
+type ChannelMonitorHistoryFilter struct {
+	MonitorID     int
+	Page          int
+	PageSize      int
+	Model         string
+	Status        string
+	ErrorCategory string
+	StartTime     int64
+	EndTime       int64
+}
+
 func ListChannelMonitors(filter ChannelMonitorListFilter) ([]*ChannelMonitor, int64, error) {
 	if filter.Page < 1 {
 		filter.Page = 1
@@ -217,6 +229,50 @@ func DeleteChannelMonitor(id int) error {
 		}
 		return tx.Delete(&ChannelMonitor{}, "id = ?", id).Error
 	})
+}
+
+func ListChannelMonitorHistory(filter ChannelMonitorHistoryFilter) ([]ChannelMonitorCheck, int64, error) {
+	if filter.MonitorID <= 0 {
+		return nil, 0, errors.New("valid channel monitor ID is required")
+	}
+	if filter.Page < 1 {
+		filter.Page = 1
+	}
+	if filter.PageSize < 1 {
+		filter.PageSize = 10
+	}
+	if filter.PageSize > 100 {
+		filter.PageSize = 100
+	}
+
+	query := DB.Model(&ChannelMonitorCheck{}).Where("monitor_id = ?", filter.MonitorID)
+	if value := strings.TrimSpace(filter.Model); value != "" {
+		query = query.Where("model = ?", value)
+	}
+	if value := strings.TrimSpace(filter.Status); value != "" {
+		query = query.Where("status = ?", value)
+	}
+	if value := strings.TrimSpace(filter.ErrorCategory); value != "" {
+		query = query.Where("error_category = ?", value)
+	}
+	if filter.StartTime > 0 {
+		query = query.Where("checked_at >= ?", filter.StartTime)
+	}
+	if filter.EndTime > 0 {
+		query = query.Where("checked_at <= ?", filter.EndTime)
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	items := make([]ChannelMonitorCheck, 0)
+	err := query.
+		Order("checked_at DESC, id DESC").
+		Limit(filter.PageSize).
+		Offset((filter.Page - 1) * filter.PageSize).
+		Find(&items).Error
+	return items, total, err
 }
 
 func FindDueChannelMonitorIDs(now int64, limit int) ([]int, error) {

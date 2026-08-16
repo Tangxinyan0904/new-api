@@ -10,6 +10,13 @@ import (
 )
 
 func registerChannelMonitorRoutes(apiRouter *gin.RouterGroup) {
+	apiRouter.GET("/channel-monitor/public-summary", controller.GetChannelMonitorPublicSummary)
+
+	channelMonitorStatusRoute := apiRouter.Group("/channel-monitor/status")
+	channelMonitorStatusRoute.Use(middleware.UserAuth())
+	channelMonitorStatusRoute.GET("", controller.GetChannelMonitorStatus)
+	channelMonitorStatusRoute.GET("/:id", controller.GetChannelMonitorStatusDetail)
+
 	channelMonitorRoute := apiRouter.Group("/channel-monitor")
 	channelMonitorRoute.Use(middleware.AdminAuth())
 	for _, route := range channelMonitorPermissionRoutes {
@@ -29,4 +36,5 @@ var channelMonitorPermissionRoutes = []permissionRoute{
 	{method: http.MethodPut, path: "/:id", permission: authz.ChannelSensitiveWrite, handler: controller.UpdateChannelMonitor},
 	{method: http.MethodDelete, path: "/:id", permission: authz.ChannelSensitiveWrite, handler: controller.DeleteChannelMonitor},
 	{method: http.MethodPost, path: "/:id/run", permission: authz.ChannelOperate, handler: controller.RunChannelMonitorNow},
+	{method: http.MethodGet, path: "/:id/history", permission: authz.ChannelRead, handler: controller.GetChannelMonitorHistory},
 }

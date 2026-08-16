@@ -85,9 +85,15 @@ func TestRunClaimedChannelMonitorBlocksUndecryptableCredentialWithoutHTTP(t *tes
 	setupChannelMonitorSchedulerTestDB(t)
 	monitor := channelMonitorSchedulerFixture("https://example.com", "v1:invalid", "")
 	monitor.ExtraModels = `["model-b"]`
+	monitor.PublicEnabled = true
 	monitor.LeaseOwner = "scheduler-owner"
 	monitor.LeaseUntil = 2000
 	require.NoError(t, model.DB.Create(monitor).Error)
+	setChannelMonitorQueryClock(t, time.Unix(1000, 0), time.UTC)
+	before, err := GetChannelMonitorPublicSummary()
+	require.NoError(t, err)
+	require.Len(t, before.Monitors, 1)
+	assert.Equal(t, model.ChannelMonitorStatusUnknown, before.Monitors[0].Status)
 
 	var requests int32
 	client := &http.Client{Transport: channelMonitorRoundTripFunc(func(*http.Request) (*http.Response, error) {
@@ -117,6 +123,11 @@ func TestRunClaimedChannelMonitorBlocksUndecryptableCredentialWithoutHTTP(t *tes
 	assert.Zero(t, stored.NextCheckAt)
 	assert.Empty(t, stored.LeaseOwner)
 	assert.Zero(t, stored.LeaseUntil)
+
+	after, err := GetChannelMonitorPublicSummary()
+	require.NoError(t, err)
+	require.Len(t, after.Monitors, 1)
+	assert.Equal(t, model.ChannelMonitorStatusFailed, after.Monitors[0].Status)
 }
 
 func TestChannelMonitorSchedulerUsesBoundedWorkerPool(t *testing.T) {
@@ -193,6 +204,35 @@ func TestRunChannelMonitorNowRejectsActiveLease(t *testing.T) {
 	assert.ErrorIs(t, err, ErrChannelMonitorBusy)
 }
 
+func TestChannelMonitorSchedulerAggregatesHistoryAtMostOncePerMinute(t *testing.T) {
+	setupChannelMonitorSchedulerTestDB(t)
+	now := time.Unix(100, 0)
+	maintenanceCalls := 0
+	scheduler := newChannelMonitorScheduler(channelMonitorSchedulerConfig{
+		Owner:       "maintenance-owner",
+		WorkerCount: 1,
+		BatchSize:   10,
+		Now:         func() time.Time { return now },
+		AggregateHistory: func(runAt time.Time) error {
+			maintenanceCalls++
+			assert.Equal(t, now, runAt)
+			return nil
+		},
+	})
+
+	require.NoError(t, scheduler.scan(context.Background()))
+	require.NoError(t, scheduler.scan(context.Background()))
+	assert.Equal(t, 1, maintenanceCalls)
+
+	now = now.Add(59 * time.Second)
+	require.NoError(t, scheduler.scan(context.Background()))
+	assert.Equal(t, 1, maintenanceCalls)
+
+	now = now.Add(time.Second)
+	require.NoError(t, scheduler.scan(context.Background()))
+	assert.Equal(t, 2, maintenanceCalls)
+}
+
 func setupChannelMonitorSchedulerTestDB(t *testing.T) {
 	t.Helper()
 	previousDB := model.DB
@@ -210,6 +250,7 @@ func setupChannelMonitorSchedulerTestDB(t *testing.T) {
 	model.DB = db
 	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
 	common.CryptoSecret = "scheduler-test-secret"
+	InvalidateChannelMonitorPublicSummaryCache()
 	require.NoError(t, db.AutoMigrate(
 		&model.ChannelMonitor{},
 		&model.ChannelMonitorCheck{},
@@ -217,6 +258,7 @@ func setupChannelMonitorSchedulerTestDB(t *testing.T) {
 		&model.ChannelMonitorDailyRollup{},
 	))
 	t.Cleanup(func() {
+		InvalidateChannelMonitorPublicSummaryCache()
 		model.DB = previousDB
 		common.SetMainDatabaseType(previousType)
 		common.CryptoSecret = previousSecret
