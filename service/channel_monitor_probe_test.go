@@ -146,6 +146,23 @@ func TestProbeChannelMonitorModelClassifiesHTTPFailures(t *testing.T) {
 	}
 }
 
+func TestProbeChannelMonitorModelRedactsURLEncodedCredentialFromErrors(t *testing.T) {
+	const credential = "gemini/key+secret="
+	const encodedCredential = "gemini%2Fkey%2Bsecret%3D"
+	result := ProbeChannelMonitorModel(
+		context.Background(),
+		channelMonitorProbeFixture("https://example.com", model.ChannelMonitorProviderGemini, model.ChannelMonitorAPIModeGenerateContent),
+		"gemini-test",
+		credential,
+		channelMonitorStaticResponseClient(http.StatusInternalServerError, "upstream rejected key="+encodedCredential),
+	)
+
+	assert.Equal(t, model.ChannelMonitorStatusFailed, result.Status)
+	assert.Equal(t, model.ChannelMonitorErrorUpstream, result.ErrorCategory)
+	assert.NotContains(t, result.ErrorMessage, credential)
+	assert.NotContains(t, result.ErrorMessage, encodedCredential)
+}
+
 func TestProbeChannelMonitorModelClassifiesTransportFailures(t *testing.T) {
 	tests := []struct {
 		name     string

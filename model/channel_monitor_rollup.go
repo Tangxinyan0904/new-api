@@ -29,18 +29,39 @@ func AggregateChannelMonitorHistory(now time.Time, location *time.Location, batc
 	if batchSize > 5000 {
 		batchSize = 5000
 	}
-	if err := aggregateChannelMonitorChecks(now, location, batchSize); err != nil {
-		return err
+	for {
+		processed, err := aggregateChannelMonitorChecks(now, location, batchSize)
+		if err != nil {
+			return err
+		}
+		if processed < batchSize {
+			break
+		}
 	}
-	if err := aggregateChannelMonitorHours(now, location, batchSize); err != nil {
-		return err
+	for {
+		processed, err := aggregateChannelMonitorHours(now, location, batchSize)
+		if err != nil {
+			return err
+		}
+		if processed < batchSize {
+			break
+		}
 	}
-	return deleteExpiredChannelMonitorDays(now, location, batchSize)
+	for {
+		processed, err := deleteExpiredChannelMonitorDays(now, location, batchSize)
+		if err != nil {
+			return err
+		}
+		if processed < batchSize {
+			return nil
+		}
+	}
 }
 
-func aggregateChannelMonitorChecks(now time.Time, location *time.Location, batchSize int) error {
+func aggregateChannelMonitorChecks(now time.Time, location *time.Location, batchSize int) (int, error) {
 	cutoff := now.Add(-time.Hour).Unix()
-	return DB.Transaction(func(tx *gorm.DB) error {
+	processed := 0
+	err := DB.Transaction(func(tx *gorm.DB) error {
 		rows := make([]ChannelMonitorCheck, 0)
 		if err := tx.Where("checked_at < ?", cutoff).
 			Order("checked_at ASC, id ASC").
@@ -51,6 +72,7 @@ func aggregateChannelMonitorChecks(now time.Time, location *time.Location, batch
 		if len(rows) == 0 {
 			return nil
 		}
+		processed = len(rows)
 
 		rollups := make(map[channelMonitorRollupKey]*ChannelMonitorHourlyRollup)
 		ids := make([]int64, 0, len(rows))
@@ -93,11 +115,13 @@ func aggregateChannelMonitorChecks(now time.Time, location *time.Location, batch
 		}
 		return tx.Where("id IN ?", ids).Delete(&ChannelMonitorCheck{}).Error
 	})
+	return processed, err
 }
 
-func aggregateChannelMonitorHours(now time.Time, location *time.Location, batchSize int) error {
+func aggregateChannelMonitorHours(now time.Time, location *time.Location, batchSize int) (int, error) {
 	cutoff := now.Add(-24 * time.Hour).Unix()
-	return DB.Transaction(func(tx *gorm.DB) error {
+	processed := 0
+	err := DB.Transaction(func(tx *gorm.DB) error {
 		rows := make([]ChannelMonitorHourlyRollup, 0)
 		if err := tx.Where("bucket_start < ?", cutoff).
 			Order("bucket_start ASC, id ASC").
@@ -108,6 +132,7 @@ func aggregateChannelMonitorHours(now time.Time, location *time.Location, batchS
 		if len(rows) == 0 {
 			return nil
 		}
+		processed = len(rows)
 
 		rollups := make(map[channelMonitorRollupKey]*ChannelMonitorDailyRollup)
 		ids := make([]int64, 0, len(rows))
@@ -143,6 +168,7 @@ func aggregateChannelMonitorHours(now time.Time, location *time.Location, batchS
 		}
 		return tx.Where("id IN ?", ids).Delete(&ChannelMonitorHourlyRollup{}).Error
 	})
+	return processed, err
 }
 
 func upsertChannelMonitorHourlyRollup(tx *gorm.DB, rollup *ChannelMonitorHourlyRollup) error {
@@ -175,9 +201,10 @@ func upsertChannelMonitorDailyRollup(tx *gorm.DB, rollup *ChannelMonitorDailyRol
 	}).Create(rollup).Error
 }
 
-func deleteExpiredChannelMonitorDays(now time.Time, location *time.Location, batchSize int) error {
+func deleteExpiredChannelMonitorDays(now time.Time, location *time.Location, batchSize int) (int, error) {
 	cutoff := channelMonitorNaturalDayStart(now, location).AddDate(0, 0, -6).Unix()
-	return DB.Transaction(func(tx *gorm.DB) error {
+	processed := 0
+	err := DB.Transaction(func(tx *gorm.DB) error {
 		ids := make([]int64, 0, batchSize)
 		if err := tx.Model(&ChannelMonitorDailyRollup{}).
 			Where("bucket_start < ?", cutoff).
@@ -189,8 +216,10 @@ func deleteExpiredChannelMonitorDays(now time.Time, location *time.Location, bat
 		if len(ids) == 0 {
 			return nil
 		}
+		processed = len(ids)
 		return tx.Where("id IN ?", ids).Delete(&ChannelMonitorDailyRollup{}).Error
 	})
+	return processed, err
 }
 
 func channelMonitorNaturalHourStart(value time.Time, location *time.Location) time.Time {

@@ -206,11 +206,33 @@ func CreateChannelMonitor(monitor *ChannelMonitor) error {
 	return DB.Create(monitor).Error
 }
 
-func UpdateChannelMonitor(monitor *ChannelMonitor) error {
+func UpdateChannelMonitor(monitor *ChannelMonitor, updateSchedule bool) error {
 	if monitor == nil || monitor.ID <= 0 {
 		return errors.New("valid channel monitor is required")
 	}
-	return DB.Save(monitor).Error
+	monitor.UpdatedAt = time.Now().Unix()
+	updates := map[string]any{
+		"internal_name":         monitor.InternalName,
+		"public_name":           monitor.PublicName,
+		"provider":              monitor.Provider,
+		"api_mode":              monitor.APIMode,
+		"endpoint":              monitor.Endpoint,
+		"api_key_encrypted":     monitor.APIKeyEncrypted,
+		"api_key_suffix":        monitor.APIKeySuffix,
+		"primary_model":         monitor.PrimaryModel,
+		"extra_models":          monitor.ExtraModels,
+		"interval_seconds":      monitor.IntervalSeconds,
+		"degraded_threshold_ms": monitor.DegradedThresholdMs,
+		"timeout_seconds":       monitor.TimeoutSeconds,
+		"enabled":               monitor.Enabled,
+		"public_enabled":        monitor.PublicEnabled,
+		"updated_at":            monitor.UpdatedAt,
+	}
+	if updateSchedule {
+		updates["next_check_at"] = monitor.NextCheckAt
+		updates["schedule_blocked_reason"] = monitor.ScheduleBlockedReason
+	}
+	return DB.Model(&ChannelMonitor{}).Where("id = ?", monitor.ID).Updates(updates).Error
 }
 
 func DeleteChannelMonitor(id int) error {

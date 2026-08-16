@@ -143,7 +143,7 @@ func TestChannelMonitorCRUDListsFiltersAndDeletesHistory(t *testing.T) {
 	assert.Equal(t, "Public Alpha", stored.PublicName)
 
 	stored.PublicName = "Updated Alpha"
-	require.NoError(t, UpdateChannelMonitor(stored))
+	require.NoError(t, UpdateChannelMonitor(stored, false))
 	updated, err := GetChannelMonitor(stored.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated)
@@ -178,6 +178,56 @@ func TestListChannelMonitorsReturnsEmptySlice(t *testing.T) {
 	assert.NotNil(t, items)
 	assert.Empty(t, items)
 	assert.Zero(t, total)
+}
+
+func TestUpdateChannelMonitorPreservesRuntimeStateChangedAfterRead(t *testing.T) {
+	previousDB := DB
+	previousType := common.MainDatabaseType()
+	db, err := gorm.Open(sqlite.Open("file:"+uuid.NewString()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	DB = db
+	common.SetMainDatabaseType(common.DatabaseTypeSQLite)
+	t.Cleanup(func() {
+		DB = previousDB
+		common.SetMainDatabaseType(previousType)
+	})
+	require.NoError(t, db.AutoMigrate(&ChannelMonitor{}))
+
+	monitor := channelMonitorFixture("Concurrent Internal", "Concurrent Public", ChannelMonitorProviderOpenAI, "gpt-concurrent", true, true)
+	monitor.LastCheckedAt = 100
+	monitor.NextCheckAt = 200
+	require.NoError(t, CreateChannelMonitor(monitor))
+
+	stale, err := GetChannelMonitor(monitor.ID)
+	require.NoError(t, err)
+	require.NotNil(t, stale)
+	require.NoError(t, db.Model(&ChannelMonitor{}).Where("id = ?", monitor.ID).Updates(map[string]any{
+		"last_checked_at": 300,
+		"next_check_at":   400,
+		"lease_owner":     "active-worker",
+		"lease_until":     500,
+	}).Error)
+
+	stale.PublicName = "Updated Concurrent Public"
+	require.NoError(t, UpdateChannelMonitor(stale, false))
+
+	updated, err := GetChannelMonitor(monitor.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated)
+	assert.Equal(t, "Updated Concurrent Public", updated.PublicName)
+	assert.Equal(t, int64(300), updated.LastCheckedAt)
+	assert.Equal(t, int64(400), updated.NextCheckAt)
+	assert.Equal(t, "active-worker", updated.LeaseOwner)
+	assert.Equal(t, int64(500), updated.LeaseUntil)
+
+	updated.NextCheckAt = 600
+	require.NoError(t, UpdateChannelMonitor(updated, true))
+	scheduled, err := GetChannelMonitor(monitor.ID)
+	require.NoError(t, err)
+	require.NotNil(t, scheduled)
+	assert.Equal(t, int64(600), scheduled.NextCheckAt)
+	assert.Equal(t, "active-worker", scheduled.LeaseOwner)
+	assert.Equal(t, int64(500), scheduled.LeaseUntil)
 }
 
 func channelMonitorFixture(internalName string, publicName string, provider string, primaryModel string, enabled bool, publicEnabled bool) *ChannelMonitor {

@@ -154,7 +154,8 @@ func UpdateChannelMonitor(c *gin.Context) {
 		channelMonitorAPIError(c, http.StatusBadRequest, err)
 		return
 	}
-	if err := model.UpdateChannelMonitor(monitor); err != nil {
+	updateSchedule := !monitor.Enabled || strings.TrimSpace(input.APIKey) != "" || (!current.Enabled && monitor.Enabled)
+	if err := model.UpdateChannelMonitor(monitor, updateSchedule); err != nil {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
 	}

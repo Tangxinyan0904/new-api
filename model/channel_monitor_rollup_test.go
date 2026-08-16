@@ -99,7 +99,10 @@ func TestAggregateChannelMonitorHistoryAddsIncrementalRowsOnce(t *testing.T) {
 	require.NoError(t, DB.Create(&rows).Error)
 
 	require.NoError(t, AggregateChannelMonitorHistory(now, location, 1))
-	require.NoError(t, AggregateChannelMonitorHistory(now, location, 1))
+	var rawCount int64
+	require.NoError(t, DB.Model(&ChannelMonitorCheck{}).Count(&rawCount).Error)
+	assert.Zero(t, rawCount)
+
 	require.NoError(t, AggregateChannelMonitorHistory(now, location, 1))
 
 	var rollup ChannelMonitorHourlyRollup
@@ -110,12 +113,9 @@ func TestAggregateChannelMonitorHistoryAddsIncrementalRowsOnce(t *testing.T) {
 	assert.Equal(t, int64(100), rollup.LatencySumMs)
 	assert.Equal(t, int64(1), rollup.LatencySampleCount)
 
-	var rawCount int64
-	require.NoError(t, DB.Model(&ChannelMonitorCheck{}).Count(&rawCount).Error)
-	assert.Zero(t, rawCount)
 }
 
-func TestAggregateChannelMonitorHistoryDeletesExpiredDailyRowsInBoundedBatches(t *testing.T) {
+func TestAggregateChannelMonitorHistoryDrainsExpiredDailyRowsThroughBoundedBatches(t *testing.T) {
 	setupChannelMonitorRollupTestDB(t)
 	location, err := time.LoadLocation("Asia/Shanghai")
 	require.NoError(t, err)
@@ -131,11 +131,35 @@ func TestAggregateChannelMonitorHistoryDeletesExpiredDailyRowsInBoundedBatches(t
 	require.NoError(t, AggregateChannelMonitorHistory(now, location, 1))
 	var remaining int64
 	require.NoError(t, DB.Model(&ChannelMonitorDailyRollup{}).Count(&remaining).Error)
-	assert.Equal(t, int64(1), remaining)
+	assert.Zero(t, remaining)
+}
+
+func TestAggregateChannelMonitorHistoryDrainsHourlyRowsThroughBoundedBatches(t *testing.T) {
+	setupChannelMonitorRollupTestDB(t)
+	location, err := time.LoadLocation("Asia/Shanghai")
+	require.NoError(t, err)
+	now := time.Date(2026, time.August, 16, 12, 30, 0, 0, location)
+	monitor := channelMonitorRollupFixture()
+	require.NoError(t, DB.Create(monitor).Error)
+	require.NoError(t, DB.Create(&[]ChannelMonitorHourlyRollup{
+		{
+			MonitorID: monitor.ID, Model: "model-a", BucketStart: now.Add(-26 * time.Hour).Truncate(time.Hour).Unix(),
+			TotalCount: 1, OperationalCount: 1, LatencySumMs: 100, LatencySampleCount: 1, ComputedAt: now.Unix(),
+		},
+		{
+			MonitorID: monitor.ID, Model: "model-b", BucketStart: now.Add(-25 * time.Hour).Truncate(time.Hour).Unix(),
+			TotalCount: 1, FailedCount: 1, ComputedAt: now.Unix(),
+		},
+	}).Error)
 
 	require.NoError(t, AggregateChannelMonitorHistory(now, location, 1))
-	require.NoError(t, DB.Model(&ChannelMonitorDailyRollup{}).Count(&remaining).Error)
-	assert.Zero(t, remaining)
+	var hourlyCount int64
+	require.NoError(t, DB.Model(&ChannelMonitorHourlyRollup{}).Count(&hourlyCount).Error)
+	assert.Zero(t, hourlyCount)
+
+	var dailyTotal int64
+	require.NoError(t, DB.Model(&ChannelMonitorDailyRollup{}).Select("COALESCE(SUM(total_count), 0)").Scan(&dailyTotal).Error)
+	assert.Equal(t, int64(2), dailyTotal)
 }
 
 func setupChannelMonitorRollupTestDB(t *testing.T) {

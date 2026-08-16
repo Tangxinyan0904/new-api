@@ -373,6 +373,7 @@ func sanitizeChannelMonitorProbeError(message string, credential string) string 
 	message = strings.TrimSpace(message)
 	if credential != "" {
 		message = strings.ReplaceAll(message, credential, "[redacted]")
+		message = strings.ReplaceAll(message, url.QueryEscape(credential), "[redacted]")
 	}
 	if len(message) <= channelMonitorProbeMaxErrorBytes {
 		return message
