@@ -21,6 +21,15 @@ const (
 	ChannelMonitorStatusOperational = "operational"
 	ChannelMonitorStatusDegraded    = "degraded"
 	ChannelMonitorStatusFailed      = "failed"
+
+	ChannelMonitorErrorNetwork         = "network"
+	ChannelMonitorErrorTLS             = "tls"
+	ChannelMonitorErrorAuth            = "auth"
+	ChannelMonitorErrorRateLimit       = "rate_limit"
+	ChannelMonitorErrorTimeout         = "timeout"
+	ChannelMonitorErrorUpstream        = "upstream"
+	ChannelMonitorErrorInvalidResponse = "invalid_response"
+	ChannelMonitorErrorConfig          = "config"
 )
 
 type ChannelMonitor struct {
