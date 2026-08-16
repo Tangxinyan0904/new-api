@@ -27,6 +27,7 @@ import {
   ListTodo,
   MessageSquare,
   Radio,
+  RadioTower,
   ReceiptText,
   ServerCog,
   Settings,
@@ -81,6 +82,11 @@ export function useSidebarData(): SidebarData {
             title: t('Dashboard'),
             url: '/dashboard/models',
             icon: LayoutDashboard,
+          },
+          {
+            title: t('Channel Status'),
+            url: '/channel-status',
+            icon: RadioTower,
           },
           {
             title: t('API Keys'),
