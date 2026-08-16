@@ -275,6 +275,36 @@ func ListChannelMonitorHistory(filter ChannelMonitorHistoryFilter) ([]ChannelMon
 	return items, total, err
 }
 
+func GetLatestPrimaryChannelMonitorChecks(monitors []*ChannelMonitor) (map[int]ChannelMonitorCheck, error) {
+	monitorIDs := make([]int, 0, len(monitors))
+	for _, monitor := range monitors {
+		if monitor != nil && monitor.ID > 0 {
+			monitorIDs = append(monitorIDs, monitor.ID)
+		}
+	}
+	latest := make(map[int]ChannelMonitorCheck, len(monitorIDs))
+	if len(monitorIDs) == 0 {
+		return latest, nil
+	}
+
+	checks := make([]ChannelMonitorCheck, 0)
+	err := DB.Model(&ChannelMonitorCheck{}).
+		Select("channel_monitor_checks.id, channel_monitor_checks.monitor_id, channel_monitor_checks.model, channel_monitor_checks.status, channel_monitor_checks.latency_ms, channel_monitor_checks.error_category, channel_monitor_checks.http_status, channel_monitor_checks.error_message, channel_monitor_checks.checked_at").
+		Joins("JOIN channel_monitors ON channel_monitors.id = channel_monitor_checks.monitor_id AND channel_monitors.primary_model = channel_monitor_checks.model").
+		Where("channel_monitor_checks.monitor_id IN ?", monitorIDs).
+		Order("channel_monitor_checks.checked_at DESC, channel_monitor_checks.id DESC").
+		Find(&checks).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, check := range checks {
+		if _, exists := latest[check.MonitorID]; !exists {
+			latest[check.MonitorID] = check
+		}
+	}
+	return latest, nil
+}
+
 func FindDueChannelMonitorIDs(now int64, limit int) ([]int, error) {
 	if limit < 1 {
 		limit = 50

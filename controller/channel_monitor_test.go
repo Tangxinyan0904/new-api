@@ -39,6 +39,13 @@ func TestChannelMonitorAdminListDoesNotExposeCredentialCiphertext(t *testing.T) 
 		NextCheckAt:         100,
 	}
 	require.NoError(t, model.CreateChannelMonitor(monitor))
+	require.NoError(t, model.DB.Create(&model.ChannelMonitorCheck{
+		MonitorID: monitor.ID,
+		Model:     monitor.PrimaryModel,
+		Status:    model.ChannelMonitorStatusDegraded,
+		LatencyMs: 7200,
+		CheckedAt: 200,
+	}).Error)
 
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
@@ -58,6 +65,8 @@ func TestChannelMonitorAdminListDoesNotExposeCredentialCiphertext(t *testing.T) 
 				CredentialConfigured bool     `json:"credential_configured"`
 				CredentialMasked     string   `json:"credential_masked"`
 				ExtraModels          []string `json:"extra_models"`
+				LatestStatus         string   `json:"latest_status"`
+				LatestLatencyMs      *int64   `json:"latest_latency_ms"`
 			} `json:"items"`
 		} `json:"data"`
 	}
@@ -68,6 +77,9 @@ func TestChannelMonitorAdminListDoesNotExposeCredentialCiphertext(t *testing.T) 
 	assert.True(t, response.Data.Items[0].CredentialConfigured)
 	assert.Equal(t, "****last", response.Data.Items[0].CredentialMasked)
 	assert.Equal(t, []string{"gpt-test-mini"}, response.Data.Items[0].ExtraModels)
+	assert.Equal(t, model.ChannelMonitorStatusDegraded, response.Data.Items[0].LatestStatus)
+	require.NotNil(t, response.Data.Items[0].LatestLatencyMs)
+	assert.Equal(t, int64(7200), *response.Data.Items[0].LatestLatencyMs)
 }
 
 func TestCreateChannelMonitorStoresCreatorAndReturnsMaskedCredential(t *testing.T) {

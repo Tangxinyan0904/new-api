@@ -31,6 +31,9 @@ type channelMonitorAdminDTO struct {
 	LastCheckedAt         int64    `json:"last_checked_at"`
 	NextCheckAt           int64    `json:"next_check_at"`
 	ScheduleBlockedReason string   `json:"schedule_blocked_reason"`
+	LatestStatus          string   `json:"latest_status"`
+	LatestLatencyMs       *int64   `json:"latest_latency_ms"`
+	LatestErrorCategory   string   `json:"latest_error_category"`
 	LeaseOwner            string   `json:"lease_owner"`
 	LeaseUntil            int64    `json:"lease_until"`
 	CreatedBy             int      `json:"created_by"`
@@ -63,10 +66,20 @@ func ListChannelMonitors(c *gin.Context) {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
+	latestChecks, err := model.GetLatestPrimaryChannelMonitorChecks(monitors)
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
 
 	items := make([]channelMonitorAdminDTO, 0, len(monitors))
 	for _, monitor := range monitors {
-		item, err := channelMonitorToAdminDTO(monitor)
+		latest, exists := latestChecks[monitor.ID]
+		var latestCheck *model.ChannelMonitorCheck
+		if exists {
+			latestCheck = &latest
+		}
+		item, err := channelMonitorToAdminDTO(monitor, latestCheck)
 		if err != nil {
 			channelMonitorAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -95,7 +108,7 @@ func CreateChannelMonitor(c *gin.Context) {
 		return
 	}
 	service.InvalidateChannelMonitorPublicSummaryCache()
-	item, err := channelMonitorToAdminDTO(monitor)
+	item, err := channelMonitorToAdminDTO(monitor, nil)
 	if err != nil {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -108,7 +121,17 @@ func GetChannelMonitor(c *gin.Context) {
 	if !ok {
 		return
 	}
-	item, err := channelMonitorToAdminDTO(monitor)
+	latestChecks, err := model.GetLatestPrimaryChannelMonitorChecks([]*model.ChannelMonitor{monitor})
+	if err != nil {
+		channelMonitorAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+	latest, exists := latestChecks[monitor.ID]
+	var latestCheck *model.ChannelMonitorCheck
+	if exists {
+		latestCheck = &latest
+	}
+	item, err := channelMonitorToAdminDTO(monitor, latestCheck)
 	if err != nil {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -136,7 +159,7 @@ func UpdateChannelMonitor(c *gin.Context) {
 		return
 	}
 	service.InvalidateChannelMonitorPublicSummaryCache()
-	item, err := channelMonitorToAdminDTO(monitor)
+	item, err := channelMonitorToAdminDTO(monitor, nil)
 	if err != nil {
 		channelMonitorAPIError(c, http.StatusInternalServerError, err)
 		return
@@ -280,7 +303,7 @@ func requireChannelMonitor(c *gin.Context) (*model.ChannelMonitor, bool) {
 	return monitor, true
 }
 
-func channelMonitorToAdminDTO(monitor *model.ChannelMonitor) (channelMonitorAdminDTO, error) {
+func channelMonitorToAdminDTO(monitor *model.ChannelMonitor, latestCheck *model.ChannelMonitorCheck) (channelMonitorAdminDTO, error) {
 	if monitor == nil {
 		return channelMonitorAdminDTO{}, errors.New("channel monitor is required")
 	}
@@ -289,6 +312,15 @@ func channelMonitorToAdminDTO(monitor *model.ChannelMonitor) (channelMonitorAdmi
 		if err := common.UnmarshalJsonStr(monitor.ExtraModels, &extraModels); err != nil {
 			return channelMonitorAdminDTO{}, err
 		}
+	}
+	latestStatus := model.ChannelMonitorStatusUnknown
+	var latestLatencyMs *int64
+	latestErrorCategory := ""
+	if latestCheck != nil {
+		latestStatus = latestCheck.Status
+		latency := latestCheck.LatencyMs
+		latestLatencyMs = &latency
+		latestErrorCategory = latestCheck.ErrorCategory
 	}
 	return channelMonitorAdminDTO{
 		ID:                    monitor.ID,
@@ -309,6 +341,9 @@ func channelMonitorToAdminDTO(monitor *model.ChannelMonitor) (channelMonitorAdmi
 		LastCheckedAt:         monitor.LastCheckedAt,
 		NextCheckAt:           monitor.NextCheckAt,
 		ScheduleBlockedReason: monitor.ScheduleBlockedReason,
+		LatestStatus:          latestStatus,
+		LatestLatencyMs:       latestLatencyMs,
+		LatestErrorCategory:   latestErrorCategory,
 		LeaseOwner:            monitor.LeaseOwner,
 		LeaseUntil:            monitor.LeaseUntil,
 		CreatedBy:             monitor.CreatedBy,

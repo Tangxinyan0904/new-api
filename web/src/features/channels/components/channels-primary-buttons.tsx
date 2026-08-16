@@ -16,7 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { Activity01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   Plus,
   MoreHorizontal,
@@ -80,6 +83,7 @@ export function ChannelsPrimaryButtons() {
     upstream,
   } = useChannels()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showConsistencyDialog, setShowConsistencyDialog] = useState(false)
   const [isRepairingConsistency, setIsRepairingConsistency] = useState(false)
@@ -88,6 +92,11 @@ export function ChannelsPrimaryButtons() {
     currentUser,
     ADMIN_PERMISSION_RESOURCES.CHANNEL,
     ADMIN_PERMISSION_ACTIONS.SENSITIVE_WRITE
+  )
+  const canReadChannelMonitors = hasPermission(
+    currentUser,
+    ADMIN_PERMISSION_RESOURCES.CHANNEL,
+    ADMIN_PERMISSION_ACTIONS.READ
   )
 
   const handleTagModeToggle = (checked: boolean) => {
@@ -146,6 +155,35 @@ export function ChannelsPrimaryButtons() {
             onCheckedChange={handleIdSortToggle}
           />
         </div>
+
+        <Tooltip>
+          <TooltipTrigger render={<span className='inline-flex' />}>
+            <Button
+              type='button'
+              variant='outline'
+              size='sm'
+              disabled={!canReadChannelMonitors}
+              onClick={() => {
+                if (canReadChannelMonitors) {
+                  void navigate({ to: '/channel-monitors' })
+                }
+              }}
+            >
+              <HugeiconsIcon
+                icon={Activity01Icon}
+                strokeWidth={2}
+                data-icon='inline-start'
+              />
+              <span className='max-sm:hidden'>{t('Channel Monitor')}</span>
+              <span className='sm:hidden'>{t('Monitor')}</span>
+            </Button>
+          </TooltipTrigger>
+          {!canReadChannelMonitors ? (
+            <TooltipContent>
+              {t('No permission to perform this action')}
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
 
         {/* Create Channel */}
         <Tooltip>

@@ -1,0 +1,420 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+import { afterAll, afterEach, beforeEach, expect, mock, test } from 'bun:test'
+
+import { Window } from 'happy-dom'
+
+const domWindow = new Window({ url: 'http://localhost/channels' })
+const navigationCalls: Array<Record<string, unknown>> = []
+let authUserRole = 100
+let queryResult: Record<string, unknown> = {
+  data: undefined,
+  isLoading: false,
+  isFetching: false,
+}
+
+for (const key of [
+  'window',
+  'document',
+  'navigator',
+  'HTMLElement',
+  'HTMLButtonElement',
+  'HTMLFormElement',
+  'HTMLInputElement',
+  'SVGElement',
+  'Node',
+  'Element',
+  'Event',
+  'MouseEvent',
+  'PointerEvent',
+  'FocusEvent',
+  'CustomEvent',
+  'MutationObserver',
+  'ResizeObserver',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+  'getComputedStyle',
+] as const) {
+  Object.defineProperty(globalThis, key, {
+    configurable: true,
+    value: domWindow[key],
+  })
+}
+
+mock.module('@tanstack/react-query', () => ({
+  useMutation: () => ({
+    isPending: false,
+    mutate: () => undefined,
+    mutateAsync: async () => undefined,
+  }),
+  useQuery: () => queryResult,
+  useQueryClient: () => ({
+    invalidateQueries: async () => undefined,
+  }),
+}))
+
+mock.module('@tanstack/react-router', () => ({
+  createFileRoute: () => (config: Record<string, unknown>) => config,
+  redirect: (options: Record<string, unknown>) =>
+    Object.assign(new Error('redirect'), { options }),
+  useNavigate: () => (options: Record<string, unknown>) => {
+    navigationCalls.push(options)
+  },
+}))
+
+mock.module('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string, values?: Record<string, unknown>) =>
+      key.replaceAll(/\{\{(\w+)\}\}/g, (_match, name: string) =>
+        String(values?.[name] ?? `{{${name}}}`)
+      ),
+  }),
+}))
+
+mock.module('@/stores/auth-store', () => {
+  const useAuthStore = Object.assign(
+    (selector: (state: Record<string, unknown>) => unknown) =>
+      selector({
+        auth: { user: { role: authUserRole, permissions: {} } },
+      }),
+    {
+      getState: () => ({
+        auth: { user: { role: authUserRole, permissions: {} } },
+      }),
+    }
+  )
+  return { useAuthStore }
+})
+
+mock.module('@/lib/admin-permissions', () => ({
+  ADMIN_PERMISSION_ACTIONS: {
+    READ: 'read',
+    SENSITIVE_WRITE: 'sensitive_write',
+  },
+  ADMIN_PERMISSION_RESOURCES: { CHANNEL: 'channel' },
+  hasPermission: () => true,
+}))
+
+mock.module('@/features/channels/components/channels-provider', () => ({
+  useChannels: () => ({
+    setOpen: () => undefined,
+    setCurrentRow: () => undefined,
+    enableTagMode: false,
+    setEnableTagMode: () => undefined,
+    idSort: false,
+    setIdSort: () => undefined,
+    batchMode: false,
+    setBatchMode: () => undefined,
+    upstream: {
+      detectAllUpdates: () => undefined,
+      applyAllUpdates: () => undefined,
+      detectAllLoading: false,
+      applyAllLoading: false,
+    },
+  }),
+}))
+
+const { act } = await import('react')
+const { createRoot } = await import('react-dom/client')
+const { ChannelsPrimaryButtons } =
+  await import('@/features/channels/components/channels-primary-buttons')
+
+const reactTestGlobals = globalThis as typeof globalThis & {
+  IS_REACT_ACT_ENVIRONMENT?: boolean
+}
+reactTestGlobals.IS_REACT_ACT_ENVIRONMENT = true
+
+let host: HTMLDivElement | null = null
+let root: ReturnType<typeof createRoot> | null = null
+
+function createFreshRoot() {
+  if (!host) throw new Error('test host is not initialized')
+  return createRoot(host)
+}
+
+beforeEach(async () => {
+  navigationCalls.length = 0
+  authUserRole = 100
+  queryResult = { data: undefined, isLoading: false, isFetching: false }
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+  await act(async () => {
+    root?.render(<ChannelsPrimaryButtons />)
+  })
+})
+
+afterEach(async () => {
+  await act(async () => root?.unmount())
+  host?.remove()
+  document.body.replaceChildren()
+  root = null
+  host = null
+})
+
+afterAll(() => {
+  domWindow.close()
+})
+
+test('opens the channel monitor administration page from channel actions', async () => {
+  const button = [...(host?.querySelectorAll('button') ?? [])].find((element) =>
+    element.textContent?.includes('Channel Monitor')
+  )
+  expect(button).toBeDefined()
+
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  })
+
+  expect(navigationCalls).toEqual([{ to: '/channel-monitors' }])
+})
+
+test('renders monitor status and exposes every management action', async () => {
+  const { ChannelMonitorTable } =
+    await import('@/features/channel-monitors/components/channel-monitor-table')
+  await act(async () => root?.unmount())
+  root = createFreshRoot()
+
+  const monitor = {
+    id: 17,
+    internal_name: 'Primary OpenAI monitor',
+    public_name: 'OpenAI availability',
+    provider: 'openai' as const,
+    api_mode: 'chat_completions' as const,
+    endpoint: 'https://api.example.com',
+    credential_configured: true,
+    credential_masked: '****cret',
+    primary_model: 'gpt-primary',
+    extra_models: ['gpt-secondary'],
+    interval_seconds: 60,
+    degraded_threshold_ms: 6000,
+    timeout_seconds: 30,
+    enabled: true,
+    public_enabled: true,
+    last_checked_at: 1_723_456_789,
+    next_check_at: 1_723_456_849,
+    schedule_blocked_reason: '',
+    latest_status: 'operational' as const,
+    latest_latency_ms: 321,
+    latest_error_category: '' as const,
+    lease_owner: '',
+    lease_until: 0,
+    created_by: 1,
+    created_at: 1_723_450_000,
+    updated_at: 1_723_456_789,
+  }
+
+  await act(async () => {
+    root?.render(
+      <ChannelMonitorTable
+        monitors={[monitor]}
+        isLoading={false}
+        runningMonitorId={null}
+        onEdit={() => undefined}
+        onRunNow={() => undefined}
+        onHistory={() => undefined}
+        onDelete={() => undefined}
+      />
+    )
+  })
+
+  expect(host?.textContent).toContain('Primary OpenAI monitor')
+  expect(host?.textContent).toContain('OpenAI availability')
+  expect(host?.textContent).toContain('operational')
+  expect(host?.textContent).toContain('321 ms')
+  expect(host?.textContent).toContain('2')
+  expect(host?.textContent).toContain('60 s')
+
+  for (const label of ['Edit', 'Run now', 'View history', 'Delete']) {
+    expect(host?.querySelector(`button[aria-label="${label}"]`)).not.toBeNull()
+  }
+
+  await act(async () => {
+    root?.render(
+      <ChannelMonitorTable
+        monitors={[monitor]}
+        isLoading={false}
+        runningMonitorId={monitor.id}
+        onEdit={() => undefined}
+        onRunNow={() => undefined}
+        onHistory={() => undefined}
+        onDelete={() => undefined}
+      />
+    )
+  })
+
+  const runButton = host?.querySelector<HTMLButtonElement>(
+    'button[aria-label="Run now"]'
+  )
+  expect(runButton?.disabled).toBe(true)
+  expect(runButton?.querySelector('[role="status"]')).not.toBeNull()
+})
+
+test('discloses credential, HTTP, and publication state while editing', async () => {
+  const { ChannelMonitorFormDrawer } =
+    await import('@/features/channel-monitors/components/channel-monitor-form-drawer')
+  await act(async () => root?.unmount())
+  root = createFreshRoot()
+
+  await act(async () => {
+    root?.render(
+      <ChannelMonitorFormDrawer
+        open
+        monitor={{
+          id: 17,
+          internal_name: 'Primary OpenAI monitor',
+          public_name: 'OpenAI availability',
+          provider: 'openai',
+          api_mode: 'chat_completions',
+          endpoint: 'http://api.example.com',
+          credential_configured: true,
+          credential_masked: '****cret',
+          primary_model: 'gpt-primary',
+          extra_models: [],
+          interval_seconds: 60,
+          degraded_threshold_ms: 6000,
+          timeout_seconds: 30,
+          enabled: true,
+          public_enabled: true,
+          last_checked_at: 1_723_456_789,
+          next_check_at: 1_723_456_849,
+          schedule_blocked_reason: '',
+          latest_status: 'operational',
+          latest_latency_ms: 321,
+          latest_error_category: '' as const,
+          lease_owner: '',
+          lease_until: 0,
+          created_by: 1,
+          created_at: 1_723_450_000,
+          updated_at: 1_723_456_789,
+        }}
+        isSubmitting={false}
+        onOpenChange={() => undefined}
+        onSubmit={async () => undefined}
+      />
+    )
+  })
+
+  expect(document.body.textContent).toContain('****cret')
+  expect(document.body.textContent).toContain(
+    'HTTP endpoints send monitor credentials without transport encryption.'
+  )
+  expect(document.body.textContent).toContain(
+    'Published monitors expose their public name, provider, models, status, latency, and availability.'
+  )
+})
+
+test('shows administrator-only probe failure details in history', async () => {
+  const { ChannelMonitorHistoryTable } =
+    await import('@/features/channel-monitors/components/channel-monitor-history-dialog')
+  await act(async () => root?.unmount())
+  root = createFreshRoot()
+
+  await act(async () => {
+    root?.render(
+      <ChannelMonitorHistoryTable
+        isLoading={false}
+        items={[
+          {
+            id: 91,
+            monitor_id: 17,
+            model: 'gpt-primary',
+            status: 'failed',
+            latency_ms: 987,
+            error_category: 'upstream',
+            http_status: 500,
+            error_message: 'upstream timeout while reading response',
+            checked_at: 1_723_456_789,
+          },
+        ]}
+      />
+    )
+  })
+
+  expect(host?.textContent).toContain('gpt-primary')
+  expect(host?.textContent).toContain('failed')
+  expect(host?.textContent).toContain('500')
+  expect(host?.textContent).toContain('upstream timeout while reading response')
+})
+
+test('renders the administrator monitor list with creation and filter controls', async () => {
+  const { ChannelMonitors } = await import('@/features/channel-monitors')
+  await act(async () => root?.unmount())
+  root = createFreshRoot()
+  queryResult = {
+    data: {
+      items: [
+        {
+          id: 17,
+          internal_name: 'Primary OpenAI monitor',
+          public_name: 'OpenAI availability',
+          provider: 'openai',
+          api_mode: 'chat_completions',
+          endpoint: 'https://api.example.com',
+          credential_configured: true,
+          credential_masked: '****cret',
+          primary_model: 'gpt-primary',
+          extra_models: [],
+          interval_seconds: 60,
+          degraded_threshold_ms: 6000,
+          timeout_seconds: 30,
+          enabled: true,
+          public_enabled: true,
+          last_checked_at: 1_723_456_789,
+          next_check_at: 1_723_456_849,
+          schedule_blocked_reason: '',
+          latest_status: 'operational',
+          latest_latency_ms: 321,
+          latest_error_category: '',
+          lease_owner: '',
+          lease_until: 0,
+          created_by: 1,
+          created_at: 1_723_450_000,
+          updated_at: 1_723_456_789,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+    },
+    isLoading: false,
+    isFetching: false,
+  }
+
+  await act(async () => {
+    root?.render(<ChannelMonitors />)
+  })
+
+  expect(host?.textContent).toContain('Channel monitors')
+  expect(host?.textContent).toContain('Create monitor')
+  expect(host?.textContent).toContain('Primary OpenAI monitor')
+  expect(
+    host?.querySelector('input[aria-label="Search monitors"]')
+  ).not.toBeNull()
+})
+
+test('allows administrators and redirects non-admin users from the monitor route', async () => {
+  const { Route } = await import('@/routes/_authenticated/channel-monitors')
+  const beforeLoad = (Route as unknown as { beforeLoad: () => void }).beforeLoad
+
+  expect(() => beforeLoad()).not.toThrow()
+
+  authUserRole = 1
+  expect(() => beforeLoad()).toThrow('redirect')
+})
