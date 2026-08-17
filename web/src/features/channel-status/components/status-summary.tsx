@@ -144,23 +144,12 @@ export function StatusSummary(props: { data: ChannelStatusResponse }) {
       className='bg-muted/30 flex min-w-0 flex-col gap-4 rounded-lg border px-4 py-3 lg:flex-row lg:items-center lg:justify-between'
       aria-label={t('Channel status summary')}
     >
-      <div className='flex min-w-0 flex-col gap-1.5'>
-        <div className='flex flex-wrap items-center gap-2'>
-          <span className='text-muted-foreground text-xs font-medium tracking-normal uppercase'>
-            {t('Overall status')}
-          </span>
-          <ChannelStatusIndicator
-            status={props.data.overall_status}
-            size='md'
-          />
-        </div>
-        <span
-          className='text-muted-foreground truncate text-xs'
-          title={updatedAt}
-        >
-          {t('Last updated')}: {updatedAt}
-        </span>
-      </div>
+      <span
+        className='text-muted-foreground truncate text-xs'
+        title={updatedAt}
+      >
+        {t('Last updated')}: {updatedAt}
+      </span>
       <StatusCounts counts={props.data.counts} />
     </section>
   )

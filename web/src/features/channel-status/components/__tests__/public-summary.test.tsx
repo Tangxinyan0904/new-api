@@ -63,13 +63,13 @@ let publicSummaryQuery: Record<string, unknown> = {
 let pricingLoading = false
 
 const publicSummary = {
-  overall_status: 'operational',
   last_updated_at: 1_786_841_200,
   counts: { operational: 1, degraded: 1, failed: 1, unknown: 1 },
   monitors: [
     {
       id: 17,
       public_name: 'OpenAI global',
+      name_color: '#123ABC',
       provider: 'openai',
       primary_model: 'gpt-primary',
       status: 'operational',
@@ -81,6 +81,7 @@ const publicSummary = {
     {
       id: 18,
       public_name: 'Claude edge',
+      name_color: '#654321',
       provider: 'anthropic',
       primary_model: 'claude-primary',
       status: 'degraded',
@@ -92,6 +93,7 @@ const publicSummary = {
     {
       id: 19,
       public_name: 'Gemini regional',
+      name_color: '',
       provider: 'gemini',
       primary_model: 'gemini-primary',
       status: 'failed',
@@ -103,6 +105,7 @@ const publicSummary = {
     {
       id: 20,
       public_name: 'New monitor',
+      name_color: '#ABCDEF',
       provider: 'openai',
       primary_model: 'gpt-new',
       status: 'unknown',
@@ -247,6 +250,8 @@ const { createRoot } = await import('react-dom/client')
 const { PublicStatusSummary } =
   await import('@/features/channel-status/components/public-status-summary')
 const { Pricing } = await import('@/features/pricing')
+const { publicChannelStatusSummarySchema } =
+  await import('@/features/channel-status/types')
 
 const reactTestGlobals = globalThis as typeof globalThis & {
   IS_REACT_ACT_ENVIRONMENT?: boolean
@@ -290,6 +295,12 @@ test('keeps a stable public status region while loading', async () => {
   expect(loading?.classList.contains('min-h-32')).toBe(true)
 })
 
+test('accepts the public summary contract without an aggregate status', () => {
+  expect(
+    publicChannelStatusSummarySchema.safeParse(publicSummary).success
+  ).toBe(true)
+})
+
 test('shows a compact empty state when no monitors are published', async () => {
   publicSummaryQuery = {
     data: { ...publicSummary, monitors: [] },
@@ -321,7 +332,11 @@ test('renders operational, degraded, failed, and unknown states with text and ic
     expect(status).toBeDefined()
     expect(status?.querySelector('svg')).not.toBeNull()
   }
+  expect(host?.querySelectorAll('[role="status"]')).toHaveLength(4)
   expect(host?.textContent).toContain('OpenAI global')
+  expect(
+    host?.querySelector<HTMLElement>('[title="OpenAI global"]')?.style.color
+  ).toBe('#123ABC')
   expect(host?.textContent).toContain('321 ms')
   expect(host?.textContent).toContain('99.13%')
 })

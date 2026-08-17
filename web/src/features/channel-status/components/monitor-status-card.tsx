@@ -32,10 +32,6 @@ import {
 import { ChannelStatusIndicator } from './status-summary'
 
 const TIMELINE_POINT_COUNT = 60
-const TIMELINE_SLOTS = Array.from(
-  { length: TIMELINE_POINT_COUNT },
-  (_, slot) => slot
-)
 
 function formatAvailability(value: number | null): string {
   return value === null ? '-' : `${value.toFixed(2)}%`
@@ -45,7 +41,7 @@ function formatLatency(value: number | null): string {
   return value === null ? '-' : `${Math.round(value)} ms`
 }
 
-function timelineColor(status: ChannelStatus | 'missing'): string {
+function timelineColor(status: ChannelStatus): string {
   if (status === 'operational') return 'bg-emerald-500 dark:bg-emerald-400'
   if (status === 'degraded') return 'bg-amber-500 dark:bg-amber-400'
   if (status === 'failed') return 'bg-red-500 dark:bg-red-400'
@@ -53,15 +49,17 @@ function timelineColor(status: ChannelStatus | 'missing'): string {
 }
 
 function TimelinePoint(props: {
-  point: ChannelStatusTimelinePoint | null
+  point: ChannelStatusTimelinePoint
   label: string
 }) {
-  const status = props.point?.status ?? 'missing'
   return (
     <span
       data-slot='timeline-point'
-      data-status={status}
-      className={cn('h-7 min-w-0 rounded-[2px]', timelineColor(status))}
+      data-status={props.point.status}
+      className={cn(
+        'h-7 min-w-0 rounded-[2px]',
+        timelineColor(props.point.status)
+      )}
       title={props.label}
       aria-label={props.label}
     />
@@ -77,7 +75,6 @@ export function MonitorStatusCard(props: {
   const recentPoints = props.monitor.timeline
     .slice(0, TIMELINE_POINT_COUNT)
     .reverse()
-  const firstPointSlot = TIMELINE_POINT_COUNT - recentPoints.length
 
   return (
     <button
@@ -94,6 +91,11 @@ export function MonitorStatusCard(props: {
             data-slot='monitor-name'
             className='block truncate text-base font-semibold'
             title={props.monitor.public_name}
+            style={
+              props.monitor.name_color
+                ? { color: props.monitor.name_color }
+                : undefined
+            }
           >
             {props.monitor.public_name}
           </span>
@@ -150,15 +152,23 @@ export function MonitorStatusCard(props: {
               : t('Never checked')}
           </span>
         </div>
-        <div
-          className='grid h-7 w-full grid-cols-[repeat(60,minmax(0,1fr))] gap-px overflow-hidden'
-          aria-label={t('Recent channel checks')}
-        >
-          {TIMELINE_SLOTS.map((slot) => {
-            const point =
-              slot < firstPointSlot ? null : recentPoints[slot - firstPointSlot]
-            let label = t('No check')
-            if (point) {
+        {recentPoints.length === 0 ? (
+          <div
+            data-slot='timeline-empty'
+            className='bg-muted/30 text-muted-foreground flex h-7 w-full items-center justify-center rounded-[2px] px-2 text-xs'
+            aria-label={t('Recent channel checks')}
+          >
+            {t('No recent checks')}
+          </div>
+        ) : (
+          <div
+            className='grid h-7 w-full gap-px overflow-hidden'
+            style={{
+              gridTemplateColumns: `repeat(${recentPoints.length}, minmax(0, 1fr))`,
+            }}
+            aria-label={t('Recent channel checks')}
+          >
+            {recentPoints.map((point) => {
               let statusLabel = t('Unknown')
               if (point.status === 'operational') {
                 statusLabel = t('Operational')
@@ -167,17 +177,16 @@ export function MonitorStatusCard(props: {
               } else if (point.status === 'failed') {
                 statusLabel = t('Failed')
               }
-              label = `${statusLabel}: ${formatTimestampToDate(point.checked_at)}`
-            }
-            return (
-              <TimelinePoint
-                key={`timeline-slot-${slot}`}
-                point={point}
-                label={label}
-              />
-            )
-          })}
-        </div>
+              return (
+                <TimelinePoint
+                  key={point.checked_at}
+                  point={point}
+                  label={`${statusLabel}: ${formatTimestampToDate(point.checked_at)}`}
+                />
+              )
+            })}
+          </div>
+        )}
       </div>
     </button>
   )

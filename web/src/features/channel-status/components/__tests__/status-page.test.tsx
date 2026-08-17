@@ -35,7 +35,6 @@ let releaseBlockedStatus: (() => void) | null = null
 
 const statusByDays = {
   1: {
-    overall_status: 'operational',
     last_updated_at: 1_786_841_200,
     counts: { operational: 1, degraded: 0, failed: 0, unknown: 0 },
     days: 1,
@@ -43,6 +42,7 @@ const statusByDays = {
       {
         id: 17,
         public_name: 'OpenAI global',
+        name_color: '#123ABC',
         provider: 'openai',
         primary_model: 'gpt-primary',
         status: 'operational',
@@ -58,12 +58,17 @@ const statusByDays = {
             error_category: '',
             checked_at: 1_786_841_200,
           },
+          {
+            status: 'degraded',
+            latency_ms: 6321,
+            error_category: '',
+            checked_at: 1_786_841_140,
+          },
         ],
       },
     ],
   },
   3: {
-    overall_status: 'operational',
     last_updated_at: 1_786_841_200,
     counts: { operational: 1, degraded: 0, failed: 0, unknown: 0 },
     days: 3,
@@ -71,6 +76,7 @@ const statusByDays = {
       {
         id: 17,
         public_name: 'OpenAI global',
+        name_color: '#123ABC',
         provider: 'openai',
         primary_model: 'gpt-primary',
         status: 'operational',
@@ -84,7 +90,6 @@ const statusByDays = {
     ],
   },
   7: {
-    overall_status: 'degraded',
     last_updated_at: 1_786_841_200,
     counts: { operational: 0, degraded: 1, failed: 0, unknown: 0 },
     days: 7,
@@ -92,6 +97,7 @@ const statusByDays = {
       {
         id: 17,
         public_name: 'OpenAI global',
+        name_color: '#123ABC',
         provider: 'openai',
         primary_model: 'gpt-primary',
         status: 'degraded',
@@ -109,6 +115,7 @@ const statusByDays = {
 const monitorDetail = {
   id: 17,
   public_name: 'OpenAI global',
+  name_color: '#123ABC',
   provider: 'openai',
   primary_model: 'gpt-primary',
   status: 'operational',
@@ -323,6 +330,16 @@ test('switching the availability window updates the monitor metrics', async () =
   })
 })
 
+test('shows status counts without a cross-monitor aggregate status', async () => {
+  await renderWithQueries(<ChannelStatus />)
+
+  const summary = host?.querySelector('[aria-label="Channel status summary"]')
+  expect(summary).not.toBeNull()
+  expect(summary?.textContent).not.toContain('Overall status')
+  expect(summary?.querySelector('[role="status"]')).toBeNull()
+  expect(summary?.textContent).toContain('Operational')
+})
+
 test('does not label stale metrics as the newly selected window', async () => {
   const client = new QueryClient({
     defaultOptions: {
@@ -370,6 +387,9 @@ test('monitor cards are keyboard focusable and open primary plus extra model det
   if (!card) throw new Error('Monitor card was not rendered')
   card.focus()
   expect(document.activeElement).toBe(card)
+  expect(
+    card.querySelector<HTMLElement>('[data-slot="monitor-name"]')?.style.color
+  ).toBe('#123ABC')
 
   await act(async () => card.click())
 
@@ -377,9 +397,40 @@ test('monitor cards are keyboard focusable and open primary plus extra model det
   expect(document.body.textContent).toContain('gpt-secondary')
   expect(document.body.textContent).toContain('Primary')
   expect(document.body.textContent).toContain('Additional')
+  expect(
+    document.body.querySelector<HTMLElement>(
+      '[data-slot="monitor-detail-name"]'
+    )?.style.color
+  ).toBe('#123ABC')
 })
 
-test('unknown state keeps text, an icon, bounded names, and neutral timeline cells', async () => {
+test('renders real timeline points oldest to newest across the full row', async () => {
+  await act(async () => {
+    root?.render(
+      <MonitorStatusCard
+        days={1}
+        monitor={{
+          ...statusByDays[1].items[0],
+          timeline: [...statusByDays[1].items[0].timeline],
+        }}
+        onSelect={() => undefined}
+      />
+    )
+  })
+
+  const timeline = host?.querySelector<HTMLElement>(
+    '[aria-label="Recent channel checks"]'
+  )
+  const points = [
+    ...(host?.querySelectorAll('[data-slot="timeline-point"]') ?? []),
+  ]
+  expect(points).toHaveLength(2)
+  expect(points[0]?.getAttribute('data-status')).toBe('degraded')
+  expect(points[1]?.getAttribute('data-status')).toBe('operational')
+  expect(timeline?.style.gridTemplateColumns).toBe('repeat(2, minmax(0, 1fr))')
+})
+
+test('unknown state keeps text, an icon, bounded names, and an empty timeline message', async () => {
   const longName =
     'A very long public monitor name that must remain inside its card'
   const onSelect = mock(() => undefined)
@@ -420,12 +471,9 @@ test('unknown state keeps text, an icon, bounded names, and neutral timeline cel
   expect(document.activeElement).toBe(card)
 
   const timeline = host?.querySelectorAll('[data-slot="timeline-point"]') ?? []
-  expect(timeline.length).toBe(60)
-  expect(
-    [...timeline].every(
-      (point) => point.getAttribute('data-status') === 'missing'
-    )
-  ).toBe(true)
+  expect(timeline.length).toBe(0)
+  const emptyTimeline = host?.querySelector('[data-slot="timeline-empty"]')
+  expect(emptyTimeline?.textContent).toContain('No recent checks')
 })
 
 test('places channel status directly after dashboard for every signed-in user', async () => {

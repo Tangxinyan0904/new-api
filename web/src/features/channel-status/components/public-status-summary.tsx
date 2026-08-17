@@ -77,6 +77,11 @@ function MonitorSummary(props: { monitor: PublicChannelStatusMonitor }) {
           <span
             className='truncate text-sm font-semibold'
             title={props.monitor.public_name}
+            style={
+              props.monitor.name_color
+                ? { color: props.monitor.name_color }
+                : undefined
+            }
           >
             {props.monitor.public_name}
           </span>
@@ -186,7 +191,6 @@ export function PublicStatusSummary() {
             <span className='text-muted-foreground text-xs font-medium tracking-normal uppercase'>
               {t('Channel status')}
             </span>
-            <ChannelStatusIndicator status={summaryQuery.data.overall_status} />
           </div>
           <span
             className='text-muted-foreground block truncate text-xs'

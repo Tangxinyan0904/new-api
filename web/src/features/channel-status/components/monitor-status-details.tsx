@@ -192,8 +192,14 @@ export function MonitorStatusDetails(props: {
               <div className='bg-muted/20 flex min-w-0 items-center justify-between gap-3 border-b px-4 py-3'>
                 <div className='min-w-0'>
                   <span
+                    data-slot='monitor-detail-name'
                     className='block truncate font-semibold'
                     title={detailQuery.data.public_name}
+                    style={
+                      detailQuery.data.name_color
+                        ? { color: detailQuery.data.name_color }
+                        : undefined
+                    }
                   >
                     {detailQuery.data.public_name}
                   </span>

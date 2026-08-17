@@ -66,6 +66,7 @@ export const channelStatusTimelinePointSchema = z.object({
 export const channelStatusItemSchema = z.object({
   id: z.number().int().positive(),
   public_name: z.string(),
+  name_color: z.string(),
   provider: channelStatusProviderSchema,
   primary_model: z.string(),
   status: channelStatusSchema,
@@ -78,7 +79,6 @@ export const channelStatusItemSchema = z.object({
 })
 
 export const channelStatusResponseSchema = z.object({
-  overall_status: channelStatusSchema,
   last_updated_at: z.number().int().nonnegative(),
   counts: channelStatusCountsSchema,
   days: channelStatusDaysSchema,
@@ -103,6 +103,7 @@ export const channelModelStatusSchema = z.object({
 export const channelStatusDetailSchema = z.object({
   id: z.number().int().positive(),
   public_name: z.string(),
+  name_color: z.string(),
   provider: channelStatusProviderSchema,
   primary_model: z.string(),
   status: channelStatusSchema,
@@ -114,6 +115,7 @@ export const channelStatusDetailSchema = z.object({
 export const publicChannelStatusMonitorSchema = z.object({
   id: z.number().int().positive(),
   public_name: z.string(),
+  name_color: z.string(),
   provider: channelStatusProviderSchema,
   primary_model: z.string(),
   status: channelStatusSchema,
@@ -124,7 +126,6 @@ export const publicChannelStatusMonitorSchema = z.object({
 })
 
 export const publicChannelStatusSummarySchema = z.object({
-  overall_status: channelStatusSchema,
   last_updated_at: z.number().int().nonnegative(),
   counts: channelStatusCountsSchema,
   monitors: z.array(publicChannelStatusMonitorSchema),
