@@ -199,6 +199,57 @@ func TestNormalizeChannelMonitorInputRequiresCredentialWhenEnabled(t *testing.T)
 	require.Error(t, err)
 }
 
+func TestNormalizeChannelMonitorInputNameColor(t *testing.T) {
+	t.Run("normalizes valid color", func(t *testing.T) {
+		nameColor := "  #1a2b3c  "
+		input := validChannelMonitorInput(model.ChannelMonitorProviderOpenAI, model.ChannelMonitorAPIModeChatCompletions)
+		input.NameColor = &nameColor
+
+		monitor, err := NormalizeChannelMonitorInput(input, nil, 1)
+		require.NoError(t, err)
+		assert.Equal(t, "#1A2B3C", monitor.NameColor)
+	})
+
+	t.Run("clears explicit empty color", func(t *testing.T) {
+		nameColor := ""
+		input := validChannelMonitorInput(model.ChannelMonitorProviderOpenAI, model.ChannelMonitorAPIModeChatCompletions)
+		input.NameColor = &nameColor
+
+		monitor, err := NormalizeChannelMonitorInput(input, &model.ChannelMonitor{
+			NameColor:           "#ABCDEF",
+			IntervalSeconds:     60,
+			DegradedThresholdMs: 6000,
+			TimeoutSeconds:      30,
+		}, 1)
+		require.NoError(t, err)
+		assert.Empty(t, monitor.NameColor)
+	})
+
+	t.Run("preserves color when omitted", func(t *testing.T) {
+		input := validChannelMonitorInput(model.ChannelMonitorProviderOpenAI, model.ChannelMonitorAPIModeChatCompletions)
+
+		monitor, err := NormalizeChannelMonitorInput(input, &model.ChannelMonitor{
+			NameColor:           "#ABCDEF",
+			IntervalSeconds:     60,
+			DegradedThresholdMs: 6000,
+			TimeoutSeconds:      30,
+		}, 1)
+		require.NoError(t, err)
+		assert.Equal(t, "#ABCDEF", monitor.NameColor)
+	})
+
+	for _, nameColor := range []string{"112233", "#123", "#12345G", "#1234567"} {
+		t.Run("rejects "+nameColor, func(t *testing.T) {
+			input := validChannelMonitorInput(model.ChannelMonitorProviderOpenAI, model.ChannelMonitorAPIModeChatCompletions)
+			input.NameColor = &nameColor
+
+			monitor, err := NormalizeChannelMonitorInput(input, nil, 1)
+			require.Error(t, err)
+			assert.Nil(t, monitor)
+		})
+	}
+}
+
 func validChannelMonitorInput(provider string, mode string) ChannelMonitorInput {
 	return ChannelMonitorInput{
 		InternalName: "Internal",

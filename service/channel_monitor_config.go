@@ -23,6 +23,7 @@ const (
 type ChannelMonitorInput struct {
 	InternalName        string   `json:"internal_name"`
 	PublicName          string   `json:"public_name"`
+	NameColor           *string  `json:"name_color"`
 	Provider            string   `json:"provider"`
 	APIMode             string   `json:"api_mode"`
 	Endpoint            string   `json:"endpoint"`
@@ -56,6 +57,20 @@ func NormalizeChannelMonitorInput(input ChannelMonitorInput, current *model.Chan
 	}
 	if len([]rune(monitor.PublicName)) > 128 {
 		return nil, errors.New("channel monitor public name is too long")
+	}
+	if input.NameColor != nil {
+		nameColor := strings.TrimSpace(*input.NameColor)
+		if nameColor != "" {
+			valid := len(nameColor) == 7 && nameColor[0] == '#'
+			for index := 1; valid && index < len(nameColor); index++ {
+				valid = strings.ContainsRune("0123456789abcdefABCDEF", rune(nameColor[index]))
+			}
+			if !valid {
+				return nil, errors.New("channel monitor name color must use #RRGGBB format")
+			}
+			nameColor = strings.ToUpper(nameColor)
+		}
+		monitor.NameColor = nameColor
 	}
 
 	monitor.Provider = strings.ToLower(strings.TrimSpace(input.Provider))

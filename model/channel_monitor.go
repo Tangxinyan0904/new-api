@@ -39,6 +39,7 @@ type ChannelMonitor struct {
 	ID                    int    `json:"id" gorm:"primaryKey"`
 	InternalName          string `json:"internal_name" gorm:"size:128;not null"`
 	PublicName            string `json:"public_name" gorm:"size:128;not null"`
+	NameColor             string `json:"name_color" gorm:"size:7"`
 	Provider              string `json:"provider" gorm:"size:32;not null;index"`
 	APIMode               string `json:"api_mode" gorm:"size:32;not null"`
 	Endpoint              string `json:"endpoint" gorm:"type:text;not null"`
@@ -214,6 +215,7 @@ func UpdateChannelMonitor(monitor *ChannelMonitor, updateSchedule bool) error {
 	updates := map[string]any{
 		"internal_name":         monitor.InternalName,
 		"public_name":           monitor.PublicName,
+		"name_color":            monitor.NameColor,
 		"provider":              monitor.Provider,
 		"api_mode":              monitor.APIMode,
 		"endpoint":              monitor.Endpoint,

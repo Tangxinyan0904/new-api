@@ -112,6 +112,7 @@ func TestChannelMonitorCRUDListsFiltersAndDeletesHistory(t *testing.T) {
 		channelMonitorFixture("Beta Internal", "Public Beta", ChannelMonitorProviderAnthropic, "claude-beta", true, false),
 		channelMonitorFixture("Gamma Internal", "Public Gamma", ChannelMonitorProviderGemini, "gemini-gamma", false, true),
 	}
+	monitors[0].NameColor = "#1A2B3C"
 	for _, monitor := range monitors {
 		require.NoError(t, CreateChannelMonitor(monitor))
 	}
@@ -141,13 +142,16 @@ func TestChannelMonitorCRUDListsFiltersAndDeletesHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, stored)
 	assert.Equal(t, "Public Alpha", stored.PublicName)
+	assert.Equal(t, "#1A2B3C", stored.NameColor)
 
 	stored.PublicName = "Updated Alpha"
+	stored.NameColor = "#ABCDEF"
 	require.NoError(t, UpdateChannelMonitor(stored, false))
 	updated, err := GetChannelMonitor(stored.ID)
 	require.NoError(t, err)
 	require.NotNil(t, updated)
 	assert.Equal(t, "Updated Alpha", updated.PublicName)
+	assert.Equal(t, "#ABCDEF", updated.NameColor)
 
 	require.NoError(t, db.Create(&ChannelMonitorCheck{MonitorID: stored.ID, Model: stored.PrimaryModel, Status: ChannelMonitorStatusOperational, CheckedAt: 100}).Error)
 	require.NoError(t, db.Create(&ChannelMonitorHourlyRollup{MonitorID: stored.ID, Model: stored.PrimaryModel, BucketStart: 3600, TotalCount: 1}).Error)
