@@ -52,6 +52,7 @@ type ChannelMonitorModelStatus struct {
 type ChannelMonitorStatusItem struct {
 	ID               int                           `json:"id"`
 	PublicName       string                        `json:"public_name"`
+	NameColor        string                        `json:"name_color"`
 	Provider         string                        `json:"provider"`
 	PrimaryModel     string                        `json:"primary_model"`
 	Status           string                        `json:"status"`
@@ -64,7 +65,6 @@ type ChannelMonitorStatusItem struct {
 }
 
 type ChannelMonitorStatusResponse struct {
-	OverallStatus string                     `json:"overall_status"`
 	LastUpdatedAt int64                      `json:"last_updated_at"`
 	Counts        ChannelMonitorStatusCounts `json:"counts"`
 	Days          int                        `json:"days"`
@@ -74,6 +74,7 @@ type ChannelMonitorStatusResponse struct {
 type ChannelMonitorStatusDetail struct {
 	ID            int                           `json:"id"`
 	PublicName    string                        `json:"public_name"`
+	NameColor     string                        `json:"name_color"`
 	Provider      string                        `json:"provider"`
 	PrimaryModel  string                        `json:"primary_model"`
 	Status        string                        `json:"status"`
@@ -85,6 +86,7 @@ type ChannelMonitorStatusDetail struct {
 type ChannelMonitorPublicMonitor struct {
 	ID             int      `json:"id"`
 	PublicName     string   `json:"public_name"`
+	NameColor      string   `json:"name_color"`
 	Provider       string   `json:"provider"`
 	PrimaryModel   string   `json:"primary_model"`
 	Status         string   `json:"status"`
@@ -95,7 +97,6 @@ type ChannelMonitorPublicMonitor struct {
 }
 
 type ChannelMonitorPublicSummary struct {
-	OverallStatus string                        `json:"overall_status"`
 	LastUpdatedAt int64                         `json:"last_updated_at"`
 	Counts        ChannelMonitorStatusCounts    `json:"counts"`
 	Monitors      []ChannelMonitorPublicMonitor `json:"monitors"`
@@ -110,6 +111,7 @@ type channelMonitorPublicSummaryCacheEntry struct {
 type channelMonitorPublishedRow struct {
 	ID            int
 	PublicName    string
+	NameColor     string
 	Provider      string
 	PrimaryModel  string
 	ExtraModels   string
@@ -171,8 +173,7 @@ func GetChannelMonitorPublicSummary() (ChannelMonitorPublicSummary, error) {
 		return ChannelMonitorPublicSummary{}, err
 	}
 	summary := ChannelMonitorPublicSummary{
-		OverallStatus: model.ChannelMonitorStatusUnknown,
-		Monitors:      make([]ChannelMonitorPublicMonitor, 0, len(monitors)),
+		Monitors: make([]ChannelMonitorPublicMonitor, 0, len(monitors)),
 	}
 	for _, monitor := range monitors {
 		statuses, _, err := loadChannelMonitorStatusData(
@@ -189,6 +190,7 @@ func GetChannelMonitorPublicSummary() (ChannelMonitorPublicSummary, error) {
 		summary.Monitors = append(summary.Monitors, ChannelMonitorPublicMonitor{
 			ID:             monitor.ID,
 			PublicName:     monitor.PublicName,
+			NameColor:      monitor.NameColor,
 			Provider:       monitor.Provider,
 			PrimaryModel:   monitor.PrimaryModel,
 			Status:         primary.Status,
@@ -202,7 +204,6 @@ func GetChannelMonitorPublicSummary() (ChannelMonitorPublicSummary, error) {
 			summary.LastUpdatedAt = monitor.LastCheckedAt
 		}
 	}
-	summary.OverallStatus = channelMonitorOverallStatus(summary.Counts, len(summary.Monitors))
 	channelMonitorPublicSummaryCache = channelMonitorPublicSummaryCacheEntry{
 		Summary:   cloneChannelMonitorPublicSummary(summary),
 		ExpiresAt: now.Add(channelMonitorPublicSummaryCacheTTL),
@@ -227,9 +228,8 @@ func GetPublishedChannelMonitorStatus(days int) (ChannelMonitorStatusResponse, e
 		return ChannelMonitorStatusResponse{}, err
 	}
 	response := ChannelMonitorStatusResponse{
-		OverallStatus: model.ChannelMonitorStatusUnknown,
-		Days:          days,
-		Items:         make([]ChannelMonitorStatusItem, 0, len(monitors)),
+		Days:  days,
+		Items: make([]ChannelMonitorStatusItem, 0, len(monitors)),
 	}
 	for _, monitor := range monitors {
 		statuses, timeline, err := loadChannelMonitorStatusData(
@@ -247,6 +247,7 @@ func GetPublishedChannelMonitorStatus(days int) (ChannelMonitorStatusResponse, e
 		response.Items = append(response.Items, ChannelMonitorStatusItem{
 			ID:               monitor.ID,
 			PublicName:       monitor.PublicName,
+			NameColor:        monitor.NameColor,
 			Provider:         monitor.Provider,
 			PrimaryModel:     monitor.PrimaryModel,
 			Status:           primary.Status,
@@ -262,7 +263,6 @@ func GetPublishedChannelMonitorStatus(days int) (ChannelMonitorStatusResponse, e
 			response.LastUpdatedAt = monitor.LastCheckedAt
 		}
 	}
-	response.OverallStatus = channelMonitorOverallStatus(response.Counts, len(response.Items))
 	return response, nil
 }
 
@@ -293,6 +293,7 @@ func GetPublishedChannelMonitorDetail(id int) (*ChannelMonitorStatusDetail, erro
 	return &ChannelMonitorStatusDetail{
 		ID:            monitor.ID,
 		PublicName:    monitor.PublicName,
+		NameColor:     monitor.NameColor,
 		Provider:      monitor.Provider,
 		PrimaryModel:  monitor.PrimaryModel,
 		Status:        channelMonitorOverallStatus(counts, len(statuses)),
@@ -305,7 +306,7 @@ func GetPublishedChannelMonitorDetail(id int) (*ChannelMonitorStatusDetail, erro
 func listPublishedChannelMonitorRows() ([]channelMonitorPublishedRow, error) {
 	rows := make([]channelMonitorPublishedRow, 0)
 	err := model.DB.Model(&model.ChannelMonitor{}).
-		Select("id, public_name, provider, primary_model, extra_models, last_checked_at").
+		Select("id, public_name, name_color, provider, primary_model, extra_models, last_checked_at").
 		Where("enabled = ? AND public_enabled = ?", true, true).
 		Order("id ASC").
 		Scan(&rows).Error
@@ -315,7 +316,7 @@ func listPublishedChannelMonitorRows() ([]channelMonitorPublishedRow, error) {
 func getPublishedChannelMonitorRow(id int) (*channelMonitorPublishedRow, error) {
 	var row channelMonitorPublishedRow
 	err := model.DB.Model(&model.ChannelMonitor{}).
-		Select("id, public_name, provider, primary_model, extra_models, last_checked_at").
+		Select("id, public_name, name_color, provider, primary_model, extra_models, last_checked_at").
 		Where("id = ? AND enabled = ? AND public_enabled = ?", id, true, true).
 		Take(&row).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {

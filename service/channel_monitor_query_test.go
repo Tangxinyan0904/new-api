@@ -77,6 +77,7 @@ func TestChannelMonitorPublicAndSignedInQueriesFilterAndIsolateSensitiveFields(t
 	published.Endpoint = "https://sensitive-endpoint.example.com"
 	published.APIKeyEncrypted = "SENSITIVE_CIPHERTEXT"
 	published.LeaseOwner = "SENSITIVE_LEASE_OWNER"
+	published.NameColor = "#123ABC"
 	unpublished := channelMonitorQueryFixture("Unpublished Internal", "Unpublished", true, false)
 	disabled := channelMonitorQueryFixture("Disabled Internal", "Disabled", false, true)
 	unknown := channelMonitorQueryFixture("Unknown Internal", "Unknown", true, true)
@@ -95,11 +96,11 @@ func TestChannelMonitorPublicAndSignedInQueriesFilterAndIsolateSensitiveFields(t
 
 	publicSummary, err := GetChannelMonitorPublicSummary()
 	require.NoError(t, err)
-	assert.Equal(t, model.ChannelMonitorStatusFailed, publicSummary.OverallStatus)
 	assert.Equal(t, 1, publicSummary.Counts.Failed)
 	assert.Equal(t, 1, publicSummary.Counts.Unknown)
 	require.Len(t, publicSummary.Monitors, 2)
 	assert.Equal(t, "Published", publicSummary.Monitors[0].PublicName)
+	assert.Equal(t, "#123ABC", publicSummary.Monitors[0].NameColor)
 	assert.Equal(t, model.ChannelMonitorStatusFailed, publicSummary.Monitors[0].Status)
 	assert.Equal(t, model.ChannelMonitorErrorAuth, publicSummary.Monitors[0].ErrorCategory)
 	assert.Equal(t, "Unknown", publicSummary.Monitors[1].PublicName)
@@ -108,15 +109,21 @@ func TestChannelMonitorPublicAndSignedInQueriesFilterAndIsolateSensitiveFields(t
 	signedIn, err := GetPublishedChannelMonitorStatus(1)
 	require.NoError(t, err)
 	require.Len(t, signedIn.Items, 2)
-	assert.Equal(t, model.ChannelMonitorStatusFailed, signedIn.OverallStatus)
+	assert.Equal(t, "#123ABC", signedIn.Items[0].NameColor)
 	assert.Equal(t, model.ChannelMonitorStatusFailed, signedIn.Items[0].Status)
 	assert.Equal(t, model.ChannelMonitorStatusUnknown, signedIn.Items[1].Status)
+	detail, err := GetPublishedChannelMonitorDetail(published.ID)
+	require.NoError(t, err)
+	require.NotNil(t, detail)
+	assert.Equal(t, "#123ABC", detail.NameColor)
+	assert.Equal(t, model.ChannelMonitorStatusFailed, detail.Status)
 
 	publicJSON, err := common.Marshal(publicSummary)
 	require.NoError(t, err)
 	signedInJSON, err := common.Marshal(signedIn)
 	require.NoError(t, err)
 	for _, payload := range []string{string(publicJSON), string(signedInJSON)} {
+		assert.NotContains(t, payload, `"overall_status"`)
 		assert.NotContains(t, payload, "SENSITIVE_INTERNAL_NAME")
 		assert.NotContains(t, payload, "sensitive-endpoint")
 		assert.NotContains(t, payload, "SENSITIVE_CIPHERTEXT")

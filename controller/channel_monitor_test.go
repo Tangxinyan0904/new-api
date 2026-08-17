@@ -24,6 +24,7 @@ func TestChannelMonitorAdminListDoesNotExposeCredentialCiphertext(t *testing.T) 
 	monitor := &model.ChannelMonitor{
 		InternalName:        "internal monitor",
 		PublicName:          "Public Monitor",
+		NameColor:           "#123ABC",
 		Provider:            model.ChannelMonitorProviderOpenAI,
 		APIMode:             model.ChannelMonitorAPIModeChatCompletions,
 		Endpoint:            "https://example.com",
@@ -62,6 +63,7 @@ func TestChannelMonitorAdminListDoesNotExposeCredentialCiphertext(t *testing.T) 
 		Data    struct {
 			Items []struct {
 				ID                   int      `json:"id"`
+				NameColor            string   `json:"name_color"`
 				CredentialConfigured bool     `json:"credential_configured"`
 				CredentialMasked     string   `json:"credential_masked"`
 				ExtraModels          []string `json:"extra_models"`
@@ -74,6 +76,7 @@ func TestChannelMonitorAdminListDoesNotExposeCredentialCiphertext(t *testing.T) 
 	assert.True(t, response.Success)
 	require.Len(t, response.Data.Items, 1)
 	assert.Equal(t, monitor.ID, response.Data.Items[0].ID)
+	assert.Equal(t, "#123ABC", response.Data.Items[0].NameColor)
 	assert.True(t, response.Data.Items[0].CredentialConfigured)
 	assert.Equal(t, "****last", response.Data.Items[0].CredentialMasked)
 	assert.Equal(t, []string{"gpt-test-mini"}, response.Data.Items[0].ExtraModels)
@@ -222,6 +225,7 @@ func TestChannelMonitorControllersExposeOnlyPublishedSafeStatusData(t *testing.T
 	monitor.Endpoint = "https://sensitive.example.com"
 	monitor.APIKeyEncrypted = "SENSITIVE_CIPHERTEXT"
 	monitor.PublicEnabled = true
+	monitor.NameColor = "#123ABC"
 	monitor.LastCheckedAt = 300
 	require.NoError(t, model.CreateChannelMonitor(monitor))
 	require.NoError(t, model.DB.Create(&model.ChannelMonitorCheck{
@@ -238,21 +242,43 @@ func TestChannelMonitorControllersExposeOnlyPublishedSafeStatusData(t *testing.T
 	engine.GET("/channel-monitor/status", GetChannelMonitorStatus)
 	engine.GET("/channel-monitor/status/:id", GetChannelMonitorStatusDetail)
 
-	for _, path := range []string{
-		"/channel-monitor/public-summary",
-		"/channel-monitor/status?days=1",
-		"/channel-monitor/status/" + strconv.Itoa(monitor.ID),
-	} {
-		recorder := httptest.NewRecorder()
-		engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path, nil))
-		require.Equal(t, http.StatusOK, recorder.Code)
-		payload := recorder.Body.String()
-		assert.NotContains(t, payload, "SENSITIVE_INTERNAL")
-		assert.NotContains(t, payload, "sensitive.example.com")
-		assert.NotContains(t, payload, "SENSITIVE_CIPHERTEXT")
-		assert.NotContains(t, payload, "SENSITIVE_ERROR")
-		assert.NotContains(t, payload, "http_status")
-		assert.NotContains(t, payload, "error_message")
+	tests := []struct {
+		path       string
+		collection string
+	}{
+		{path: "/channel-monitor/public-summary", collection: "monitors"},
+		{path: "/channel-monitor/status?days=1", collection: "items"},
+		{path: "/channel-monitor/status/" + strconv.Itoa(monitor.ID)},
+	}
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, test.path, nil))
+			require.Equal(t, http.StatusOK, recorder.Code)
+			payload := recorder.Body.String()
+			assert.NotContains(t, payload, "SENSITIVE_INTERNAL")
+			assert.NotContains(t, payload, "sensitive.example.com")
+			assert.NotContains(t, payload, "SENSITIVE_CIPHERTEXT")
+			assert.NotContains(t, payload, "SENSITIVE_ERROR")
+			assert.NotContains(t, payload, "http_status")
+			assert.NotContains(t, payload, "error_message")
+
+			var response struct {
+				Data map[string]any `json:"data"`
+			}
+			require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+			assert.NotContains(t, response.Data, "overall_status")
+
+			item := response.Data
+			if test.collection != "" {
+				items, ok := response.Data[test.collection].([]any)
+				require.True(t, ok)
+				require.Len(t, items, 1)
+				item, ok = items[0].(map[string]any)
+				require.True(t, ok)
+			}
+			assert.Equal(t, "#123ABC", item["name_color"])
+		})
 	}
 }
 

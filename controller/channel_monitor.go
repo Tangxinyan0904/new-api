@@ -16,6 +16,7 @@ type channelMonitorAdminDTO struct {
 	ID                    int      `json:"id"`
 	InternalName          string   `json:"internal_name"`
 	PublicName            string   `json:"public_name"`
+	NameColor             string   `json:"name_color"`
 	Provider              string   `json:"provider"`
 	APIMode               string   `json:"api_mode"`
 	Endpoint              string   `json:"endpoint"`
@@ -327,6 +328,7 @@ func channelMonitorToAdminDTO(monitor *model.ChannelMonitor, latestCheck *model.
 		ID:                    monitor.ID,
 		InternalName:          monitor.InternalName,
 		PublicName:            monitor.PublicName,
+		NameColor:             monitor.NameColor,
 		Provider:              monitor.Provider,
 		APIMode:               monitor.APIMode,
 		Endpoint:              monitor.Endpoint,
