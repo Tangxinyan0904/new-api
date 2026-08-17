@@ -23,6 +23,7 @@ import { getChannelMonitorFormSchema } from '../schema'
 const VALID_INPUT = {
   internal_name: 'Primary OpenAI monitor',
   public_name: 'OpenAI',
+  name_color: '',
   provider: 'openai',
   api_mode: 'chat_completions',
   endpoint: 'https://api.example.com',
@@ -37,6 +38,31 @@ const VALID_INPUT = {
 }
 
 describe('channel monitor form schema', () => {
+  test('accepts empty name color and normalizes exact hex colors', () => {
+    const schema = getChannelMonitorFormSchema(false)
+
+    for (const [nameColor, expected] of [
+      ['', ''],
+      ['#1A2B3C', '#1A2B3C'],
+      ['  #abcdef  ', '#ABCDEF'],
+    ] as const) {
+      const result = schema.safeParse({ ...VALID_INPUT, name_color: nameColor })
+      expect(result.success).toBe(true)
+      if (!result.success) continue
+      expect(result.data.name_color).toBe(expected)
+    }
+  })
+
+  test('rejects malformed name colors', () => {
+    const schema = getChannelMonitorFormSchema(false)
+
+    for (const nameColor of ['112233', '#123', '#12345G', '#1234567']) {
+      expect(
+        schema.safeParse({ ...VALID_INPUT, name_color: nameColor }).success
+      ).toBe(false)
+    }
+  })
+
   test('accepts only the four supported provider and API mode pairs', () => {
     const schema = getChannelMonitorFormSchema(false)
     const validPairs = [

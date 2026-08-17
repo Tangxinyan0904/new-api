@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -43,6 +45,12 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group'
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -61,8 +69,14 @@ import {
 } from '@/components/ui/sheet'
 import { Spinner } from '@/components/ui/spinner'
 import { Switch } from '@/components/ui/switch'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 
 import {
+  CHANNEL_MONITOR_NAME_COLOR_PATTERN,
   CHANNEL_MONITOR_FORM_DEFAULTS,
   getChannelMonitorFormSchema,
   type ChannelMonitorFormValues,
@@ -104,6 +118,7 @@ function formValuesForMonitor(monitor: ChannelMonitor | null) {
   return {
     internal_name: monitor.internal_name,
     public_name: monitor.public_name,
+    name_color: monitor.name_color,
     provider: monitor.provider,
     api_mode: monitor.api_mode,
     endpoint: monitor.endpoint,
@@ -128,6 +143,7 @@ export function ChannelMonitorFormDrawer(props: ChannelMonitorFormDrawerProps) {
   })
   const provider = form.watch('provider')
   const endpoint = form.watch('endpoint')
+  const publicName = form.watch('public_name')
   const publicEnabled = form.watch('public_enabled')
   const modeOptions = MODES_BY_PROVIDER[provider]
 
@@ -192,6 +208,76 @@ export function ChannelMonitorFormDrawer(props: ChannelMonitorFormDrawerProps) {
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+                <FormField
+                  control={form.control}
+                  name='name_color'
+                  render={({ field }) => {
+                    const hasValidColor =
+                      CHANNEL_MONITOR_NAME_COLOR_PATTERN.test(field.value)
+                    return (
+                      <FormItem className='sm:col-span-2'>
+                        <FormLabel>{t('Public name color')}</FormLabel>
+                        <InputGroup>
+                          <InputGroupAddon>
+                            <input
+                              type='color'
+                              value={hasValidColor ? field.value : '#737373'}
+                              aria-label={t('Choose public name color')}
+                              className='size-5 cursor-pointer border-0 bg-transparent p-0'
+                              onChange={(event) =>
+                                field.onChange(event.target.value.toUpperCase())
+                              }
+                            />
+                          </InputGroupAddon>
+                          <FormControl>
+                            <InputGroupInput
+                              {...field}
+                              aria-label={t('Public name color code')}
+                              placeholder='#RRGGBB'
+                              autoCapitalize='characters'
+                              spellCheck={false}
+                            />
+                          </FormControl>
+                          <InputGroupAddon align='inline-end'>
+                            <Tooltip>
+                              <TooltipTrigger
+                                render={
+                                  <InputGroupButton
+                                    size='icon-xs'
+                                    aria-label={t('Use theme default color')}
+                                    onClick={() => field.onChange('')}
+                                  />
+                                }
+                              >
+                                <HugeiconsIcon
+                                  icon={Refresh01Icon}
+                                  strokeWidth={2}
+                                />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {t('Use theme default color')}
+                              </TooltipContent>
+                            </Tooltip>
+                          </InputGroupAddon>
+                        </InputGroup>
+                        <span
+                          data-slot='monitor-name-preview'
+                          className='block truncate text-sm font-semibold'
+                          aria-label={t('Public name preview')}
+                          style={
+                            hasValidColor ? { color: field.value } : undefined
+                          }
+                        >
+                          {publicName.trim() || t('Public name preview')}
+                        </span>
+                        <FormDescription>
+                          {t('Leave empty to use the theme default color.')}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )
+                  }}
                 />
               </div>
             </SideDrawerSection>

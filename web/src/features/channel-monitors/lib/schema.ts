@@ -25,6 +25,7 @@ const apiModeSchema = z.enum([
   'messages',
   'generate_content',
 ])
+export const CHANNEL_MONITOR_NAME_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/
 
 const supportedModes = {
   openai: new Set(['chat_completions', 'responses']),
@@ -43,6 +44,14 @@ const channelMonitorFormBaseSchema = z.object({
     .trim()
     .min(1, 'Public name is required')
     .max(128, 'Public name is too long'),
+  name_color: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === '' || CHANNEL_MONITOR_NAME_COLOR_PATTERN.test(value),
+      'Name color must use #RRGGBB format'
+    )
+    .transform((value) => value.toUpperCase()),
   provider: providerSchema,
   api_mode: apiModeSchema,
   endpoint: z
@@ -88,6 +97,7 @@ export type ChannelMonitorFormValues = z.infer<
 export const CHANNEL_MONITOR_FORM_DEFAULTS: ChannelMonitorFormValues = {
   internal_name: '',
   public_name: '',
+  name_color: '',
   provider: 'openai',
   api_mode: 'chat_completions',
   endpoint: '',

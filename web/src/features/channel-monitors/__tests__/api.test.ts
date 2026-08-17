@@ -34,6 +34,7 @@ const MONITOR = {
   id: 17,
   internal_name: 'Primary OpenAI monitor',
   public_name: 'OpenAI availability',
+  name_color: '#123ABC',
   provider: 'openai',
   api_mode: 'chat_completions',
   endpoint: 'https://api.example.com',
@@ -85,6 +86,7 @@ test('validates and returns the administrator monitor list response', async () =
   const result = await getChannelMonitors({ p: 1, page_size: 20 })
 
   expect(result.items).toHaveLength(1)
+  expect(result.items[0]?.name_color).toBe('#123ABC')
   expect(result.items[0]?.latest_latency_ms).toBe(321)
   expect(result.total).toBe(1)
 })

@@ -54,6 +54,7 @@ export const channelMonitorSchema = z.object({
   id: z.number().int().positive(),
   internal_name: z.string(),
   public_name: z.string(),
+  name_color: z.string(),
   provider: channelMonitorProviderSchema,
   api_mode: channelMonitorApiModeSchema,
   endpoint: z.string(),
@@ -105,6 +106,7 @@ export type ChannelMonitorCheck = z.infer<typeof channelMonitorCheckSchema>
 export type ChannelMonitorPayload = {
   internal_name: string
   public_name: string
+  name_color: string
   provider: ChannelMonitorProvider
   api_mode: ChannelMonitorApiMode
   endpoint: string

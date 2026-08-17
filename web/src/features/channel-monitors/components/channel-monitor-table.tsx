@@ -176,6 +176,11 @@ function MonitorNames(props: { monitor: ChannelMonitor }) {
       <span
         className='text-muted-foreground truncate text-xs'
         title={props.monitor.public_name}
+        style={
+          props.monitor.name_color
+            ? { color: props.monitor.name_color }
+            : undefined
+        }
       >
         {props.monitor.public_name}
       </span>

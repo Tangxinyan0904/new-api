@@ -148,6 +148,53 @@ function createFreshRoot() {
   return createRoot(host)
 }
 
+function channelMonitorFixture() {
+  return {
+    id: 17,
+    internal_name: 'Primary OpenAI monitor',
+    public_name: 'OpenAI availability',
+    name_color: '#123ABC',
+    provider: 'openai' as const,
+    api_mode: 'chat_completions' as const,
+    endpoint: 'https://api.example.com',
+    credential_configured: true,
+    credential_masked: '****cret',
+    primary_model: 'gpt-primary',
+    extra_models: ['gpt-secondary'],
+    interval_seconds: 60,
+    degraded_threshold_ms: 6000,
+    timeout_seconds: 30,
+    enabled: true,
+    public_enabled: true,
+    last_checked_at: 1_723_456_789,
+    next_check_at: 1_723_456_849,
+    schedule_blocked_reason: '',
+    latest_status: 'operational' as const,
+    latest_latency_ms: 321,
+    latest_error_category: '' as const,
+    lease_owner: '',
+    lease_until: 0,
+    created_by: 1,
+    created_at: 1_723_450_000,
+    updated_at: 1_723_456_789,
+  }
+}
+
+async function changeInput(input: HTMLInputElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(
+    domWindow.HTMLInputElement.prototype,
+    'value'
+  )?.set
+  if (!valueSetter) throw new Error('Input value setter is unavailable')
+
+  await act(async () => {
+    valueSetter.call(input, value)
+    input.dispatchEvent(
+      new domWindow.Event('input', { bubbles: true }) as unknown as Event
+    )
+  })
+}
+
 beforeEach(async () => {
   navigationCalls.length = 0
   authUserRole = 100
@@ -191,34 +238,7 @@ test('renders monitor status and exposes every management action', async () => {
   await act(async () => root?.unmount())
   root = createFreshRoot()
 
-  const monitor = {
-    id: 17,
-    internal_name: 'Primary OpenAI monitor',
-    public_name: 'OpenAI availability',
-    provider: 'openai' as const,
-    api_mode: 'chat_completions' as const,
-    endpoint: 'https://api.example.com',
-    credential_configured: true,
-    credential_masked: '****cret',
-    primary_model: 'gpt-primary',
-    extra_models: ['gpt-secondary'],
-    interval_seconds: 60,
-    degraded_threshold_ms: 6000,
-    timeout_seconds: 30,
-    enabled: true,
-    public_enabled: true,
-    last_checked_at: 1_723_456_789,
-    next_check_at: 1_723_456_849,
-    schedule_blocked_reason: '',
-    latest_status: 'operational' as const,
-    latest_latency_ms: 321,
-    latest_error_category: '' as const,
-    lease_owner: '',
-    lease_until: 0,
-    created_by: 1,
-    created_at: 1_723_450_000,
-    updated_at: 1_723_456_789,
-  }
+  const monitor = channelMonitorFixture()
 
   await act(async () => {
     root?.render(
@@ -266,6 +286,36 @@ test('renders monitor status and exposes every management action', async () => {
   expect(runButton?.querySelector('[role="status"]')).not.toBeNull()
 })
 
+test('applies the configured color only to the public monitor name', async () => {
+  const { ChannelMonitorTable } =
+    await import('@/features/channel-monitors/components/channel-monitor-table')
+  await act(async () => root?.unmount())
+  root = createFreshRoot()
+
+  await act(async () => {
+    root?.render(
+      <ChannelMonitorTable
+        monitors={[channelMonitorFixture()]}
+        isLoading={false}
+        runningMonitorId={null}
+        onEdit={() => undefined}
+        onRunNow={() => undefined}
+        onHistory={() => undefined}
+        onDelete={() => undefined}
+      />
+    )
+  })
+
+  const internalName = host?.querySelector<HTMLElement>(
+    '[title="Primary OpenAI monitor"]'
+  )
+  const publicName = host?.querySelector<HTMLElement>(
+    '[title="OpenAI availability"]'
+  )
+  expect(internalName?.style.color).toBe('')
+  expect(publicName?.style.color).toBe('#123ABC')
+})
+
 test('discloses credential, HTTP, and publication state while editing', async () => {
   const { ChannelMonitorFormDrawer } =
     await import('@/features/channel-monitors/components/channel-monitor-form-drawer')
@@ -277,32 +327,9 @@ test('discloses credential, HTTP, and publication state while editing', async ()
       <ChannelMonitorFormDrawer
         open
         monitor={{
-          id: 17,
-          internal_name: 'Primary OpenAI monitor',
-          public_name: 'OpenAI availability',
-          provider: 'openai',
-          api_mode: 'chat_completions',
+          ...channelMonitorFixture(),
           endpoint: 'http://api.example.com',
-          credential_configured: true,
-          credential_masked: '****cret',
-          primary_model: 'gpt-primary',
           extra_models: [],
-          interval_seconds: 60,
-          degraded_threshold_ms: 6000,
-          timeout_seconds: 30,
-          enabled: true,
-          public_enabled: true,
-          last_checked_at: 1_723_456_789,
-          next_check_at: 1_723_456_849,
-          schedule_blocked_reason: '',
-          latest_status: 'operational',
-          latest_latency_ms: 321,
-          latest_error_category: '' as const,
-          lease_owner: '',
-          lease_until: 0,
-          created_by: 1,
-          created_at: 1_723_450_000,
-          updated_at: 1_723_456_789,
         }}
         isSubmitting={false}
         onOpenChange={() => undefined}
@@ -318,6 +345,56 @@ test('discloses credential, HTTP, and publication state while editing', async ()
   expect(document.body.textContent).toContain(
     'Published monitors expose their public name, provider, models, status, latency, and availability.'
   )
+})
+
+test('synchronizes monitor name color controls and restores the theme default', async () => {
+  const { ChannelMonitorFormDrawer } =
+    await import('@/features/channel-monitors/components/channel-monitor-form-drawer')
+  await act(async () => root?.unmount())
+  root = createFreshRoot()
+
+  await act(async () => {
+    root?.render(
+      <ChannelMonitorFormDrawer
+        open
+        monitor={channelMonitorFixture()}
+        isSubmitting={false}
+        onOpenChange={() => undefined}
+        onSubmit={async () => undefined}
+      />
+    )
+  })
+
+  const colorCode = document.body.querySelector<HTMLInputElement>(
+    'input[aria-label="Public name color code"]'
+  )
+  const colorSwatch = document.body.querySelector<HTMLInputElement>(
+    'input[aria-label="Choose public name color"]'
+  )
+  const resetButton = document.body.querySelector<HTMLButtonElement>(
+    'button[aria-label="Use theme default color"]'
+  )
+  const preview = document.body.querySelector<HTMLElement>(
+    '[data-slot="monitor-name-preview"]'
+  )
+  expect(colorCode?.value).toBe('#123ABC')
+  expect(colorSwatch?.value).toBe('#123abc')
+  expect(preview?.style.color).toBe('#123ABC')
+  if (!colorCode || !colorSwatch || !resetButton) {
+    throw new Error('Name color controls were not rendered')
+  }
+
+  await changeInput(colorCode, '#abcdef')
+  expect(colorSwatch.value).toBe('#abcdef')
+  expect(preview?.style.color).toBe('#abcdef')
+
+  await changeInput(colorSwatch, '#a1b2c3')
+  expect(colorCode.value).toBe('#A1B2C3')
+  expect(preview?.style.color).toBe('#A1B2C3')
+
+  await act(async () => resetButton.click())
+  expect(colorCode.value).toBe('')
+  expect(preview?.style.color).toBe('')
 })
 
 test('shows administrator-only probe failure details in history', async () => {
@@ -359,36 +436,7 @@ test('renders the administrator monitor list with creation and filter controls',
   root = createFreshRoot()
   queryResult = {
     data: {
-      items: [
-        {
-          id: 17,
-          internal_name: 'Primary OpenAI monitor',
-          public_name: 'OpenAI availability',
-          provider: 'openai',
-          api_mode: 'chat_completions',
-          endpoint: 'https://api.example.com',
-          credential_configured: true,
-          credential_masked: '****cret',
-          primary_model: 'gpt-primary',
-          extra_models: [],
-          interval_seconds: 60,
-          degraded_threshold_ms: 6000,
-          timeout_seconds: 30,
-          enabled: true,
-          public_enabled: true,
-          last_checked_at: 1_723_456_789,
-          next_check_at: 1_723_456_849,
-          schedule_blocked_reason: '',
-          latest_status: 'operational',
-          latest_latency_ms: 321,
-          latest_error_category: '',
-          lease_owner: '',
-          lease_until: 0,
-          created_by: 1,
-          created_at: 1_723_450_000,
-          updated_at: 1_723_456_789,
-        },
-      ],
+      items: [{ ...channelMonitorFixture(), extra_models: [] }],
       total: 1,
       page: 1,
       page_size: 20,
