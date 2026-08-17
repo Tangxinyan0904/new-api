@@ -75,6 +75,10 @@ export function MonitorStatusCard(props: {
   const recentPoints = props.monitor.timeline
     .slice(0, TIMELINE_POINT_COUNT)
     .reverse()
+  const availabilityLabel =
+    props.days === 1
+      ? t('24-hour availability')
+      : t('{{days}}-day availability', { days: props.days })
 
   return (
     <button
@@ -117,7 +121,7 @@ export function MonitorStatusCard(props: {
       <div className='grid w-full grid-cols-3 gap-3'>
         <div className='min-w-0'>
           <span className='text-muted-foreground block truncate text-xs'>
-            {t('{{days}}-day availability', { days: props.days })}
+            {availabilityLabel}
           </span>
           <span className='mt-1 block truncate font-semibold tabular-nums'>
             {formatAvailability(props.monitor.availability)}
