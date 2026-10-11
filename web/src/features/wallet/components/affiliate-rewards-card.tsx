@@ -95,6 +95,22 @@ export function AffiliateRewardsCard({
   const totalPending = rebateSummary?.total_pending_quota ?? inviteReward
   const pendingRequest = Boolean(rebateSummary?.pending_request)
   const submittedToday = rebateSummary?.submitted_today ?? false
+  const rebateEnabled = rebateSummary?.rebate_enabled ?? true
+  const requireApproval = rebateSummary?.require_approval ?? true
+  const dailyRequestLimit = rebateSummary?.daily_request_limit ?? 0
+  const dailyLimitReached =
+    submittedToday && !pendingRequest && dailyRequestLimit > 0
+  const programDescription = [
+    rebateEnabled
+      ? t(
+          'Invitation rewards and {{rate}}% recharge rebates are tracked separately.',
+          { rate: rebateSummary?.rebate_rate_percent ?? 5 }
+        )
+      : t('Invitation rewards can be transferred to your balance.'),
+    requireApproval
+      ? t('Transfer requests require admin approval.')
+      : t('Transfers are credited to your balance immediately.'),
+  ].join(' ')
   const actionState = getAffiliateTransferActionState({
     totalPendingQuota: totalPending,
     minimumQuota: minimumTransferQuota,
@@ -123,9 +139,7 @@ export function AffiliateRewardsCard({
                 {t('Referral Program')}
               </h3>
               <p className='text-muted-foreground line-clamp-2 text-xs'>
-                {t(
-                  'Invitation rewards and recharge rebates are separated. Transfer requests require admin approval.'
-                )}
+                {programDescription}
               </p>
             </div>
           </div>
@@ -170,6 +184,13 @@ export function AffiliateRewardsCard({
                 {t('Transfer History')}
               </Button>
             </div>
+            {dailyLimitReached ? (
+              <p className='text-muted-foreground text-xs leading-4 sm:max-w-64 sm:text-right'>
+                {t('Daily limit of {{count}} transfer requests reached.', {
+                  count: dailyRequestLimit,
+                })}
+              </p>
+            ) : null}
             {actionState.showMinimum ? (
               <p
                 id='affiliate-transfer-minimum-message'
@@ -183,16 +204,28 @@ export function AffiliateRewardsCard({
           </div>
         </div>
 
-        <div className='grid grid-cols-2 gap-2 text-center sm:grid-cols-4'>
-          {[
-            [t('Invitation Reward'), formatQuota(inviteReward)],
-            [t('Recharge Rebate'), formatQuota(rechargeRebate)],
-            [
-              t('Invited Recharge'),
-              formatQuota(rebateSummary?.total_invited_recharge_quota ?? 0),
-            ],
-            [t('Pending'), formatQuota(totalPending)],
-          ].map(([label, value]) => (
+        <div
+          className={
+            rebateEnabled
+              ? 'grid grid-cols-2 gap-2 text-center sm:grid-cols-4'
+              : 'grid grid-cols-2 gap-2 text-center'
+          }
+        >
+          {(rebateEnabled
+            ? [
+                [t('Invitation Reward'), formatQuota(inviteReward)],
+                [t('Recharge Rebate'), formatQuota(rechargeRebate)],
+                [
+                  t('Invited Recharge'),
+                  formatQuota(rebateSummary?.total_invited_recharge_quota ?? 0),
+                ],
+                [t('Pending'), formatQuota(totalPending)],
+              ]
+            : [
+                [t('Invitation Reward'), formatQuota(inviteReward)],
+                [t('Pending'), formatQuota(totalPending)],
+              ]
+          ).map(([label, value]) => (
             <div
               key={label}
               className='bg-background/60 rounded-md border px-2 py-2'

@@ -30,6 +30,7 @@ interface TransferDialogProps {
   onConfirm: () => Promise<boolean>
   availableQuota: number
   transferring: boolean
+  requireApproval?: boolean
 }
 
 export function TransferDialog({
@@ -38,6 +39,7 @@ export function TransferDialog({
   onConfirm,
   availableQuota,
   transferring,
+  requireApproval = true,
 }: TransferDialogProps) {
   const { t } = useTranslation()
 
@@ -53,9 +55,13 @@ export function TransferDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={t('Submit Transfer Request')}
-      description={t(
-        'Submit your referral balance for admin approval before it is moved to your main balance.'
-      )}
+      description={
+        requireApproval
+          ? t(
+              'Submit your referral balance for admin approval before it is moved to your main balance.'
+            )
+          : t('Your referral balance will be moved to your main balance.')
+      }
       contentClassName='max-sm:w-[calc(100vw-1.5rem)] sm:max-w-md'
       titleClassName='text-xl font-semibold'
       footerClassName='grid grid-cols-2 gap-2 sm:flex'
@@ -86,9 +92,11 @@ export function TransferDialog({
             {formatQuota(availableQuota)}
           </div>
           <p className='text-muted-foreground text-xs'>
-            {t(
-              'After submission, the transfer button will show pending approval until an administrator reviews it.'
-            )}
+            {requireApproval
+              ? t(
+                  'After submission, the transfer button will show pending approval until an administrator reviews it.'
+                )
+              : t('The amount is credited to your balance immediately.')}
           </p>
         </div>
       </div>

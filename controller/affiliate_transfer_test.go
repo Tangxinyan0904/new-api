@@ -16,7 +16,7 @@ import (
 
 func TestListSelfAffiliateTransferRequestsReturnsOnlyCurrentUserHistory(t *testing.T) {
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}))
+	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.AffiliateRebateRateChange{}))
 
 	requests := []model.AffiliateTransferRequest{
 		{
@@ -238,7 +238,7 @@ func TestApproveAllAffiliateTransferRequestsRollsBackWithoutLogs(t *testing.T) {
 func setupAffiliateTransferApprovalControllerFixture(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.AffiliateRebateRateChange{}, &model.Log{}))
 
 	require.NoError(t, db.Create(&model.User{
 		Id:       1,
@@ -282,7 +282,7 @@ func newAffiliateTransferApprovalContext(requestID int) (*httptest.ResponseRecor
 func setupAffiliateTransferApproveAllControllerFixture(t *testing.T, invalidSecond bool) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.AffiliateRebateRateChange{}, &model.Log{}))
 
 	users := []model.User{
 		{

@@ -22,7 +22,7 @@ func clearAffiliateTransferRequestFixture(t *testing.T) {
 
 func setupAffiliateTransferRequestFixture(t *testing.T) {
 	t.Helper()
-	require.NoError(t, DB.AutoMigrate(&AffiliateTransferRequest{}, &User{}, &TopUp{}))
+	require.NoError(t, DB.AutoMigrate(&AffiliateTransferRequest{}, &AffiliateRebateRateChange{}, &User{}, &TopUp{}))
 	clearAffiliateTransferRequestFixture(t)
 	t.Cleanup(func() {
 		clearAffiliateTransferRequestFixture(t)
@@ -414,7 +414,7 @@ func TestAffiliateTransferRequestMultiConnectionConcurrentTerminalTransition(t *
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(4)
 	sqlDB.SetMaxIdleConns(4)
-	require.NoError(t, concurrentDB.AutoMigrate(&AffiliateTransferRequest{}, &User{}))
+	require.NoError(t, concurrentDB.AutoMigrate(&AffiliateTransferRequest{}, &AffiliateRebateRateChange{}, &User{}))
 
 	originalDB := DB
 	DB = concurrentDB
@@ -629,7 +629,7 @@ func TestRejectAffiliateTransferRequestConcurrentCallsOnlyForfeitOnce(t *testing
 	require.NoError(t, err)
 	sqlDB.SetMaxOpenConns(4)
 	sqlDB.SetMaxIdleConns(4)
-	require.NoError(t, concurrentDB.AutoMigrate(&AffiliateTransferRequest{}, &User{}, &TopUp{}))
+	require.NoError(t, concurrentDB.AutoMigrate(&AffiliateTransferRequest{}, &AffiliateRebateRateChange{}, &User{}, &TopUp{}))
 
 	originalDB := DB
 	DB = concurrentDB

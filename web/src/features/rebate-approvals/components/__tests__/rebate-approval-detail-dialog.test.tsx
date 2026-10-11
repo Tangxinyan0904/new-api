@@ -110,7 +110,6 @@ const detail: RebateApprovalDetail = {
   invited_users: [],
   invited_count: 0,
   total_invited_recharge_quota: 0,
-  recharge_rebate_rate: 0.1,
   recharge_sources: [],
 }
 

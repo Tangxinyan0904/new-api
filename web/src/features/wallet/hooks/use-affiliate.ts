@@ -84,7 +84,10 @@ export function useAffiliate() {
             : currentSummary
         )
         toast.success(
-          response.message || i18next.t('Transfer request submitted')
+          response.message ||
+            (response.data?.status === 'approved'
+              ? i18next.t('Transferred to your balance')
+              : i18next.t('Transfer request submitted'))
         )
         void Promise.allSettled([getSelf(), refreshAffiliateData()])
         return true

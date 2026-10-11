@@ -257,6 +257,12 @@ func UpdateOption(key string, value string) error {
 // is touched — safe for callers that must commit a set of related options
 // atomically (e.g. payment gateway binding).
 func UpdateOptionsBulk(values map[string]string) error {
+	return updateOptionsBulkWithTx(values, nil)
+}
+
+// updateOptionsBulkWithTx is UpdateOptionsBulk with an optional hook that runs
+// inside the same transaction, for options that keep related history rows.
+func updateOptionsBulkWithTx(values map[string]string, beforeCommit func(tx *gorm.DB) error) error {
 	if len(values) == 0 {
 		return nil
 	}
@@ -290,6 +296,9 @@ func UpdateOptionsBulk(values map[string]string) error {
 			if err := tx.Save(&option).Error; err != nil {
 				return err
 			}
+		}
+		if beforeCommit != nil {
+			return beforeCommit(tx)
 		}
 		return nil
 	})

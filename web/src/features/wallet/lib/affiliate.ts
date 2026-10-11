@@ -29,15 +29,33 @@ export function markAffiliateTransferSubmitted(
   summary: AffiliateRebateSummary,
   createdRequest?: AffiliateTransferRequestRecord
 ): AffiliateRebateSummary {
-  return {
+  const todayRequestCount = (summary.today_request_count ?? 0) + 1
+  const dailyLimitReached =
+    summary.daily_request_limit > 0 &&
+    todayRequestCount >= summary.daily_request_limit
+  const next: AffiliateRebateSummary = {
     ...summary,
-    ...(createdRequest ? { pending_request: createdRequest } : {}),
-    submitted_today: true,
+    today_request_count: todayRequestCount,
+    submitted_today: dailyLimitReached,
   }
+  if (createdRequest?.status === 'pending') {
+    return { ...next, pending_request: createdRequest }
+  }
+  if (createdRequest?.status === 'approved') {
+    // Credited immediately: everything that was transferable has moved.
+    return {
+      ...next,
+      invite_reward_quota: 0,
+      recharge_rebate_quota: 0,
+      total_pending_quota: 0,
+    }
+  }
+  return next
 }
 
 interface AffiliateTransferActionStateInput {
   totalPendingQuota: number
+  /** 0 means any positive amount can be transferred. */
   minimumQuota: number
   pendingRequest: boolean
   submittedToday: boolean
@@ -52,11 +70,7 @@ interface AffiliateTransferActionState {
 export function getAffiliateTransferActionState(
   input: AffiliateTransferActionStateInput
 ): AffiliateTransferActionState {
-  const submitted = input.pendingRequest || input.submittedToday
-  const belowMinimum =
-    input.minimumQuota <= 0 || input.totalPendingQuota < input.minimumQuota
-
-  if (submitted) {
+  if (input.pendingRequest || input.submittedToday) {
     return {
       disabled: true,
       labelKey: 'Submitted',
@@ -64,8 +78,10 @@ export function getAffiliateTransferActionState(
     }
   }
 
+  const belowMinimum =
+    input.minimumQuota > 0 && input.totalPendingQuota < input.minimumQuota
   return {
-    disabled: belowMinimum,
+    disabled: belowMinimum || input.totalPendingQuota <= 0,
     labelKey: 'Request Transfer',
     showMinimum: belowMinimum,
   }

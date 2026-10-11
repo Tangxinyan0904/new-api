@@ -49,6 +49,8 @@ export interface RebateApprovalRechargeSource {
   payment_method: string
   credited_quota: number
   rebate_quota: number
+  /** Rate that applied when this top-up completed. */
+  rebate_rate_percent: number
   complete_time: number
 }
 
@@ -65,7 +67,6 @@ export interface RebateApprovalDetail extends RebateApprovalRequest {
   invited_users: RebateApprovalInvitedUser[]
   invited_count: number
   total_invited_recharge_quota: number
-  recharge_rebate_rate: number
   recharge_sources: RebateApprovalRechargeSource[]
 }
 

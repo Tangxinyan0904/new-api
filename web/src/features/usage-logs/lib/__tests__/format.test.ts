@@ -61,3 +61,19 @@ test('renders the user-facing affiliate approval with formatted balance', () => 
 
   expect(content).toBe(`Administrator approved ${formatLogQuota(500)} balance`)
 })
+
+test('renders an automatically credited rebate transfer with formatted balance', () => {
+  const content = renderAuditContent(
+    {
+      op: {
+        action: 'affiliate.transfer.auto_approved',
+        params: { request_id: 8, quota: 750 },
+      },
+    },
+    (key, params) => key.replace('{{amount}}', String(params?.amount ?? ''))
+  )
+
+  expect(content).toBe(
+    `Rebate transfer of ${formatLogQuota(750)} credited automatically`
+  )
+})

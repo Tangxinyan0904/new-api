@@ -33,6 +33,12 @@ describe('markAffiliateTransferSubmitted', () => {
     recharge_rebate_quota: 300,
     total_pending_quota: 500,
     submitted_today: false,
+    today_request_count: 0,
+    rebate_enabled: true,
+    rebate_rate_percent: 5,
+    min_transfer_quota: 500_000,
+    daily_request_limit: 1,
+    require_approval: true,
   }
 
   test('marks the summary submitted and attaches the created request', () => {
@@ -49,8 +55,47 @@ describe('markAffiliateTransferSubmitted', () => {
     assert.deepEqual(markAffiliateTransferSubmitted(summary, createdRequest), {
       ...summary,
       pending_request: createdRequest,
+      today_request_count: 1,
       submitted_today: true,
     })
+  })
+
+  test('clears transferable amounts when the request was credited immediately', () => {
+    const approvedRequest = {
+      id: 20,
+      user_id: 8,
+      invite_reward_quota: 200,
+      recharge_rebate_quota: 300,
+      total_quota: 500,
+      status: 'approved' as const,
+      created_at: 1_234,
+    }
+
+    assert.deepEqual(
+      markAffiliateTransferSubmitted(
+        { ...summary, daily_request_limit: 3 },
+        approvedRequest
+      ),
+      {
+        ...summary,
+        daily_request_limit: 3,
+        today_request_count: 1,
+        submitted_today: false,
+        invite_reward_quota: 0,
+        recharge_rebate_quota: 0,
+        total_pending_quota: 0,
+      }
+    )
+  })
+
+  test('never reports the daily limit reached when requests are unlimited', () => {
+    const next = markAffiliateTransferSubmitted({
+      ...summary,
+      daily_request_limit: 0,
+      today_request_count: 40,
+    })
+    assert.equal(next.submitted_today, false)
+    assert.equal(next.today_request_count, 41)
   })
 
   test('preserves an existing pending request when no response data is available', () => {
@@ -72,6 +117,7 @@ describe('markAffiliateTransferSubmitted', () => {
       markAffiliateTransferSubmitted(summaryWithPendingRequest),
       {
         ...summaryWithPendingRequest,
+        today_request_count: 1,
         submitted_today: true,
       }
     )
@@ -143,10 +189,26 @@ describe('getAffiliateTransferActionState', () => {
     )
   })
 
-  test('disables transfers when the minimum is unavailable', () => {
+  test('allows any positive amount when there is no minimum', () => {
     assert.deepEqual(
       getAffiliateTransferActionState({
-        totalPendingQuota: 500_000,
+        totalPendingQuota: 1,
+        minimumQuota: 0,
+        pendingRequest: false,
+        submittedToday: false,
+      }),
+      {
+        disabled: false,
+        labelKey: 'Request Transfer',
+        showMinimum: false,
+      }
+    )
+  })
+
+  test('disables transfers when nothing is available', () => {
+    assert.deepEqual(
+      getAffiliateTransferActionState({
+        totalPendingQuota: 0,
         minimumQuota: 0,
         pendingRequest: false,
         submittedToday: false,
@@ -154,7 +216,7 @@ describe('getAffiliateTransferActionState', () => {
       {
         disabled: true,
         labelKey: 'Request Transfer',
-        showMinimum: true,
+        showMinimum: false,
       }
     )
   })

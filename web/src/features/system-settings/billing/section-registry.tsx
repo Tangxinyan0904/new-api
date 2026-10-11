@@ -25,6 +25,7 @@ import { PaymentSettingsSection } from '../integrations/payment-settings-section
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { AffiliateSettingsSection } from './affiliate-settings-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
   ModelPrice: settings.ModelPrice,
@@ -63,8 +64,6 @@ const BILLING_SECTIONS = [
         defaultValues={{
           QuotaForNewUser: settings.QuotaForNewUser,
           PreConsumedQuota: settings.PreConsumedQuota,
-          QuotaForInviter: settings.QuotaForInviter,
-          QuotaForInvitee: settings.QuotaForInvitee,
           TopUpLink: settings.TopUpLink,
           general_setting: {
             docs_link: settings['general_setting.docs_link'],
@@ -73,6 +72,26 @@ const BILLING_SECTIONS = [
             enable_free_model_pre_consume:
               settings['quota_setting.enable_free_model_pre_consume'],
           },
+        }}
+      />
+    ),
+  },
+  {
+    id: 'affiliate',
+    titleKey: 'Invitation Rebate',
+    build: (settings: BillingSettings) => (
+      <AffiliateSettingsSection
+        defaultValues={{
+          rebate_enabled: settings['affiliate_setting.rebate_enabled'],
+          rebate_rate_percent:
+            settings['affiliate_setting.rebate_rate_percent'],
+          min_transfer_quota: settings['affiliate_setting.min_transfer_quota'],
+          daily_request_limit:
+            settings['affiliate_setting.daily_request_limit'],
+          require_approval: settings['affiliate_setting.require_approval'],
+          forfeit_on_reject: settings['affiliate_setting.forfeit_on_reject'],
+          quota_for_inviter: settings.QuotaForInviter,
+          quota_for_invitee: settings.QuotaForInvitee,
         }}
         complianceConfirmed={
           (settings['payment_setting.compliance_confirmed'] ?? false) &&

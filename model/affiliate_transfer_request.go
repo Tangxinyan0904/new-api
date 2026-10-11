@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
@@ -14,7 +15,13 @@ const (
 	AffiliateTransferStatusPending  = "pending"
 	AffiliateTransferStatusApproved = "approved"
 	AffiliateTransferStatusRejected = "rejected"
-	AffiliateRechargeRebateRate     = 0.05
+)
+
+var (
+	ErrAffiliateTransferPending          = errors.New("rebate transfer request is already pending")
+	ErrAffiliateTransferDailyLimit       = errors.New("daily rebate transfer request limit reached")
+	ErrAffiliateTransferBelowMinimum     = errors.New("insufficient rebate quota to transfer")
+	ErrAffiliateTransferNothingAvailable = errors.New("no rebate quota available to transfer")
 )
 
 type AffiliateTransferRequest struct {
@@ -55,7 +62,14 @@ type AffiliateRebateSummary struct {
 	RechargeRebateQuota       int                           `json:"recharge_rebate_quota"`
 	TotalPendingQuota         int                           `json:"total_pending_quota"`
 	PendingRequest            *AffiliateTransferRequest     `json:"pending_request,omitempty"`
-	SubmittedToday            bool                          `json:"submitted_today"`
+	// SubmittedToday reports that the daily request limit has been reached.
+	SubmittedToday    bool    `json:"submitted_today"`
+	TodayRequestCount int     `json:"today_request_count"`
+	RebateEnabled     bool    `json:"rebate_enabled"`
+	RebateRatePercent float64 `json:"rebate_rate_percent"`
+	MinTransferQuota  int     `json:"min_transfer_quota"`
+	DailyRequestLimit int     `json:"daily_request_limit"`
+	RequireApproval   bool    `json:"require_approval"`
 }
 
 type AffiliateTransferRequestListItem struct {
@@ -80,18 +94,18 @@ type AffiliateTransferRequestDetail struct {
 	InvitedUsers              []AffiliateInvitedUserDetail  `json:"invited_users"`
 	InvitedCount              int                           `json:"invited_count"`
 	TotalInvitedRechargeQuota int                           `json:"total_invited_recharge_quota"`
-	RechargeRebateRate        float64                       `json:"recharge_rebate_rate"`
 	RechargeSources           []AffiliateRechargeSourceItem `json:"recharge_sources"`
 }
 
 type AffiliateRechargeSourceItem struct {
-	InvitedUserId      int    `json:"invited_user_id"`
-	InvitedDisplayName string `json:"invited_display_name"`
-	PaymentProvider    string `json:"payment_provider"`
-	PaymentMethod      string `json:"payment_method"`
-	CreditedQuota      int    `json:"credited_quota"`
-	RebateQuota        int    `json:"rebate_quota"`
-	CompleteTime       int64  `json:"complete_time"`
+	InvitedUserId      int     `json:"invited_user_id"`
+	InvitedDisplayName string  `json:"invited_display_name"`
+	PaymentProvider    string  `json:"payment_provider"`
+	PaymentMethod      string  `json:"payment_method"`
+	CreditedQuota      int     `json:"credited_quota"`
+	RebateQuota        int     `json:"rebate_quota"`
+	RebateRatePercent  float64 `json:"rebate_rate_percent"`
+	CompleteTime       int64   `json:"complete_time"`
 }
 
 func maskAffiliateDisplayName(name string) string {
@@ -138,7 +152,7 @@ func creditedTopUpQuota(topUp TopUp) (int, error) {
 	}
 }
 
-func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateSummary, error) {
+func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int, settings operation_setting.AffiliateSetting, now int64) (*AffiliateRebateSummary, error) {
 	var user User
 	if err := tx.First(&user, "id = ?", userId).Error; err != nil {
 		return nil, err
@@ -160,7 +174,15 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 		summaries = append(summaries, AffiliateInvitedUserSummary{Id: invited.Id, DisplayName: maskAffiliateDisplayName(name)})
 	}
 
+	timeline, err := loadAffiliateRebateRateTimeline(tx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Top-ups are grouped by the rate in effect when they completed so that
+	// rate changes only affect later top-ups.
 	totalRechargeQuota := 0
+	creditedByBasisPoints := make(map[int]int)
 	if len(invitedIds) > 0 {
 		var topUps []TopUp
 		if err := tx.Where("user_id IN ? AND status = ?", invitedIds, common.TopUpStatusSuccess).Find(&topUps).Error; err != nil {
@@ -175,12 +197,27 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 			if err != nil {
 				return nil, err
 			}
+			basisPoints := timeline.basisPointsAt(topUpRebateTime(topUp))
+			if basisPoints <= 0 {
+				continue
+			}
+			creditedByBasisPoints[basisPoints], err = addAffiliateQuota(creditedByBasisPoints[basisPoints], creditedQuota)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
-	grossRechargeRebateQuota, err := affiliateQuotaFromDecimal(decimal.NewFromInt(int64(totalRechargeQuota)).Mul(decimal.NewFromFloat(AffiliateRechargeRebateRate)))
-	if err != nil {
-		return nil, err
+	grossRechargeRebateQuota := 0
+	for basisPoints, creditedQuota := range creditedByBasisPoints {
+		bucketRebateQuota, err := affiliateRebateQuota(creditedQuota, basisPoints)
+		if err != nil {
+			return nil, err
+		}
+		grossRechargeRebateQuota, err = addAffiliateQuota(grossRechargeRebateQuota, bucketRebateQuota)
+		if err != nil {
+			return nil, err
+		}
 	}
 	var requestedRechargeRebateQuota int
 	if err := tx.Model(&AffiliateTransferRequest{}).
@@ -196,6 +233,12 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 	if grossRechargeRebateQuota > requestedRechargeRebateQuota {
 		rebateQuota = grossRechargeRebateQuota - requestedRechargeRebateQuota
 	}
+	// A disabled rebate freezes the earned amount: it is neither shown nor
+	// transferable until the rebate is enabled again.
+	if !settings.RebateEnabled {
+		rebateQuota = 0
+		totalRechargeQuota = 0
+	}
 	pendingQuota, err := addAffiliateQuota(user.AffQuota, rebateQuota)
 	if err != nil {
 		return nil, err
@@ -209,10 +252,8 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 		return nil, err
 	}
 
-	now := common.GetTimestamp()
-	startOfDay := now - (now % 86400)
 	var todayCount int64
-	if err := tx.Model(&AffiliateTransferRequest{}).Where("user_id = ? AND created_at >= ?", userId, startOfDay).Count(&todayCount).Error; err != nil {
+	if err := tx.Model(&AffiliateTransferRequest{}).Where("user_id = ? AND created_at >= ?", userId, affiliateLocalDayStart(now)).Count(&todayCount).Error; err != nil {
 		return nil, err
 	}
 
@@ -224,15 +265,25 @@ func getAffiliateRebateSummaryWithDB(tx *gorm.DB, userId int) (*AffiliateRebateS
 		RechargeRebateQuota:       rebateQuota,
 		TotalPendingQuota:         pendingQuota,
 		PendingRequest:            pendingRequest,
-		SubmittedToday:            todayCount > 0,
+		SubmittedToday:            settings.DailyRequestLimit > 0 && todayCount >= int64(settings.DailyRequestLimit),
+		TodayRequestCount:         int(todayCount),
+		RebateEnabled:             settings.RebateEnabled,
+		RebateRatePercent:         settings.RebateRatePercent,
+		MinTransferQuota:          settings.MinTransferQuota,
+		DailyRequestLimit:         settings.DailyRequestLimit,
+		RequireApproval:           settings.RequireApproval,
 	}, nil
 }
 
 func GetAffiliateRebateSummary(userId int) (*AffiliateRebateSummary, error) {
-	return getAffiliateRebateSummaryWithDB(DB, userId)
+	return getAffiliateRebateSummaryWithDB(DB, userId, operation_setting.GetAffiliateSetting(), common.GetTimestamp())
 }
 
+// CreateAffiliateTransferRequest submits every currently transferable reward.
+// When approval is not required the request is approved and credited in the
+// same transaction, so the returned request status is approved.
 func CreateAffiliateTransferRequest(userId int) (*AffiliateTransferRequest, error) {
+	settings := operation_setting.GetAffiliateSetting()
 	var created AffiliateTransferRequest
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		var user User
@@ -240,30 +291,22 @@ func CreateAffiliateTransferRequest(userId int) (*AffiliateTransferRequest, erro
 			return err
 		}
 
-		var pendingCount int64
-		if err := tx.Model(&AffiliateTransferRequest{}).Where("user_id = ? AND status = ?", userId, AffiliateTransferStatusPending).Count(&pendingCount).Error; err != nil {
-			return err
-		}
-		if pendingCount > 0 {
-			return errors.New("rebate transfer request is already pending")
-		}
-
 		now := common.GetTimestamp()
-		startOfDay := now - (now % 86400)
-		var todayCount int64
-		if err := tx.Model(&AffiliateTransferRequest{}).Where("user_id = ? AND created_at >= ?", userId, startOfDay).Count(&todayCount).Error; err != nil {
-			return err
-		}
-		if todayCount > 0 {
-			return errors.New("only one rebate transfer request can be submitted per day")
-		}
-
-		summary, err := getAffiliateRebateSummaryWithDB(tx, userId)
+		summary, err := getAffiliateRebateSummaryWithDB(tx, userId, settings, now)
 		if err != nil {
 			return err
 		}
-		if float64(summary.TotalPendingQuota) < common.QuotaPerUnit {
-			return errors.New("insufficient rebate quota to transfer")
+		if summary.PendingRequest != nil {
+			return ErrAffiliateTransferPending
+		}
+		if summary.SubmittedToday {
+			return ErrAffiliateTransferDailyLimit
+		}
+		if summary.TotalPendingQuota <= 0 {
+			return ErrAffiliateTransferNothingAvailable
+		}
+		if summary.TotalPendingQuota < settings.MinTransferQuota {
+			return ErrAffiliateTransferBelowMinimum
 		}
 
 		created = AffiliateTransferRequest{
@@ -274,10 +317,21 @@ func CreateAffiliateTransferRequest(userId int) (*AffiliateTransferRequest, erro
 			Status:              AffiliateTransferStatusPending,
 			CreatedAt:           now,
 		}
-		return tx.Create(&created).Error
+		if err := tx.Create(&created).Error; err != nil {
+			return err
+		}
+		if settings.RequireApproval {
+			return nil
+		}
+		return approveAffiliateTransferRequestWithDB(tx, &created, 0)
 	})
 	if err != nil {
 		return nil, err
+	}
+	if created.Status == AffiliateTransferStatusApproved {
+		if err := cacheIncrUserQuota(created.UserId, int64(created.TotalQuota)); err != nil {
+			common.SysLog("failed to increase user quota cache after automatic affiliate transfer: " + err.Error())
+		}
 	}
 	return &created, nil
 }
@@ -389,6 +443,10 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 			return nil, errors.New("requested affiliate rebate quota cannot be negative")
 		}
 
+		timeline, err := loadAffiliateRebateRateTimeline(DB)
+		if err != nil {
+			return nil, err
+		}
 		var topUps []TopUp
 		if err := DB.Where("user_id IN ? AND status = ? AND (complete_time = 0 OR complete_time <= ?)", invitedIds, common.TopUpStatusSuccess, item.CreatedAt).Order("complete_time asc, id asc").Find(&topUps).Error; err != nil {
 			return nil, err
@@ -401,7 +459,8 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 			if creditedQuota <= 0 {
 				continue
 			}
-			fullRebateQuota, err := affiliateQuotaFromDecimal(decimal.NewFromInt(int64(creditedQuota)).Mul(decimal.NewFromFloat(AffiliateRechargeRebateRate)))
+			basisPoints := timeline.basisPointsAt(topUpRebateTime(topUp))
+			fullRebateQuota, err := affiliateRebateQuota(creditedQuota, basisPoints)
 			if err != nil {
 				return nil, err
 			}
@@ -419,7 +478,11 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 			}
 			sourceCreditedQuota := creditedQuota
 			if sourceRebateQuota < fullRebateQuota {
-				sourceCreditedQuota, err = affiliateQuotaFromDecimal(decimal.NewFromInt(int64(sourceRebateQuota)).Div(decimal.NewFromFloat(AffiliateRechargeRebateRate)))
+				sourceCreditedQuota, err = affiliateQuotaFromDecimal(
+					decimal.NewFromInt(int64(sourceRebateQuota)).
+						Mul(decimal.NewFromInt(10000)).
+						Div(decimal.NewFromInt(int64(basisPoints))),
+				)
 				if err != nil {
 					return nil, err
 				}
@@ -435,6 +498,7 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 				PaymentMethod:      topUp.PaymentMethod,
 				CreditedQuota:      sourceCreditedQuota,
 				RebateQuota:        sourceRebateQuota,
+				RebateRatePercent:  float64(basisPoints) / 100,
 				CompleteTime:       topUp.CompleteTime,
 			})
 			requestRechargeRebateQuota -= sourceRebateQuota
@@ -451,7 +515,6 @@ func GetAffiliateTransferRequestDetail(requestId int) (*AffiliateTransferRequest
 		InvitedUsers:              invitedUserDetails,
 		InvitedCount:              len(invitedUsers),
 		TotalInvitedRechargeQuota: totalRechargeQuota,
-		RechargeRebateRate:        AffiliateRechargeRebateRate,
 		RechargeSources:           sources,
 	}, nil
 }
@@ -464,11 +527,12 @@ func approveAffiliateTransferRequestWithDB(tx *gorm.DB, request *AffiliateTransf
 		return errors.New("invalid affiliate transfer quota")
 	}
 
+	reviewedAt := common.GetTimestamp()
 	res := tx.Model(&AffiliateTransferRequest{}).
 		Where("id = ? AND status = ?", request.Id, AffiliateTransferStatusPending).
 		Updates(map[string]interface{}{
 			"status":        AffiliateTransferStatusApproved,
-			"reviewed_at":   common.GetTimestamp(),
+			"reviewed_at":   reviewedAt,
 			"reviewed_by":   reviewerId,
 			"reject_reason": "",
 		})
@@ -478,6 +542,10 @@ func approveAffiliateTransferRequestWithDB(tx *gorm.DB, request *AffiliateTransf
 	if res.RowsAffected != 1 {
 		return errors.New("request is not pending")
 	}
+	request.Status = AffiliateTransferStatusApproved
+	request.ReviewedAt = reviewedAt
+	request.ReviewedBy = reviewerId
+	request.RejectReason = ""
 
 	if request.InviteRewardQuota > 0 {
 		res = tx.Model(&User{}).
@@ -578,7 +646,11 @@ func ApproveAllPendingAffiliateTransferRequests(reviewerId int) ([]*AffiliateTra
 	return approved, nil
 }
 
+// RejectAffiliateTransferRequest rejects a pending request. When forfeiture is
+// enabled the rejected amounts are permanently consumed; otherwise they become
+// available for a later request again.
 func RejectAffiliateTransferRequest(requestId int, reviewerId int, reason string) error {
+	forfeit := operation_setting.GetAffiliateSetting().ForfeitOnReject
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var request AffiliateTransferRequest
 		if err := lockForUpdate(tx).First(&request, "id = ?", requestId).Error; err != nil {
@@ -589,15 +661,18 @@ func RejectAffiliateTransferRequest(requestId int, reviewerId int, reason string
 		}
 
 		now := common.GetTimestamp()
+		updates := map[string]interface{}{
+			"status":        AffiliateTransferStatusRejected,
+			"reviewed_at":   now,
+			"reviewed_by":   reviewerId,
+			"reject_reason": strings.TrimSpace(reason),
+		}
+		if forfeit {
+			updates["rejected_quota_forfeited_at"] = now
+		}
 		res := tx.Model(&AffiliateTransferRequest{}).
 			Where("id = ? AND status = ?", request.Id, AffiliateTransferStatusPending).
-			Updates(map[string]interface{}{
-				"status":                      AffiliateTransferStatusRejected,
-				"reviewed_at":                 now,
-				"reviewed_by":                 reviewerId,
-				"reject_reason":               strings.TrimSpace(reason),
-				"rejected_quota_forfeited_at": now,
-			})
+			Updates(updates)
 		if res.Error != nil {
 			return res.Error
 		}
@@ -605,7 +680,7 @@ func RejectAffiliateTransferRequest(requestId int, reviewerId int, reason string
 			return errors.New("request is not pending")
 		}
 
-		if request.InviteRewardQuota > 0 {
+		if forfeit && request.InviteRewardQuota > 0 {
 			res = tx.Model(&User{}).
 				Where("id = ? AND aff_quota >= ?", request.UserId, request.InviteRewardQuota).
 				Update("aff_quota", gorm.Expr("aff_quota - ?", request.InviteRewardQuota))
