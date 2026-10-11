@@ -1204,7 +1204,7 @@
     "Cost in USD per request, regardless of tokens used.": "Chi phí bằng USD cho mỗi yêu cầu, bất kể số lượng token được sử dụng.",
     "Cost Tracking": "Theo dõi chi phí",
     "Count must be between {{min}} and {{max}}": "Số lượng phải nằm trong khoảng từ {{min}} đến {{max}}.",
-    "Count non-stream model requests in a rolling one-minute window.": "Đếm các yêu cầu mô hình không phát trực tuyến trong cửa sổ trượt một phút.",
+    "Count non-stream chat requests per clock minute. Embedding, image, audio, and rerank requests are not counted.": "Đếm các yêu cầu trò chuyện không phát trực tuyến theo từng phút đồng hồ. Không tính các yêu cầu embedding, hình ảnh, âm thanh và rerank.",
     "Coze": "Coze",
     "CPU": "CPU",
     "CPU Threshold (%)": "Ngưỡng CPU (%)",

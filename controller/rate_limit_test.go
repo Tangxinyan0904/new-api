@@ -10,6 +10,8 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
@@ -324,7 +326,7 @@ func TestClearDistillationPenaltyIsIdempotentInvalidatesCachedBanAndRecordsAudit
 
 	banError := service.CheckDistillationRateLimit(
 		relayCtx,
-		&relaycommon.RelayInfo{UserId: 51, IsStream: false},
+		&relaycommon.RelayInfo{UserId: 51, IsStream: false, RelayFormat: types.RelayFormatOpenAI, RelayMode: relayconstant.RelayModeChatCompletions},
 	)
 	require.NotNil(t, banError)
 
@@ -354,7 +356,7 @@ func TestClearDistillationPenaltyIsIdempotentInvalidatesCachedBanAndRecordsAudit
 
 	afterClearError := service.CheckDistillationRateLimit(
 		relayCtx,
-		&relaycommon.RelayInfo{UserId: 51, IsStream: false},
+		&relaycommon.RelayInfo{UserId: 51, IsStream: false, RelayFormat: types.RelayFormatOpenAI, RelayMode: relayconstant.RelayModeChatCompletions},
 	)
 	assert.Nil(t, afterClearError)
 
@@ -394,7 +396,7 @@ func TestClearDistillationPenaltyResetsDetectionWindow(t *testing.T) {
 	relayRecorder := httptest.NewRecorder()
 	relayCtx, _ := gin.CreateTestContext(relayRecorder)
 	relayCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	relayInfo := &relaycommon.RelayInfo{UserId: 52, IsStream: false}
+	relayInfo := &relaycommon.RelayInfo{UserId: 52, IsStream: false, RelayFormat: types.RelayFormatOpenAI, RelayMode: relayconstant.RelayModeChatCompletions}
 	require.Nil(t, service.CheckDistillationRateLimit(relayCtx, relayInfo))
 
 	clearRecorder := httptest.NewRecorder()

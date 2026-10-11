@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
@@ -119,6 +120,60 @@ func TestDistillationRateLimitStreamBypassesUnavailableRuntimeStore(t *testing.T
 		IsStream: true,
 	})
 	assert.Nil(t, err)
+}
+
+func TestDistillationRateLimitOnlyChecksConversationRequests(t *testing.T) {
+	previousRedisEnabled := common.RedisEnabled
+	previousRDB := common.RDB
+	common.RedisEnabled = true
+	common.RDB = nil
+	t.Cleanup(func() {
+		common.RedisEnabled = previousRedisEnabled
+		common.RDB = previousRDB
+	})
+
+	tests := []struct {
+		name    string
+		format  types.RelayFormat
+		mode    int
+		path    string
+		checked bool
+	}{
+		{"chat completions", types.RelayFormatOpenAI, relayconstant.RelayModeChatCompletions, "/v1/chat/completions", true},
+		{"legacy completions", types.RelayFormatOpenAI, relayconstant.RelayModeCompletions, "/v1/completions", true},
+		{"responses", types.RelayFormatOpenAIResponses, relayconstant.RelayModeResponses, "/v1/responses", true},
+		{"claude messages", types.RelayFormatClaude, relayconstant.RelayModeUnknown, "/v1/messages", true},
+		{"gemini generate content", types.RelayFormatGemini, relayconstant.RelayModeGemini, "/v1beta/models/gemini-2.5-pro:generateContent", true},
+		{"moderations", types.RelayFormatOpenAI, relayconstant.RelayModeModerations, "/v1/moderations", false},
+		{"embeddings", types.RelayFormatEmbedding, relayconstant.RelayModeEmbeddings, "/v1/embeddings", false},
+		{"gemini embed content", types.RelayFormatGemini, relayconstant.RelayModeGemini, "/v1beta/models/text-embedding-004:embedContent", false},
+		{"rerank", types.RelayFormatRerank, relayconstant.RelayModeRerank, "/v1/rerank", false},
+		{"image generation", types.RelayFormatOpenAIImage, relayconstant.RelayModeImagesGenerations, "/v1/images/generations", false},
+		{"audio transcription", types.RelayFormatOpenAIAudio, relayconstant.RelayModeAudioTranscription, "/v1/audio/transcriptions", false},
+		{"responses compaction", types.RelayFormatOpenAIResponsesCompaction, relayconstant.RelayModeResponsesCompact, "/v1/responses/compact", false},
+		{"realtime session", types.RelayFormatOpenAIRealtime, relayconstant.RelayModeRealtime, "/v1/realtime", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			relayContext, _ := gin.CreateTestContext(httptest.NewRecorder())
+			relayContext.Request = httptest.NewRequest(http.MethodPost, tt.path, nil)
+
+			err := CheckDistillationRateLimit(relayContext, &relaycommon.RelayInfo{
+				UserId:         7,
+				RelayFormat:    tt.format,
+				RelayMode:      tt.mode,
+				RequestURLPath: tt.path,
+			})
+
+			if tt.checked {
+				// The unavailable runtime store is only reached by checked requests.
+				require.NotNil(t, err)
+				assert.Equal(t, types.ErrorCodeQueryDataError, err.GetErrorCode())
+				return
+			}
+			assert.Nil(t, err)
+		})
+	}
 }
 
 func TestDistillationRateLimitStreamsBypassAllDistillationState(t *testing.T) {
