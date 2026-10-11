@@ -77,7 +77,7 @@ function DetailContent({ detail }: { detail: RebateApprovalDetail }) {
         />
         <DetailRow
           label={t('Recharge Rebate')}
-          value={`${formatQuota(detail.recharge_rebate_quota)} (${(detail.recharge_rebate_rate * 100).toFixed(0)}%)`}
+          value={formatQuota(detail.recharge_rebate_quota)}
           mono
         />
         <DetailRow
@@ -132,7 +132,7 @@ function DetailContent({ detail }: { detail: RebateApprovalDetail }) {
                       {formatQuota(source.rebate_quota)}
                     </div>
                     <div className='text-muted-foreground text-xs'>
-                      {t('Rebate')}
+                      {t('Rebate')} · {source.rebate_rate_percent}%
                     </div>
                   </div>
                 </div>

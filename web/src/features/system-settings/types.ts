@@ -280,6 +280,12 @@ export type BillingSettings = {
   UserUsableGroups: string
   GroupGroupRatio: string
   'group_ratio_setting.group_group_ratio_wallet_display': string
+  'affiliate_setting.rebate_enabled': boolean
+  'affiliate_setting.rebate_rate_percent': number
+  'affiliate_setting.min_transfer_quota': number
+  'affiliate_setting.daily_request_limit': number
+  'affiliate_setting.require_approval': boolean
+  'affiliate_setting.forfeit_on_reject': boolean
   AutoGroups: string
   MaxTokenAutoGroups: number
   DefaultUseAutoGroup: boolean
@@ -423,6 +429,17 @@ export type UpdateGeoIPOptionsRequest = Omit<
   'geoip.maxmind_license_key'
 > &
   Partial<Pick<GeoIPSettings, 'geoip.maxmind_license_key'>>
+
+export type AffiliateOptionsRequest = {
+  rebate_enabled: boolean
+  rebate_rate_percent: number
+  min_transfer_quota: number
+  daily_request_limit: number
+  require_approval: boolean
+  forfeit_on_reject: boolean
+  quota_for_inviter: number
+  quota_for_invitee: number
+}
 
 export type UpstreamChannel = {
   id: number

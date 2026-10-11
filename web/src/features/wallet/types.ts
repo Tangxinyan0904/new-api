@@ -43,7 +43,6 @@ export type AffiliateCodeResponse = ApiResponse<string>
 export type AffiliateRebateSummaryResponse = ApiResponse<AffiliateRebateSummary>
 export type AffiliateTransferRequestResponse =
   ApiResponse<AffiliateTransferRequestRecord>
-export type AffiliateTransferResponse = ApiResponse
 export type AffiliateTransferHistoryResponse =
   ApiResponse<AffiliateTransferHistoryPage>
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>
@@ -269,16 +268,17 @@ export interface AffiliateRebateSummary {
   recharge_rebate_quota: number
   total_pending_quota: number
   pending_request?: AffiliateTransferRequestRecord
+  /** True once the configured daily request limit has been reached. */
   submitted_today: boolean
+  today_request_count: number
+  rebate_enabled: boolean
+  rebate_rate_percent: number
+  /** Smallest transferable amount; 0 means any positive amount. */
+  min_transfer_quota: number
+  /** Requests allowed per day; 0 means unlimited. */
+  daily_request_limit: number
+  require_approval: boolean
 }
-/**
- * Affiliate quota transfer request
- */
-export interface AffiliateTransferRequest {
-  /** Quota amount to transfer */
-  quota: number
-}
-
 /**
  * User wallet data
  */

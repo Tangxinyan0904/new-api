@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 
 import type {
+  AffiliateOptionsRequest,
   ConfirmPaymentComplianceResponse,
   FetchUpstreamRatiosRequest,
   LogCleanupTask,
@@ -44,6 +45,16 @@ export async function updateSystemOption(request: UpdateOptionRequest) {
 
 export async function updateGeoIPOptions(request: UpdateGeoIPOptionsRequest) {
   const res = await api.put<UpdateOptionResponse>('/api/option/geoip', request)
+  return res.data
+}
+
+export async function updateAffiliateOptions(
+  request: AffiliateOptionsRequest
+) {
+  const res = await api.put<UpdateOptionResponse>(
+    '/api/option/affiliate',
+    request
+  )
   return res.data
 }
 

@@ -443,6 +443,10 @@ const AUDIT_TEMPLATES: Record<string, string> = {
     'Administrator approved {{amount}} balance',
   'affiliate.transfer.reject':
     'Rejected rebate transfer request #{{request_id}} for user {{target_user_id}}: invitation {{invite_reward_quota}}, recharge {{recharge_rebate_quota}}, total {{total_quota}}',
+  'affiliate.transfer.auto_approved':
+    'Rebate transfer of {{amount}} credited automatically',
+  'affiliate.settings.update':
+    'Updated invitation rebate settings: rebate {{rebate_enabled}}, rate {{rebate_rate_percent}}%',
   // Prefill groups
   'prefill_group.create': 'Created a prefill group',
   'prefill_group.update': 'Updated a prefill group',
@@ -486,7 +490,8 @@ export function renderAuditContent(
   if (!template) return null
   const params = { ...op.params } as Record<string, unknown>
   if (
-    op.action === 'affiliate.transfer.approved_for_user' &&
+    (op.action === 'affiliate.transfer.approved_for_user' ||
+      op.action === 'affiliate.transfer.auto_approved') &&
     typeof params.quota === 'number' &&
     Number.isFinite(params.quota)
   ) {

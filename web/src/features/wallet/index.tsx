@@ -359,7 +359,9 @@ export function Wallet(props: WalletProps) {
               user={user}
               affiliateLink={affiliateLink}
               rebateSummary={rebateSummary}
-              minimumTransferQuota={minimumTransferQuota}
+              minimumTransferQuota={
+                rebateSummary?.min_transfer_quota ?? minimumTransferQuota
+              }
               onRefresh={refreshAffiliateData}
               onTransfer={() => setTransferDialogOpen(true)}
               onOpenTransferHistory={() => setTransferHistoryOpen(true)}
@@ -394,6 +396,7 @@ export function Wallet(props: WalletProps) {
         availableQuota={
           rebateSummary?.total_pending_quota ?? user?.aff_quota ?? 0
         }
+        requireApproval={rebateSummary?.require_approval ?? true}
         transferring={transferring}
       />
 
