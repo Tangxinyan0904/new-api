@@ -1204,7 +1204,7 @@
     "Cost in USD per request, regardless of tokens used.": "Стоимость в долларах США за запрос, независимо от использованных токенов.",
     "Cost Tracking": "Отслеживание затрат",
     "Count must be between {{min}} and {{max}}": "Количество должно быть от {{min}} до {{max}}",
-    "Count non-stream model requests in a rolling one-minute window.": "Подсчитывать непотоковые запросы к моделям в скользящем окне длительностью одну минуту.",
+    "Count non-stream chat requests per clock minute. Embedding, image, audio, and rerank requests are not counted.": "Подсчитывать непотоковые чат-запросы за каждую календарную минуту. Запросы эмбеддингов, изображений, аудио и реранжирования не учитываются.",
     "Coze": "Coze",
     "CPU": "ЦП",
     "CPU Threshold (%)": "Порог CPU (%)",

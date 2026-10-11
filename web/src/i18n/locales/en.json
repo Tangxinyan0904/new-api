@@ -1204,7 +1204,7 @@
     "Cost in USD per request, regardless of tokens used.": "Cost in USD per request, regardless of tokens used.",
     "Cost Tracking": "Cost Tracking",
     "Count must be between {{min}} and {{max}}": "Count must be between {{min}} and {{max}}",
-    "Count non-stream model requests in a rolling one-minute window.": "Count non-stream model requests in a rolling one-minute window.",
+    "Count non-stream chat requests per clock minute. Embedding, image, audio, and rerank requests are not counted.": "Count non-stream chat requests per clock minute. Embedding, image, audio, and rerank requests are not counted.",
     "Coze": "Coze",
     "CPU": "CPU",
     "CPU Threshold (%)": "CPU Threshold (%)",

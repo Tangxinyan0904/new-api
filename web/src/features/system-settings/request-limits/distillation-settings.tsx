@@ -71,7 +71,7 @@ export function DistillationSettings(props: DistillationSettingsProps) {
               <FormLabel>{t('Enable distillation detection')}</FormLabel>
               <FormDescription>
                 {t(
-                  'Count non-stream model requests in a rolling one-minute window.'
+                  'Count non-stream chat requests per clock minute. Embedding, image, audio, and rerank requests are not counted.'
                 )}
               </FormDescription>
             </SettingsSwitchContent>

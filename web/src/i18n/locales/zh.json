@@ -1204,7 +1204,7 @@
     "Cost in USD per request, regardless of tokens used.": "每请求的美元费用，不考虑使用的令牌数。",
     "Cost Tracking": "成本跟踪",
     "Count must be between {{min}} and {{max}}": "计数必须介于{{min}}和{{max}}之间",
-    "Count non-stream model requests in a rolling one-minute window.": "按滚动的一分钟窗口统计非流式模型请求。",
+    "Count non-stream chat requests per clock minute. Embedding, image, audio, and rerank requests are not counted.": "按自然分钟统计非流式对话请求，嵌入、图像、音频和重排序请求不计入。",
     "Coze": "Coze",
     "CPU": "CPU",
     "CPU Threshold (%)": "CPU 阈值 (%)",

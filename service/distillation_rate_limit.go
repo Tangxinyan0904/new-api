@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
@@ -32,7 +34,7 @@ type distillationRateLimitDependencies struct {
 }
 
 func CheckDistillationRateLimit(c *gin.Context, relayInfo *relaycommon.RelayInfo) *types.NewAPIError {
-	if relayInfo.IsStream {
+	if relayInfo.IsStream || !isDistillationTrackedRequest(relayInfo) {
 		return nil
 	}
 	runtimeStore, err := currentDistillationRuntimeStore()
@@ -50,6 +52,24 @@ func CheckDistillationRateLimit(c *gin.Context, relayInfo *relaycommon.RelayInfo
 			now:       time.Now,
 		},
 	)
+}
+
+// isDistillationTrackedRequest reports whether a request is conversational text
+// generation, the only traffic distillation protection counts and limits.
+// Embeddings, rerank, images, audio, moderations, context compaction and
+// realtime sessions are neither counted nor limited, like streaming requests.
+func isDistillationTrackedRequest(relayInfo *relaycommon.RelayInfo) bool {
+	switch relayInfo.RelayFormat {
+	case types.RelayFormatClaude, types.RelayFormatOpenAIResponses:
+		return true
+	case types.RelayFormatOpenAI:
+		return relayInfo.RelayMode == relayconstant.RelayModeChatCompletions ||
+			relayInfo.RelayMode == relayconstant.RelayModeCompletions
+	case types.RelayFormatGemini:
+		return strings.Contains(relayInfo.RequestURLPath, ":generateContent")
+	default:
+		return false
+	}
 }
 
 func ClearDistillationRateLimitState(ctx context.Context, userID int) error {
@@ -168,7 +188,7 @@ func enforceDistillationTemporaryLimit(
 
 func newDistillationBannedError() *types.NewAPIError {
 	return types.NewErrorWithStatusCode(
-		errors.New("non-stream model API access is permanently suspended after repeated distillation detection; streaming requests remain available; contact an administrator to restore access"),
+		errors.New("non-stream chat requests are permanently suspended after repeated distillation detection; streaming and non-chat requests remain available; contact an administrator to restore access"),
 		types.ErrorCodeDistillationBanned,
 		http.StatusForbidden,
 		types.ErrOptionWithSkipRetry(),

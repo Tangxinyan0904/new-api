@@ -1204,7 +1204,7 @@
     "Cost in USD per request, regardless of tokens used.": "使用されたトークンに関係なく、リクエストあたりのUSDでのコスト。",
     "Cost Tracking": "コスト追跡",
     "Count must be between {{min}} and {{max}}": "カウントは{{min}}から{{max}}の間である必要があります",
-    "Count non-stream model requests in a rolling one-minute window.": "1分間のローリングウィンドウで非ストリーミングのモデルリクエストを集計します。",
+    "Count non-stream chat requests per clock minute. Embedding, image, audio, and rerank requests are not counted.": "非ストリーミングのチャットリクエストを毎分（時計の分単位）で集計します。埋め込み、画像、音声、リランクのリクエストは集計しません。",
     "Coze": "Coze",
     "CPU": "CPU",
     "CPU Threshold (%)": "CPU 閾値 (%)",
