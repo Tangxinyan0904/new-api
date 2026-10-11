@@ -130,14 +130,14 @@ export function useSidebarData(): SidebarData {
             icon: User,
           },
           {
-            title: t('Violation Records'),
-            url: '/violations',
-            icon: ShieldAlert,
-          },
-          {
             title: t('Security & Access'),
             url: '/security',
             icon: ShieldCheck,
+          },
+          {
+            title: t('Violation Records'),
+            url: '/violations',
+            icon: ShieldAlert,
           },
         ],
       },

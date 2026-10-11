@@ -7701,6 +7701,8 @@
     "This registration IP is blocked. Contact an administrator to unblock it.": "この登録 IP はブロックされています。解除するには管理者に連絡してください。",
     "Your account was created but disabled because this IP exceeded the registration limit. Contact an administrator to unblock it.": "アカウントは作成されましたが、この IP の登録数が上限を超えたため無効化されました。解除するには管理者に連絡してください。",
     "Unable to determine a valid registration IP. Please contact an administrator.": "有効な登録 IP を特定できません。管理者に連絡してください。",
-    "Group {{group}} is unavailable or unauthorized": "グループ {{group}} は利用できないか、権限がありません"
+    "Group {{group}} is unavailable or unauthorized": "グループ {{group}} は利用できないか、権限がありません",
+    "{{days}} days": "{{days}} 日",
+    "{{days}}d": "{{days}}日"
   }
 }

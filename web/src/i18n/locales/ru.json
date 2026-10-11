@@ -7701,6 +7701,8 @@
     "This registration IP is blocked. Contact an administrator to unblock it.": "Этот IP-адрес регистрации заблокирован. Обратитесь к администратору для разблокировки.",
     "Your account was created but disabled because this IP exceeded the registration limit. Contact an administrator to unblock it.": "Аккаунт создан, но отключён, так как с этого IP-адреса превышен лимит регистраций. Обратитесь к администратору для разблокировки.",
     "Unable to determine a valid registration IP. Please contact an administrator.": "Не удалось определить действительный IP-адрес регистрации. Обратитесь к администратору.",
-    "Group {{group}} is unavailable or unauthorized": "Группа {{group}} недоступна или нет прав доступа"
+    "Group {{group}} is unavailable or unauthorized": "Группа {{group}} недоступна или нет прав доступа",
+    "{{days}} days": "{{days}} дн.",
+    "{{days}}d": "{{days}} д"
   }
 }

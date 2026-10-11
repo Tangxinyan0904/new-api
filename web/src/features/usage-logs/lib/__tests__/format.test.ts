@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { expect, test } from 'bun:test'
+import { expect, test } from 'vitest'
 
 import { formatLogQuota } from '@/lib/format'
 

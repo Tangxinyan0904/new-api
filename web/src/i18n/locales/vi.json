@@ -7701,6 +7701,8 @@
     "This registration IP is blocked. Contact an administrator to unblock it.": "IP đăng ký này đã bị chặn. Vui lòng liên hệ quản trị viên để bỏ chặn.",
     "Your account was created but disabled because this IP exceeded the registration limit. Contact an administrator to unblock it.": "Tài khoản đã được tạo nhưng bị vô hiệu hóa vì IP này vượt quá giới hạn đăng ký. Vui lòng liên hệ quản trị viên để bỏ chặn.",
     "Unable to determine a valid registration IP. Please contact an administrator.": "Không thể xác định IP đăng ký hợp lệ. Vui lòng liên hệ quản trị viên.",
-    "Group {{group}} is unavailable or unauthorized": "Nhóm {{group}} không khả dụng hoặc không có quyền truy cập"
+    "Group {{group}} is unavailable or unauthorized": "Nhóm {{group}} không khả dụng hoặc không có quyền truy cập",
+    "{{days}} days": "{{days}} ngày",
+    "{{days}}d": "{{days}} ngày"
   }
 }

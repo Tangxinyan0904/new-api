@@ -173,7 +173,6 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
                   )}
                 </Button>
               </DrawerTrigger>
-              {props.refreshActions}
               <Button
                 type='button'
                 onClick={props.onSearch}
@@ -184,6 +183,7 @@ export function LogsFilterToolbar<TData>(props: LogsFilterToolbarProps<TData>) {
                 {t('Search')}
               </Button>
               <DataTableViewOptions table={props.table} />
+              {props.refreshActions}
             </>
           }
         >

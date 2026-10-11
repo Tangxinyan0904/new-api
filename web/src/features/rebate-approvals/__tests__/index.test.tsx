@@ -16,13 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { expect, mock, test } from 'bun:test'
-
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
+import { expect, test, vi } from 'vitest'
 
-mock.module('../components/rebate-approvals-table', () => ({
+vi.mock('../components/rebate-approvals-table', () => ({
   RebateApprovalsTable: () => <div />,
 }))
 

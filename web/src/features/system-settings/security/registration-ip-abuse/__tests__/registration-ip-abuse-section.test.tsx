@@ -16,10 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { describe, expect, test, vi } from 'vitest'
 
 import enLocale from '@/i18n/locales/en.json'
 import frLocale from '@/i18n/locales/fr.json'
@@ -42,9 +41,9 @@ const apiCalls: Array<{
   config?: Record<string, unknown>
 }> = []
 
-mock.module('@/lib/api', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
-    get: mock(async (url: string, config?: Record<string, unknown>) => {
+    get: vi.fn(async (url: string, config?: Record<string, unknown>) => {
       apiCalls.push({ method: 'get', url, config })
       return {
         data: {
@@ -53,7 +52,7 @@ mock.module('@/lib/api', () => ({
         },
       }
     }),
-    post: mock(
+    post: vi.fn(
       async (url: string, body?: unknown, config?: Record<string, unknown>) => {
         apiCalls.push({ method: 'post', url, body, config })
         return {
@@ -69,7 +68,7 @@ mock.module('@/lib/api', () => ({
         }
       }
     ),
-    delete: mock(async (url: string, config?: Record<string, unknown>) => {
+    delete: vi.fn(async (url: string, config?: Record<string, unknown>) => {
       apiCalls.push({ method: 'delete', url, config })
       return {
         data: {
@@ -86,7 +85,7 @@ mock.module('@/lib/api', () => ({
   },
 }))
 
-mock.module('react-i18next', () => ({
+vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, string | number>) =>
       key.replaceAll(/\{\{(\w+)\}\}/g, (_match, name: string) =>

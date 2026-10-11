@@ -16,14 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
+import { afterAll, beforeEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
 import type { AddChannelRequest } from '../types'
 
-const get = mock(async (..._args: unknown[]) => ({ data: { success: true } }))
-const post = mock(async (..._args: unknown[]) => ({ data: { success: true } }))
+const get = vi.fn(async (..._args: unknown[]) => ({ data: { success: true } }))
+const post = vi.fn(async (..._args: unknown[]) => ({ data: { success: true } }))
 const originalGet = api.get
 const originalPost = api.post
 

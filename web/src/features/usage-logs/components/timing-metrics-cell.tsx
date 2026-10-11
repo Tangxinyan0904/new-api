@@ -224,10 +224,10 @@ export function StreamTpsCell(props: StreamTpsCellProps) {
       {showTokensPerSecond &&
         (!props.compact ||
           (props.isStream && props.tokensPerSecond != null)) && (
-        <span className='text-muted-foreground/60 px-0.5 tabular-nums'>
-          {tpsLabel}
-        </span>
-      )}
+          <span className='text-muted-foreground/60 px-0.5 tabular-nums'>
+            {tpsLabel}
+          </span>
+        )}
     </div>
   )
 }

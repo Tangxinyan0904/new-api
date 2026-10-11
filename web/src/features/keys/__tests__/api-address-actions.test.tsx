@@ -16,40 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, afterEach, beforeEach, expect, test } from 'bun:test'
-
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { Window } from 'happy-dom'
 import { createInstance } from 'i18next'
 import { I18nextProvider } from 'react-i18next'
+import { afterAll, afterEach, beforeEach, expect, test } from 'vitest'
 
-const domWindow = new Window({ url: 'http://localhost/keys' })
-
-for (const key of [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'MouseEvent',
-  'PointerEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
+window.history.replaceState({}, '', '/keys')
 
 const { act } = await import('react')
 const { createRoot } = await import('react-dom/client')
@@ -100,9 +72,7 @@ afterEach(async () => {
   queryClient = null
 })
 
-afterAll(() => {
-  domWindow.close()
-})
+afterAll(() => {})
 
 test('uses the dedicated API key action treatment for both API address copy buttons', async () => {
   if (!queryClient) throw new Error('Query client was not initialized')

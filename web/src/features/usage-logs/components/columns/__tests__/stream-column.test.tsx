@@ -16,12 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { expect, test } from 'bun:test'
-
 import type { CellContext } from '@tanstack/react-table'
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
+import { expect, test } from 'vitest'
 
 import type { UsageLog } from '../../../data/schema'
 
@@ -93,7 +92,7 @@ const log: UsageLog = {
 }
 
 function StreamColumnProbe() {
-  const columns = useCommonLogsColumns(false)
+  const columns = useCommonLogsColumns(false, false)
   const streamColumn = columns.find(
     (column) => 'accessorKey' in column && column.accessorKey === 'is_stream'
   )

@@ -16,11 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, beforeEach, expect, mock, test } from 'bun:test'
+import { afterAll, beforeEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
-const get = mock(async () => ({ data: {} }))
+const get = vi.fn(async () => ({ data: {} }))
 const originalGet = api.get
 
 const {

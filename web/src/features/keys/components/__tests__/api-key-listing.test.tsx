@@ -350,6 +350,12 @@ async function renderKeysPage(status = 1, overrides: Partial<ApiKey> = {}) {
 }
 
 it('combines creation and last use while keeping expiry, models and IP restrictions separate', async () => {
+  // Models and IP restrictions are hidden by default to make room for the
+  // editable group column; this test shows them to check the layout.
+  localStorage.setItem(
+    'api-keys:column-visibility',
+    JSON.stringify({ model_limits: true, allow_ips: true })
+  )
   await renderKeysPage()
   for (const name of ['Name', 'API Key', 'Group', 'Models', 'IP Restriction']) {
     expect(screen.getByRole('columnheader', { name })).toBeInTheDocument()

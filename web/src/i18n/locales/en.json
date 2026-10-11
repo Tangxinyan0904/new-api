@@ -7701,6 +7701,8 @@
     "This registration IP is blocked. Contact an administrator to unblock it.": "This registration IP is blocked. Contact an administrator to unblock it.",
     "Your account was created but disabled because this IP exceeded the registration limit. Contact an administrator to unblock it.": "Your account was created but disabled because this IP exceeded the registration limit. Contact an administrator to unblock it.",
     "Unable to determine a valid registration IP. Please contact an administrator.": "Unable to determine a valid registration IP. Please contact an administrator.",
-    "Group {{group}} is unavailable or unauthorized": "Group {{group}} is unavailable or unauthorized"
+    "Group {{group}} is unavailable or unauthorized": "Group {{group}} is unavailable or unauthorized",
+    "{{days}} days": "{{days}} days",
+    "{{days}}d": "{{days}}d"
   }
 }

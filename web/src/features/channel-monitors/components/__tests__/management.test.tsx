@@ -16,11 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, afterEach, beforeEach, expect, mock, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { Window } from 'happy-dom'
-
-const domWindow = new Window({ url: 'http://localhost/channels' })
+const domWindow = window
+window.history.replaceState({}, '', '/channels')
 const navigationCalls: Array<Record<string, unknown>> = []
 let authUserRole = 100
 let queryResult: Record<string, unknown> = {
@@ -29,35 +28,8 @@ let queryResult: Record<string, unknown> = {
   isFetching: false,
 }
 
-for (const key of [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'HTMLFormElement',
-  'HTMLInputElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'MouseEvent',
-  'PointerEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
-
-mock.module('@tanstack/react-query', () => ({
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
   useMutation: () => ({
     isPending: false,
     mutate: () => undefined,
@@ -69,7 +41,7 @@ mock.module('@tanstack/react-query', () => ({
   }),
 }))
 
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => (config: Record<string, unknown>) => config,
   redirect: (options: Record<string, unknown>) =>
     Object.assign(new Error('redirect'), { options }),
@@ -78,7 +50,7 @@ mock.module('@tanstack/react-router', () => ({
   },
 }))
 
-mock.module('react-i18next', () => ({
+vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
       key.replaceAll(/\{\{(\w+)\}\}/g, (_match, name: string) =>
@@ -87,7 +59,7 @@ mock.module('react-i18next', () => ({
   }),
 }))
 
-mock.module('@/stores/auth-store', () => {
+vi.mock('@/stores/auth-store', () => {
   const useAuthStore = Object.assign(
     (selector: (state: Record<string, unknown>) => unknown) =>
       selector({
@@ -102,7 +74,7 @@ mock.module('@/stores/auth-store', () => {
   return { useAuthStore }
 })
 
-mock.module('@/lib/admin-permissions', () => ({
+vi.mock('@/lib/admin-permissions', () => ({
   ADMIN_PERMISSION_ACTIONS: {
     READ: 'read',
     SENSITIVE_WRITE: 'sensitive_write',
@@ -111,7 +83,7 @@ mock.module('@/lib/admin-permissions', () => ({
   hasPermission: () => true,
 }))
 
-mock.module('@/features/channels/components/channels-provider', () => ({
+vi.mock('@/features/channels/components/channels-provider', () => ({
   useChannels: () => ({
     setOpen: () => undefined,
     setCurrentRow: () => undefined,
@@ -215,9 +187,7 @@ afterEach(async () => {
   host = null
 })
 
-afterAll(() => {
-  domWindow.close()
-})
+afterAll(() => {})
 
 test('opens the channel monitor administration page from channel actions', async () => {
   const button = [...(host?.querySelectorAll('button') ?? [])].find((element) =>
@@ -313,7 +283,7 @@ test('applies the configured color only to the public monitor name', async () =>
     '[title="OpenAI availability"]'
   )
   expect(internalName?.style.color).toBe('')
-  expect(publicName?.style.color).toBe('#123ABC')
+  expect(publicName?.style.color).toBe('rgb(18, 58, 188)')
 })
 
 test('discloses credential, HTTP, and publication state while editing', async () => {
@@ -379,18 +349,18 @@ test('synchronizes monitor name color controls and restores the theme default', 
   )
   expect(colorCode?.value).toBe('#123ABC')
   expect(colorSwatch?.value).toBe('#123abc')
-  expect(preview?.style.color).toBe('#123ABC')
+  expect(preview?.style.color).toBe('rgb(18, 58, 188)')
   if (!colorCode || !colorSwatch || !resetButton) {
     throw new Error('Name color controls were not rendered')
   }
 
   await changeInput(colorCode, '#abcdef')
   expect(colorSwatch.value).toBe('#abcdef')
-  expect(preview?.style.color).toBe('#abcdef')
+  expect(preview?.style.color).toBe('rgb(171, 205, 239)')
 
   await changeInput(colorSwatch, '#a1b2c3')
   expect(colorCode.value).toBe('#A1B2C3')
-  expect(preview?.style.color).toBe('#A1B2C3')
+  expect(preview?.style.color).toBe('rgb(161, 178, 195)')
 
   await act(async () => resetButton.click())
   expect(colorCode.value).toBe('')

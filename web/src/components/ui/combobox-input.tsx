@@ -46,7 +46,6 @@ interface ComboboxInputProps {
   allowCustomValue?: boolean
   openOnFocus?: boolean
   disabled?: boolean
-  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
   'aria-label'?: string
   'aria-labelledby'?: string
   'aria-invalid'?: React.AriaAttributes['aria-invalid']
@@ -66,7 +65,6 @@ export function ComboboxInput({
   allowCustomValue = false,
   openOnFocus = true,
   disabled = false,
-  onKeyDown,
   'aria-label': ariaLabel,
   'aria-labelledby': ariaLabelledBy,
   'aria-invalid': ariaInvalid,
@@ -176,10 +174,7 @@ export function ComboboxInput({
       return
     }
 
-    if (!open) {
-      onKeyDown?.(e)
-      return
-    }
+    if (!open) return
 
     switch (e.key) {
       case 'ArrowDown':
@@ -215,8 +210,6 @@ export function ComboboxInput({
         setSearchValue('')
         break
     }
-
-    if (!e.defaultPrevented) onKeyDown?.(e)
   }
 
   // Scroll highlighted item into view

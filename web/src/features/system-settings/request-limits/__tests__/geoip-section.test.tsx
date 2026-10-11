@@ -17,45 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
-import { after, afterEach, beforeEach, test } from 'node:test'
 
-import { Window } from 'happy-dom'
+import { afterAll, afterEach, beforeEach, test } from 'vitest'
 
 import type { GeoIPSettings } from '../../types'
 
-const domWindow = new Window()
-const domGlobals = [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'HTMLInputElement',
-  'HTMLTextAreaElement',
-  'HTMLFormElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'KeyboardEvent',
-  'PointerEvent',
-  'MouseEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const
-
-for (const key of domGlobals) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
-
+const domWindow = window
 const { act } = await import('react')
 const { createRoot } = await import('react-dom/client')
 const { createInstance } = await import('i18next')
@@ -190,9 +157,7 @@ afterEach(async () => {
   document.body.replaceChildren()
 })
 
-after(() => {
-  domWindow.close()
-})
+afterAll(() => {})
 
 test('saves all changed GeoIP settings in one atomic request', async () => {
   await renderSection()

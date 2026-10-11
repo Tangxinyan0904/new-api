@@ -39,6 +39,7 @@ function PricingFixture() {
         topupGroupRatio={settings.TopupGroupRatio}
         userUsableGroups={settings.UserUsableGroups}
         groupGroupRatio='{}'
+        groupGroupRatioWalletDisplay='{}'
         autoGroups='[]'
         maxTokenAutoGroupsField={null}
         groupSpecialUsableGroup='{}'

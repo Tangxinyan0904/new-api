@@ -17,42 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
-import { after, afterEach, beforeEach, test } from 'node:test'
 
-import { Window } from 'happy-dom'
+import { afterAll, afterEach, beforeEach, test } from 'vitest'
 
 import type { RebateApprovalRequest } from '../../types'
 
-const domWindow = new Window({ url: 'http://localhost' })
-const domGlobals = [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'KeyboardEvent',
-  'PointerEvent',
-  'MouseEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const
-
-for (const key of domGlobals) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
-
+const domWindow = window
+window.history.replaceState({}, '', '/')
 const { act } = await import('react')
 const { createRoot } = await import('react-dom/client')
 const { createInstance } = await import('i18next')
@@ -190,10 +161,9 @@ afterEach(async () => {
   document.body.replaceChildren()
 })
 
-after(() => {
+afterAll(() => {
   toastClient.success = originalToastSuccess
   toastClient.error = originalToastError
-  domWindow.close()
 })
 
 test('requires approval confirmation and blocks duplicate actions while pending', async () => {

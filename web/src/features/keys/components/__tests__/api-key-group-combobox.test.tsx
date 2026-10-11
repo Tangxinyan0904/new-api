@@ -223,22 +223,15 @@ describe('API key group combobox Auto effect', () => {
     setReducedMotion(false)
   })
 
-  test('uses the dedicated API key action treatment for the compact group trigger', async () => {
-    const container = document.createElement('div')
-    document.body.append(container)
-    const root = createRoot(container)
+  test('uses the dedicated API key action treatment for the compact group trigger', () => {
+    render(<Harness initialValue='default' compact />)
 
-    await act(async () =>
-      root.render(<Harness initialValue='default' compact />)
+    const trigger = getTrigger()
+    expect(trigger.className).not.toMatch(/#[0-9a-f]{3,8}/i)
+    expect(trigger).toHaveClass(
+      'border-api-key-action',
+      'bg-api-key-action-surface',
+      'text-api-key-action'
     )
-
-    const trigger = getTrigger(container)
-    assert.doesNotMatch(trigger.className, /#[0-9a-f]{3,8}/i)
-    assert.equal(trigger.classList.contains('border-api-key-action'), true)
-    assert.equal(trigger.classList.contains('bg-api-key-action-surface'), true)
-    assert.equal(trigger.classList.contains('text-api-key-action'), true)
-
-    await act(async () => root.unmount())
-    container.remove()
   })
 })

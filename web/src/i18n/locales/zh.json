@@ -7701,6 +7701,8 @@
     "This registration IP is blocked. Contact an administrator to unblock it.": "该注册 IP 已被封禁，请联系管理员解封。",
     "Your account was created but disabled because this IP exceeded the registration limit. Contact an administrator to unblock it.": "账号已创建，但该 IP 的注册账号数超过限制，账号已被禁用。请联系管理员解封。",
     "Unable to determine a valid registration IP. Please contact an administrator.": "无法获取有效的注册 IP，请联系管理员。",
-    "Group {{group}} is unavailable or unauthorized": "分组 {{group}} 不可用或无权访问"
+    "Group {{group}} is unavailable or unauthorized": "分组 {{group}} 不可用或无权访问",
+    "{{days}} days": "{{days}} 天",
+    "{{days}}d": "{{days}}天"
   }
 }

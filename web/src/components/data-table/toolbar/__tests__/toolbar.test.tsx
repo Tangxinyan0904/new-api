@@ -16,14 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
-
 import type { Table } from '@tanstack/react-table'
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
+import { describe, expect, test, vi } from 'vitest'
 
-mock.module('../faceted-filter', () => ({
+vi.mock('../faceted-filter', () => ({
   DataTableFacetedFilter: (props: {
     title: string
     buttonVariant?: string
@@ -34,7 +33,7 @@ mock.module('../faceted-filter', () => ({
   ),
 }))
 
-mock.module('../view-options', () => ({
+vi.mock('../view-options', () => ({
   DataTableViewOptions: (props: { buttonVariant?: string }) => (
     <span data-view-button-variant={props.buttonVariant}>View options</span>
   ),

@@ -261,9 +261,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           className='flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[#f0f8ff] dark:bg-[#1a2436]'
         >
           {modelIcon || (
-            <span className='text-lg font-black text-[#64b5f6]'>
-              {initial}
-            </span>
+            <span className='text-lg font-black text-[#64b5f6]'>{initial}</span>
           )}
         </div>
         <div className='min-w-0 flex-1'>
