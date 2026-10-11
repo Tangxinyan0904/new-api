@@ -48,9 +48,7 @@ export async function updateGeoIPOptions(request: UpdateGeoIPOptionsRequest) {
   return res.data
 }
 
-export async function updateAffiliateOptions(
-  request: AffiliateOptionsRequest
-) {
+export async function updateAffiliateOptions(request: AffiliateOptionsRequest) {
   const res = await api.put<UpdateOptionResponse>(
     '/api/option/affiliate',
     request

@@ -85,8 +85,7 @@ const BILLING_SECTIONS = [
           rebate_enabled: settings['affiliate_setting.rebate_enabled'],
           rebate_rate_percent:
             settings['affiliate_setting.rebate_rate_percent'],
-          min_transfer_quota:
-            settings['affiliate_setting.min_transfer_quota'],
+          min_transfer_quota: settings['affiliate_setting.min_transfer_quota'],
           daily_request_limit:
             settings['affiliate_setting.daily_request_limit'],
           require_approval: settings['affiliate_setting.require_approval'],
