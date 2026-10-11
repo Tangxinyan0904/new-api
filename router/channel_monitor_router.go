@@ -20,12 +20,7 @@ func registerChannelMonitorRoutes(apiRouter *gin.RouterGroup) {
 	channelMonitorRoute := apiRouter.Group("/channel-monitor")
 	channelMonitorRoute.Use(middleware.AdminAuth())
 	for _, route := range channelMonitorPermissionRoutes {
-		channelMonitorRoute.Handle(
-			route.method,
-			route.path,
-			middleware.RequirePermission(route.permission),
-			route.handler,
-		)
+		handlePermissionRoute(channelMonitorRoute, route.method, route.path, route.permission, route.handler)
 	}
 }
 

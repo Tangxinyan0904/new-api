@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -32,20 +31,12 @@ func CreateAffiliateTransferRequest(c *gin.Context) {
 		return
 	}
 	if request.Status == model.AffiliateTransferStatusApproved {
-		userLogParams := map[string]interface{}{
+		userLogParams := map[string]any{
 			"request_id": request.Id,
 			"quota":      request.TotalQuota,
 			"amount":     logger.LogQuota(request.TotalQuota),
 		}
-		model.RecordOperationAuditLog(
-			request.UserId,
-			auditContentEN("affiliate.transfer.auto_approved", userLogParams),
-			c.ClientIP(),
-			"affiliate.transfer.auto_approved",
-			userLogParams,
-			nil,
-			nil,
-		)
+		recordUserSecurityAudit(c, request.UserId, "affiliate.transfer.auto_approved", userLogParams)
 	}
 	common.ApiSuccess(c, request)
 }
@@ -77,7 +68,7 @@ func UpdateAffiliateOptions(c *gin.Context) {
 		return
 	}
 	if (*request.QuotaForInviter > 0 || *request.QuotaForInvitee > 0) && !operation_setting.IsPaymentComplianceConfirmed() {
-		common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
+		common.ApiErrorT(c, "Payment, redemption, subscription, and invitation reward features are disabled. The administrator must confirm compliance terms before enabling them.")
 		return
 	}
 	update := model.AffiliateOptionsUpdate{
@@ -96,7 +87,7 @@ func UpdateAffiliateOptions(c *gin.Context) {
 		common.ApiErrorMsg(c, err.Error())
 		return
 	}
-	recordManageAudit(c, "affiliate.settings.update", map[string]interface{}{
+	recordManageAudit(c, "affiliate.settings.update", map[string]any{
 		"rebate_enabled":      update.Setting.RebateEnabled,
 		"rebate_rate_percent": update.Setting.RebateRatePercent,
 		"min_transfer_quota":  update.Setting.MinTransferQuota,
@@ -184,19 +175,21 @@ func ApproveAllAffiliateTransferRequests(c *gin.Context) {
 
 func recordAffiliateTransferApproval(c *gin.Context, detail *model.AffiliateTransferRequestDetail) {
 	recordManageAudit(c, "affiliate.transfer.approve", affiliateTransferAuditParams(detail, ""))
-	userLogParams := map[string]interface{}{
+	userLogParams := map[string]any{
 		"request_id": detail.Id,
 		"quota":      detail.TotalQuota,
 		"amount":     logger.LogQuota(detail.TotalQuota),
 	}
 	model.RecordOperationAuditLog(
 		detail.UserId,
+		c.GetInt("role"),
 		auditContentEN("affiliate.transfer.approved_for_user", userLogParams),
 		c.ClientIP(),
 		"affiliate.transfer.approved_for_user",
 		userLogParams,
 		auditOperatorInfo(c),
 		nil,
+		c,
 	)
 }
 
@@ -225,8 +218,8 @@ func RejectAffiliateTransferRequest(c *gin.Context) {
 	common.ApiSuccess(c, nil)
 }
 
-func affiliateTransferAuditParams(detail *model.AffiliateTransferRequestDetail, reason string) map[string]interface{} {
-	params := map[string]interface{}{
+func affiliateTransferAuditParams(detail *model.AffiliateTransferRequestDetail, reason string) map[string]any {
+	params := map[string]any{
 		"request_id":            detail.Id,
 		"target_user_id":        detail.UserId,
 		"target_username":       detail.Username,

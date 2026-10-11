@@ -12,6 +12,11 @@ import { toast } from 'sonner'
 
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { getSelf } from '@/lib/api'
+import { handleServerError } from '@/lib/handle-server-error'
+import {
+  getServerMessage,
+  requireServerSuccess,
+} from '@/lib/server-error-message'
 
 import {
   createAffiliateTransferRequest,
@@ -39,8 +44,8 @@ export function useAffiliate() {
         setLoading(true)
       }
       const [codeResponse, summaryResponse] = await Promise.all([
-        getAffiliateCode(),
-        getAffiliateRebateSummary(),
+        getAffiliateCode().then(requireServerSuccess),
+        getAffiliateRebateSummary().then(requireServerSuccess),
       ])
 
       if (codeResponse.success && codeResponse.data) {
@@ -52,8 +57,7 @@ export function useAffiliate() {
         setRebateSummary(summaryResponse.data)
       }
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch affiliate data:', error)
+      handleServerError(error)
     } finally {
       if (background) {
         setRefreshing(false)
@@ -84,7 +88,7 @@ export function useAffiliate() {
             : currentSummary
         )
         toast.success(
-          response.message ||
+          getServerMessage(response) ||
             (response.data?.status === 'approved'
               ? i18next.t('Transferred to your balance')
               : i18next.t('Transfer request submitted'))
@@ -93,10 +97,10 @@ export function useAffiliate() {
         return true
       }
 
-      toast.error(response.message || i18next.t('Transfer request failed'))
+      handleServerError(response, i18next.t('Transfer request failed'))
       return false
-    } catch {
-      toast.error(i18next.t('Transfer request failed'))
+    } catch (_error) {
+      handleServerError(_error, i18next.t('Transfer request failed'))
       return false
     } finally {
       setTransferring(false)

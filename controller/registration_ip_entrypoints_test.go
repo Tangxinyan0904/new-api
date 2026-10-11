@@ -3,19 +3,13 @@ package controller
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -179,25 +173,23 @@ func TestRegistrationIPWeChatUsesSharedRegistration(t *testing.T) {
 
 func TestRegistrationIPTelegramCreatesUsersAndAppliesSharedLimit(t *testing.T) {
 	db := setupRegistrationIPControllerTest(t)
-	common.TelegramBotToken = "registration-ip-telegram-token"
+	provider := oauth.NewTelegramProvider(nil)
 
 	for index := 1; index <= model.RegistrationIPAccountLimit+1; index++ {
-		query := signedTelegramLoginQuery(common.TelegramBotToken, index)
-		recorder := performControllerRequest(
+		_, err := performOAuthUserCreation(
 			t,
-			http.MethodGet,
-			"/api/oauth/telegram/login?"+query.Encode(),
-			"203.0.113.44:1234",
-			TelegramLogin,
+			provider,
+			&oauth.OAuthUser{
+				ProviderUserID: strconv.Itoa(index),
+				Username:       fmt.Sprintf("telegram_user_%d", index),
+			},
+			"203.0.113.44",
 		)
-		var response registrationIPControllerResponse
-		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
 		if index <= model.RegistrationIPAccountLimit {
-			assert.True(t, response.Success, response.Message)
-		} else {
-			assert.False(t, response.Success)
-			assert.Contains(t, strings.ToLower(response.Message), "disabled")
+			require.NoError(t, err)
+			continue
 		}
+		require.ErrorIs(t, err, model.ErrRegistrationIPLimitExceeded)
 	}
 
 	var users []model.User
@@ -335,7 +327,7 @@ func performOAuthUserCreation(
 		"/api/oauth/test",
 		clientIP+":1234",
 		func(c *gin.Context) {
-			user, creationErr = findOrCreateOAuthUser(c, provider, oauthUser, "")
+			user, _, creationErr = findOrCreateOAuthUser(c, provider, oauthUser, nil, "")
 		},
 	)
 	return user, creationErr
@@ -352,37 +344,12 @@ func performControllerRequest(
 	router := gin.New()
 	router.Handle(method, "/api/oauth/test", handler)
 	router.Handle(method, "/api/oauth/wechat", handler)
-	router.Handle(method, "/api/oauth/telegram/login", handler)
 	request := httptest.NewRequest(method, target, nil)
 	request.RemoteAddr = remoteAddr
 	request.Header.Set("Accept-Language", "en")
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	return recorder
-}
-
-func signedTelegramLoginQuery(token string, id int) url.Values {
-	values := url.Values{
-		"id":         {strconv.Itoa(id)},
-		"username":   {fmt.Sprintf("telegram_user_%d", id)},
-		"first_name": {"Telegram"},
-		"last_name":  {strconv.Itoa(id)},
-		"auth_date":  {strconv.FormatInt(time.Now().Unix(), 10)},
-	}
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, key+"="+values.Get(key))
-	}
-	secretHash := sha256.Sum256([]byte(token))
-	mac := hmac.New(sha256.New, secretHash[:])
-	_, _ = mac.Write([]byte(strings.Join(parts, "\n")))
-	values.Set("hash", hex.EncodeToString(mac.Sum(nil)))
-	return values
 }
 
 func createControllerBlockedRegistrationIPFixture(t *testing.T, registrationIP string) []int {
