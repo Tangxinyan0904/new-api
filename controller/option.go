@@ -242,6 +242,10 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorMsg(c, "合规确认字段不允许通过通用设置接口修改")
 			return
 		}
+		if strings.HasPrefix(option.Key, operation_setting.AffiliateSettingOptionPrefix) {
+			common.ApiErrorMsg(c, "邀请返利设置请通过邀请返利设置接口修改")
+			return
+		}
 	}
 	switch option.Key {
 	case "GitHubOAuthEnabled":
