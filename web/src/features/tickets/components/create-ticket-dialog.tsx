@@ -203,7 +203,7 @@ export function CreateTicketDialog() {
             name='content'
             render={({ field }) => (
               <FormItem>
-                <FormLabel>{t('Description')}</FormLabel>
+                <FormLabel>{t('Problem description')}</FormLabel>
                 <FormControl>
                   <Textarea
                     {...field}

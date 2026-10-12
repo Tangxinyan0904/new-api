@@ -90,6 +90,8 @@ export function UserTicketsTable() {
       skeletonKeyPrefix='tickets-skeleton'
       applyHeaderSize
       toolbarProps={{
+        // The owner list only filters by status; it has no keyword search.
+        customSearch: null,
         hideViewOptions: true,
         filters: [
           {

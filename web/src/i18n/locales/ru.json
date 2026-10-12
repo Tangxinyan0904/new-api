@@ -7789,6 +7789,7 @@
     "Reply to tickets and change their status and priority.": "Отвечать на тикеты и менять их статус и приоритет.",
     "Support tickets": "Тикеты поддержки",
     "View your support tickets, replies, and attachments.": "Просмотр ваших тикетов, ответов и вложений.",
-    "Open, reply to, and close your support tickets.": "Создавать тикеты, отвечать на них и закрывать их."
+    "Open, reply to, and close your support tickets.": "Создавать тикеты, отвечать на них и закрывать их.",
+    "Problem description": "Описание проблемы"
   }
 }

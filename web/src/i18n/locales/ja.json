@@ -7789,6 +7789,7 @@
     "Reply to tickets and change their status and priority.": "チケットに返信し、ステータスと優先度を変更します。",
     "Support tickets": "サポートチケット",
     "View your support tickets, replies, and attachments.": "自分のチケット、返信、添付ファイルを閲覧します。",
-    "Open, reply to, and close your support tickets.": "チケットの作成、返信、クローズを行います。"
+    "Open, reply to, and close your support tickets.": "チケットの作成、返信、クローズを行います。",
+    "Problem description": "問題の詳細"
   }
 }
