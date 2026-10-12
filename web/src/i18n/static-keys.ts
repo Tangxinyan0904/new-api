@@ -928,4 +928,12 @@ export const STATIC_I18N_KEYS = [
   'Support tickets',
   'View your support tickets, replies, and attachments.',
   'Open, reply to, and close your support tickets.',
+  // Cost statistics: range labels, permission labels and server messages.
+  'Yesterday',
+  'Last 7 days',
+  'View cost statistics',
+  'Edit cost ratios',
+  'View channel usage, cost, and profit.',
+  'Change the default and per-channel cost ratios.',
+  'Channel not found',
 ] as const

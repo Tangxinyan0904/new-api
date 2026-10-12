@@ -34,6 +34,7 @@ import { Route as PricingIndexRouteImport } from './routes/pricing/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
+import { Route as AuthenticatedChannelCostsIndexRouteImport } from './routes/_authenticated/channel-costs/index'
 import { Route as AuthenticatedChannelMonitorsIndexRouteImport } from './routes/_authenticated/channel-monitors/index'
 import { Route as AuthenticatedChannelStatusIndexRouteImport } from './routes/_authenticated/channel-status/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
@@ -205,6 +206,12 @@ const authUserResetRoute = authUserResetRouteImport.update({
   path: '/user/reset',
   getParentRoute: () => authRouteRoute,
 } as any)
+const AuthenticatedChannelCostsIndexRoute =
+  AuthenticatedChannelCostsIndexRouteImport.update({
+    id: '/channel-costs/',
+    path: '/channel-costs/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedChannelMonitorsIndexRoute =
   AuthenticatedChannelMonitorsIndexRouteImport.update({
     id: '/channel-monitors/',
@@ -510,6 +517,7 @@ export interface FileRoutesByFullPath {
   '/tickets/$ticketId': typeof AuthenticatedTicketsTicketIdRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/channel-costs/': typeof AuthenticatedChannelCostsIndexRoute
   '/channel-monitors/': typeof AuthenticatedChannelMonitorsIndexRoute
   '/channel-status/': typeof AuthenticatedChannelStatusIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
@@ -580,6 +588,7 @@ export interface FileRoutesByTo {
   '/tickets/$ticketId': typeof AuthenticatedTicketsTicketIdRoute
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/channel-costs': typeof AuthenticatedChannelCostsIndexRoute
   '/channel-monitors': typeof AuthenticatedChannelMonitorsIndexRoute
   '/channel-status': typeof AuthenticatedChannelStatusIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
@@ -654,6 +663,7 @@ export interface FileRoutesById {
   '/_authenticated/tickets/$ticketId': typeof AuthenticatedTicketsTicketIdRoute
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/usage-logs/audit': typeof AuthenticatedUsageLogsAuditRoute
+  '/_authenticated/channel-costs/': typeof AuthenticatedChannelCostsIndexRoute
   '/_authenticated/channel-monitors/': typeof AuthenticatedChannelMonitorsIndexRoute
   '/_authenticated/channel-status/': typeof AuthenticatedChannelStatusIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
@@ -727,6 +737,7 @@ export interface FileRouteTypes {
     | '/tickets/$ticketId'
     | '/usage-logs/$section'
     | '/usage-logs/audit'
+    | '/channel-costs/'
     | '/channel-monitors/'
     | '/channel-status/'
     | '/channels/'
@@ -797,6 +808,7 @@ export interface FileRouteTypes {
     | '/tickets/$ticketId'
     | '/usage-logs/$section'
     | '/usage-logs/audit'
+    | '/channel-costs'
     | '/channel-monitors'
     | '/channel-status'
     | '/channels'
@@ -870,6 +882,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tickets/$ticketId'
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/usage-logs/audit'
+    | '/_authenticated/channel-costs/'
     | '/_authenticated/channel-monitors/'
     | '/_authenticated/channel-status/'
     | '/_authenticated/channels/'
@@ -1105,6 +1118,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/user/reset'
       preLoaderRoute: typeof authUserResetRouteImport
       parentRoute: typeof authRouteRoute
+    }
+    '/_authenticated/channel-costs/': {
+      id: '/_authenticated/channel-costs/'
+      path: '/channel-costs'
+      fullPath: '/channel-costs/'
+      preLoaderRoute: typeof AuthenticatedChannelCostsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/channel-monitors/': {
       id: '/_authenticated/channel-monitors/'
@@ -1531,6 +1551,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedTicketsTicketIdRoute: typeof AuthenticatedTicketsTicketIdRoute
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedUsageLogsAuditRoute: typeof AuthenticatedUsageLogsAuditRoute
+  AuthenticatedChannelCostsIndexRoute: typeof AuthenticatedChannelCostsIndexRoute
   AuthenticatedChannelMonitorsIndexRoute: typeof AuthenticatedChannelMonitorsIndexRoute
   AuthenticatedChannelStatusIndexRoute: typeof AuthenticatedChannelStatusIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
@@ -1566,6 +1587,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedTicketsTicketIdRoute: AuthenticatedTicketsTicketIdRoute,
   AuthenticatedUsageLogsSectionRoute: AuthenticatedUsageLogsSectionRoute,
   AuthenticatedUsageLogsAuditRoute: AuthenticatedUsageLogsAuditRoute,
+  AuthenticatedChannelCostsIndexRoute: AuthenticatedChannelCostsIndexRoute,
   AuthenticatedChannelMonitorsIndexRoute:
     AuthenticatedChannelMonitorsIndexRoute,
   AuthenticatedChannelStatusIndexRoute: AuthenticatedChannelStatusIndexRoute,

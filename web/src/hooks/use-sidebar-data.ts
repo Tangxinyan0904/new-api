@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import {
   Activity,
   Box,
+  Calculator,
   ClipboardList,
   CreditCard,
   FileText,
@@ -159,6 +160,12 @@ export function useSidebarData(): SidebarData {
             title: t('Channels'),
             url: '/channels',
             icon: Radio,
+          },
+          {
+            title: t('Cost Statistics'),
+            url: '/channel-costs',
+            icon: Calculator,
+            requiredPermission: { resource: 'channel_cost', action: 'read' },
           },
           {
             title: t('Models'),
