@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, renderHook } from '@testing-library/react'
+import { cleanup, renderHook, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -30,6 +30,14 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import { useSidebarConfig } from '../use-sidebar-config'
 import { useSidebarData } from '../use-sidebar-data'
+
+const ticketCounts = vi.hoisted(() => ({ unread: 0 }))
+
+// Badge counts come from the network; the sidebar only renders them.
+vi.mock('@/features/tickets/api', () => ({
+  getUserUnreadTicketCount: async () => ticketCounts.unread,
+  getStaffTicketSummary: async () => 0,
+}))
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', {
@@ -83,7 +91,13 @@ describe('security sidebar visibility', () => {
       result.current
         .find((group) => group.id === 'personal')
         ?.items.map((item) => item.title)
-    ).toEqual(['Wallet', 'Profile', 'Security & Access', 'Violation Records'])
+    ).toEqual([
+      'Wallet',
+      'Profile',
+      'Security & Access',
+      'Violation Records',
+      'Tickets',
+    ])
     expect(
       result.current
         .flatMap((group) => group.items)
@@ -178,5 +192,38 @@ describe('audit log sidebar entry', () => {
       .map((item) => item.title)
     expect(titles).not.toContain('Usage Logs')
     expect(titles).toContain('Audit Logs')
+  })
+})
+
+describe('ticket sidebar entry', () => {
+  it('admin settings default Tickets to visible and the toggle hides it', () => {
+    const config = parseSidebarModulesAdmin(
+      '{"personal":{"enabled":true,"personal":true}}'
+    )
+    expect(config.personal.tickets).toBe(true)
+    config.personal.tickets = false
+    const { result } = sidebarFor(
+      parseSidebarModulesAdmin(serializeSidebarModulesAdmin(config))
+    )
+    const titles = result.current
+      .flatMap((group) => group.items)
+      .map((item) => item.title)
+    expect(titles).not.toContain('Tickets')
+    expect(titles).toContain('Profile')
+  })
+
+  it.each([
+    [0, undefined],
+    [3, '3'],
+    [120, '99+'],
+  ])('%i unread tickets show badge %s', async (unread, badge) => {
+    ticketCounts.unread = unread
+    const { result } = sidebarFor()
+    await waitFor(() => {
+      const tickets = result.current
+        .flatMap((group) => group.items)
+        .find((item) => item.title === 'Tickets')
+      expect(tickets?.badge).toBe(badge)
+    })
   })
 })

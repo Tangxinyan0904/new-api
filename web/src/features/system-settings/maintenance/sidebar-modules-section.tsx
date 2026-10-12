@@ -142,6 +142,10 @@ export function SidebarModulesSection({
         title: t('Security & Access'),
         description: t('Manage your security settings and account access'),
       },
+      tickets: {
+        title: t('Tickets'),
+        description: t('Let users open support tickets and talk to support.'),
+      },
     },
     admin: {
       channel: {
@@ -167,6 +171,10 @@ export function SidebarModulesSection({
       subscription: {
         title: t('Subscription Management'),
         description: t('Manage subscription plans and pricing.'),
+      },
+      tickets: {
+        title: t('Ticket Management'),
+        description: t('Reply to user tickets and track their status.'),
       },
     },
   }
