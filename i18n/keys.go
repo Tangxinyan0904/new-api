@@ -93,4 +93,11 @@ const (
 	MsgChannelUpstreamUpdateRemovedModels   = "channel.upstream_update_removed_models"
 	MsgChannelUpstreamUpdateFailedChannels  = "channel.upstream_update_failed_channels"
 	MsgChannelUpstreamUpdateMoreOmitted     = "channel.upstream_update_more_omitted"
+
+	MsgTicketStaffNewSubject   = "ticket.staff_new_subject"
+	MsgTicketStaffNewContent   = "ticket.staff_new_content"
+	MsgTicketStaffReplySubject = "ticket.staff_reply_subject"
+	MsgTicketStaffReplyContent = "ticket.staff_reply_content"
+	MsgTicketUserReplySubject  = "ticket.user_reply_subject"
+	MsgTicketUserReplyContent  = "ticket.user_reply_content"
 )
