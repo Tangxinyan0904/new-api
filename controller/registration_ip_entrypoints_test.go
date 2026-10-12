@@ -3,25 +3,20 @@ package controller
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -177,38 +172,6 @@ func TestRegistrationIPWeChatUsesSharedRegistration(t *testing.T) {
 	assert.EqualValues(t, model.RegistrationIPAccountLimit+1, accountCount)
 }
 
-func TestRegistrationIPTelegramCreatesUsersAndAppliesSharedLimit(t *testing.T) {
-	db := setupRegistrationIPControllerTest(t)
-	common.TelegramBotToken = "registration-ip-telegram-token"
-
-	for index := 1; index <= model.RegistrationIPAccountLimit+1; index++ {
-		query := signedTelegramLoginQuery(common.TelegramBotToken, index)
-		recorder := performControllerRequest(
-			t,
-			http.MethodGet,
-			"/api/oauth/telegram/login?"+query.Encode(),
-			"203.0.113.44:1234",
-			TelegramLogin,
-		)
-		var response registrationIPControllerResponse
-		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
-		if index <= model.RegistrationIPAccountLimit {
-			assert.True(t, response.Success, response.Message)
-		} else {
-			assert.False(t, response.Success)
-			assert.Contains(t, strings.ToLower(response.Message), "disabled")
-		}
-	}
-
-	var users []model.User
-	require.NoError(t, db.Order("id ASC").Find(&users).Error)
-	require.Len(t, users, model.RegistrationIPAccountLimit+1)
-	for index, user := range users {
-		assert.Equal(t, common.UserStatusDisabled, user.Status)
-		assert.Equal(t, strconv.Itoa(index+1), user.TelegramId)
-	}
-}
-
 func TestRegistrationIPAdminCreationIsExcludedAndManualStatusClearsRestoreEligibility(t *testing.T) {
 	db := setupRegistrationIPControllerTest(t)
 	adminBody, err := common.Marshal(model.User{
@@ -233,16 +196,20 @@ func TestRegistrationIPAdminCreationIsExcludedAndManualStatusClearsRestoreEligib
 	assert.Zero(t, associationCount)
 
 	userIDs := createControllerBlockedRegistrationIPFixture(t, "203.0.113.45")
+	operator := model.User{Username: "root-admin", Password: "password123", Role: common.RoleRootUser, Status: common.UserStatusEnabled, AuthVersion: 1}
+	require.NoError(t, db.Create(&operator).Error)
+	session, err := service.CreateLoginSession(operator.Id, "password", "127.0.0.1", "registration-ip-test")
+	require.NoError(t, err)
+	identity, err := service.ParseAccessToken(session.AccessToken)
+	require.NoError(t, err)
 	for _, action := range []string{"disable", "enable"} {
 		body, marshalErr := common.Marshal(ManageRequest{Id: userIDs[0], Action: action})
 		require.NoError(t, marshalErr)
-		recorder := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(recorder)
-		ctx.Request = httptest.NewRequest(http.MethodPost, "/api/user/manage", bytes.NewReader(body))
-		ctx.Set("id", 1)
-		ctx.Set("username", "root-admin")
-		ctx.Set("role", common.RoleRootUser)
-		ManageUser(ctx)
+		proof := issueSecurityEnrollmentProof(t, identity, service.VerificationOperation{
+			Scope:   service.VerificationScopeAdminUserManage,
+			Context: []byte(fmt.Sprintf(`{"user_id":%d,"action":"%s"}`, userIDs[0], action)),
+		}, service.VerificationMethodPassword)
+		recorder := adminUserRequest(http.MethodPost, "/api/user/manage", string(body), proof, identity, common.RoleRootUser, nil, ManageUser)
 		var response registrationIPControllerResponse
 		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
 		assert.True(t, response.Success, response.Message)
@@ -264,6 +231,12 @@ func setupRegistrationIPControllerTest(t *testing.T) *gorm.DB {
 		&model.AuthFlow{},
 		&model.ExternalIdentityClaim{},
 		&model.Log{},
+		&model.AuditLog{},
+		&model.Option{},
+		&model.TwoFA{},
+		&model.TwoFABackupCode{},
+		&model.PasskeyCredential{},
+		&model.UserAccessToken{},
 		&model.RegistrationIPState{},
 		&model.RegistrationIPAccount{},
 		&model.CustomOAuthProvider{},
@@ -335,7 +308,7 @@ func performOAuthUserCreation(
 		"/api/oauth/test",
 		clientIP+":1234",
 		func(c *gin.Context) {
-			user, creationErr = findOrCreateOAuthUser(c, provider, oauthUser, "")
+			user, _, creationErr = findOrCreateOAuthUser(c, provider, oauthUser, nil, "")
 		},
 	)
 	return user, creationErr
@@ -352,37 +325,12 @@ func performControllerRequest(
 	router := gin.New()
 	router.Handle(method, "/api/oauth/test", handler)
 	router.Handle(method, "/api/oauth/wechat", handler)
-	router.Handle(method, "/api/oauth/telegram/login", handler)
 	request := httptest.NewRequest(method, target, nil)
 	request.RemoteAddr = remoteAddr
 	request.Header.Set("Accept-Language", "en")
 	recorder := httptest.NewRecorder()
 	router.ServeHTTP(recorder, request)
 	return recorder
-}
-
-func signedTelegramLoginQuery(token string, id int) url.Values {
-	values := url.Values{
-		"id":         {strconv.Itoa(id)},
-		"username":   {fmt.Sprintf("telegram_user_%d", id)},
-		"first_name": {"Telegram"},
-		"last_name":  {strconv.Itoa(id)},
-		"auth_date":  {strconv.FormatInt(time.Now().Unix(), 10)},
-	}
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		parts = append(parts, key+"="+values.Get(key))
-	}
-	secretHash := sha256.Sum256([]byte(token))
-	mac := hmac.New(sha256.New, secretHash[:])
-	_, _ = mac.Write([]byte(strings.Join(parts, "\n")))
-	values.Set("hash", hex.EncodeToString(mac.Sum(nil)))
-	return values
 }
 
 func createControllerBlockedRegistrationIPFixture(t *testing.T, registrationIP string) []int {

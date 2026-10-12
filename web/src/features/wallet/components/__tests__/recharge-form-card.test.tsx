@@ -16,12 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, test } from 'bun:test'
-
-import { Window } from 'happy-dom'
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
+import { describe, expect, test } from 'vitest'
 
 import zh from '@/i18n/locales/zh.json'
 
@@ -52,30 +50,28 @@ async function renderRechargeForm(topupLink?: string) {
       />
     </I18nextProvider>
   )
-  const document = new Window().document
-  document.body.innerHTML = html
-  return document
+  const view = window.document.createElement('div')
+  view.innerHTML = html
+  return view
 }
 
 describe('RechargeFormCard redemption code entry', () => {
   test('with a top-up link, renders the get-code entry as a button that opens the link in a new tab', async () => {
-    const document = await renderRechargeForm('https://shop.example.com/codes')
+    const view = await renderRechargeForm('https://shop.example.com/codes')
 
-    const entry = document.querySelector(
-      'a[href="https://shop.example.com/codes"]'
-    )
+    const entry = view.querySelector('a[href="https://shop.example.com/codes"]')
 
     expect(entry?.getAttribute('data-slot')).toBe('button')
     expect(entry?.getAttribute('target')).toBe('_blank')
     expect(entry?.getAttribute('rel')).toContain('noopener')
     expect(entry?.textContent).toContain('点此获取')
-    expect(document.body.textContent).toContain('需要兑换码？')
+    expect(view.textContent).toContain('需要兑换码？')
   })
 
   test('without a top-up link, hides the get-code entry', async () => {
-    const document = await renderRechargeForm()
+    const view = await renderRechargeForm()
 
-    expect(document.body.textContent).not.toContain('点此获取')
-    expect(document.body.textContent).not.toContain('需要兑换码？')
+    expect(view.textContent).not.toContain('点此获取')
+    expect(view.textContent).not.toContain('需要兑换码？')
   })
 })

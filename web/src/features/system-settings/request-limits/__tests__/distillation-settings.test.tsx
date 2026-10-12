@@ -16,12 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, test } from 'bun:test'
-
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { useForm } from 'react-hook-form'
 import { I18nextProvider } from 'react-i18next'
+import { describe, expect, test } from 'vitest'
 
 import { Form } from '@/components/ui/form'
 

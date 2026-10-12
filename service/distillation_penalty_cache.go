@@ -3,12 +3,13 @@ package service
 import (
 	"fmt"
 	"strconv"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/cachex"
+	"github.com/go-redis/redis/v8"
 	"github.com/samber/hot"
 )
 
@@ -17,10 +18,14 @@ const (
 	distillationPenaltyMissingValue   = "-"
 )
 
-var (
-	distillationPenaltyCacheOnce sync.Once
-	distillationPenaltyCache     *cachex.HybridCache[string]
-)
+// distillationPenaltyCacheEntry pairs the cache with the Redis client it was
+// built for, so the cache follows common.RDB if that client is replaced.
+type distillationPenaltyCacheEntry struct {
+	client *redis.Client
+	cache  *cachex.HybridCache[string]
+}
+
+var distillationPenaltyCacheState atomic.Pointer[distillationPenaltyCacheEntry]
 
 type cachedDistillationPenaltyStore struct{}
 
@@ -89,12 +94,17 @@ func (cachedDistillationPenaltyStore) Clear(userID int) error {
 }
 
 func getDistillationPenaltyCache() *cachex.HybridCache[string] {
-	distillationPenaltyCacheOnce.Do(func() {
-		distillationPenaltyCache = cachex.NewHybridCache[string](cachex.HybridCacheConfig[string]{
+	client := common.RDB
+	if entry := distillationPenaltyCacheState.Load(); entry != nil && entry.client == client {
+		return entry.cache
+	}
+	entry := &distillationPenaltyCacheEntry{
+		client: client,
+		cache: cachex.NewHybridCache[string](cachex.HybridCacheConfig[string]{
 			Namespace: cachex.Namespace(distillationPenaltyCacheNamespace),
-			Redis:     common.RDB,
+			Redis:     client,
 			RedisEnabled: func() bool {
-				return common.RedisEnabled && common.RDB != nil
+				return common.RedisEnabled && client != nil
 			},
 			RedisCodec: cachex.StringCodec{},
 			Memory: func() *hot.HotCache[string, string] {
@@ -103,9 +113,10 @@ func getDistillationPenaltyCache() *cachex.HybridCache[string] {
 					WithJanitor().
 					Build()
 			},
-		})
-	})
-	return distillationPenaltyCache
+		}),
+	}
+	distillationPenaltyCacheState.Store(entry)
+	return entry.cache
 }
 
 func invalidateDistillationPenaltyCache(userID int) error {

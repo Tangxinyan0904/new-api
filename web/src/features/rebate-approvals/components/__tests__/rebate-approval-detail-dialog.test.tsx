@@ -17,42 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
-import { after, afterEach, test } from 'node:test'
 
-import { Window } from 'happy-dom'
+import { afterAll, afterEach, test } from 'vitest'
 
 import type { RebateApprovalDetail } from '../../types'
 
-const domWindow = new Window({ url: 'http://localhost' })
-const domGlobals = [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'KeyboardEvent',
-  'PointerEvent',
-  'MouseEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const
-
-for (const key of domGlobals) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
-
+const domWindow = window
+window.history.replaceState({}, '', '/')
 const { act } = await import('react')
 const { createRoot } = await import('react-dom/client')
 const { createInstance } = await import('i18next')
@@ -186,9 +157,7 @@ afterEach(async () => {
   document.body.replaceChildren()
 })
 
-after(() => {
-  domWindow.close()
-})
+afterAll(() => {})
 
 test('shows a translated business error and retries the detail request', async () => {
   let calls = 0

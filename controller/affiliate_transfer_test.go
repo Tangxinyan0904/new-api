@@ -99,45 +99,35 @@ func TestApproveAffiliateTransferRequestRecordsDetailedAudit(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 
-	var logs []model.Log
-	require.NoError(t, db.Where("type = ?", model.LogTypeManage).Order("id ASC").Find(&logs).Error)
+	logs := affiliateTransferAuditLogs(t, db, 0)
 	require.Len(t, logs, 2)
 
 	adminLog := logs[0]
 	assert.Equal(t, 1, adminLog.UserId)
 	assert.Contains(t, adminLog.Content, "Approved rebate transfer request #7 for user 302")
 
-	adminOther, err := common.StrToMap(adminLog.Other)
-	require.NoError(t, err)
-	adminOp, ok := adminOther["op"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "affiliate.transfer.approve", adminOp["action"])
-	adminParams, ok := adminOp["params"].(map[string]interface{})
-	require.True(t, ok)
-	assert.EqualValues(t, 7, adminParams["request_id"])
-	assert.EqualValues(t, 302, adminParams["target_user_id"])
-	assert.EqualValues(t, 200, adminParams["invite_reward_quota"])
-	assert.EqualValues(t, 300, adminParams["recharge_rebate_quota"])
-	assert.EqualValues(t, 500, adminParams["total_quota"])
+	require.NotNil(t, adminLog.Other.Op)
+	assert.Equal(t, "affiliate.transfer.approve", adminLog.Other.Op.Action)
+	adminParams := adminLog.Other.Op.Params
+	assert.Equal(t, "7", auditParamJSON(t, adminParams["request_id"]))
+	assert.Equal(t, "302", auditParamJSON(t, adminParams["target_user_id"]))
+	assert.Equal(t, "200", auditParamJSON(t, adminParams["invite_reward_quota"]))
+	assert.Equal(t, "300", auditParamJSON(t, adminParams["recharge_rebate_quota"]))
+	assert.Equal(t, "500", auditParamJSON(t, adminParams["total_quota"]))
 
 	userLog := logs[1]
 	assert.Equal(t, 302, userLog.UserId)
 	assert.Equal(t, "rebate-user", userLog.Username)
 	assert.Contains(t, userLog.Content, "Administrator approved")
 
-	userOther, err := common.StrToMap(userLog.Other)
-	require.NoError(t, err)
-	userOp, ok := userOther["op"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "affiliate.transfer.approved_for_user", userOp["action"])
-	userParams, ok := userOp["params"].(map[string]interface{})
-	require.True(t, ok)
-	assert.EqualValues(t, 7, userParams["request_id"])
-	assert.EqualValues(t, 500, userParams["quota"])
-	userAdminInfo, ok := userOther["admin_info"].(map[string]interface{})
-	require.True(t, ok)
-	assert.EqualValues(t, 1, userAdminInfo["admin_id"])
-	assert.Equal(t, "root-admin", userAdminInfo["admin_username"])
+	require.NotNil(t, userLog.Other.Op)
+	assert.Equal(t, "affiliate.transfer.approved_for_user", userLog.Other.Op.Action)
+	userParams := userLog.Other.Op.Params
+	assert.Equal(t, "7", auditParamJSON(t, userParams["request_id"]))
+	assert.Equal(t, "500", auditParamJSON(t, userParams["quota"]))
+	require.NotNil(t, userLog.Other.AdminInfo)
+	assert.Equal(t, 1, userLog.Other.AdminInfo.AdminID)
+	assert.Equal(t, "root-admin", userLog.Other.AdminInfo.AdminUsername)
 }
 
 func TestApproveAffiliateTransferRequestDoesNotRecordUserLogWhenApprovalFails(t *testing.T) {
@@ -150,14 +140,10 @@ func TestApproveAffiliateTransferRequestDoesNotRecordUserLogWhenApprovalFails(t 
 	_, secondCtx := newAffiliateTransferApprovalContext(7)
 	ApproveAffiliateTransferRequest(secondCtx)
 
-	var logs []model.Log
-	require.NoError(t, db.Where("user_id = ? AND type = ?", 302, model.LogTypeManage).Find(&logs).Error)
+	logs := affiliateTransferAuditLogs(t, db, 302)
 	require.Len(t, logs, 1)
-	other, err := common.StrToMap(logs[0].Other)
-	require.NoError(t, err)
-	op, ok := other["op"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "affiliate.transfer.approved_for_user", op["action"])
+	require.NotNil(t, logs[0].Other.Op)
+	assert.Equal(t, "affiliate.transfer.approved_for_user", logs[0].Other.Op.Action)
 }
 
 func TestApproveAllAffiliateTransferRequestsRecordsEveryApproval(t *testing.T) {
@@ -177,21 +163,16 @@ func TestApproveAllAffiliateTransferRequestsRecordsEveryApproval(t *testing.T) {
 	assert.True(t, response.Success)
 	assert.Equal(t, 2, response.Data.ApprovedCount)
 
-	var logs []model.Log
-	require.NoError(t, db.Where("type = ?", model.LogTypeManage).Order("id ASC").Find(&logs).Error)
+	logs := affiliateTransferAuditLogs(t, db, 0)
 	require.Len(t, logs, 4)
 
 	adminRequestIds := make([]int, 0, 2)
 	userRequestIds := make([]int, 0, 2)
 	for _, log := range logs {
-		other, err := common.StrToMap(log.Other)
+		require.NotNil(t, log.Other.Op)
+		requestId, err := strconv.Atoi(auditParamJSON(t, log.Other.Op.Params["request_id"]))
 		require.NoError(t, err)
-		op, ok := other["op"].(map[string]interface{})
-		require.True(t, ok)
-		params, ok := op["params"].(map[string]interface{})
-		require.True(t, ok)
-		requestId := int(params["request_id"].(float64))
-		switch op["action"] {
+		switch log.Other.Op.Action {
 		case "affiliate.transfer.approve":
 			assert.Equal(t, 1, log.UserId)
 			adminRequestIds = append(adminRequestIds, requestId)
@@ -199,7 +180,7 @@ func TestApproveAllAffiliateTransferRequestsRecordsEveryApproval(t *testing.T) {
 			assert.Contains(t, []int{302, 303}, log.UserId)
 			userRequestIds = append(userRequestIds, requestId)
 		default:
-			t.Fatalf("unexpected affiliate transfer log action: %v", op["action"])
+			t.Fatalf("unexpected affiliate transfer log action: %v", log.Other.Op.Action)
 		}
 	}
 	assert.ElementsMatch(t, []int{7, 8}, adminRequestIds)
@@ -230,15 +211,34 @@ func TestApproveAllAffiliateTransferRequestsRollsBackWithoutLogs(t *testing.T) {
 	assert.Equal(t, 10, firstUser.Quota)
 	assert.Equal(t, 200, firstUser.AffQuota)
 
-	var logCount int64
-	require.NoError(t, db.Model(&model.Log{}).Where("type = ?", model.LogTypeManage).Count(&logCount).Error)
-	assert.Zero(t, logCount)
+	assert.Empty(t, affiliateTransferAuditLogs(t, db, 0))
+}
+
+// auditParamJSON renders one stored audit parameter as JSON text.
+func auditParamJSON(t *testing.T, value any) string {
+	t.Helper()
+	raw, err := common.Marshal(value)
+	require.NoError(t, err)
+	return string(raw)
+}
+
+// affiliateTransferAuditLogs returns affiliate transfer audit rows in insertion
+// order, optionally limited to one log owner.
+func affiliateTransferAuditLogs(t *testing.T, db *gorm.DB, userID int) []model.AuditLog {
+	t.Helper()
+	query := db.Table("audit_logs").Where("action LIKE ?", "affiliate.transfer.%")
+	if userID > 0 {
+		query = query.Where("user_id = ?", userID)
+	}
+	var logs []model.AuditLog
+	require.NoError(t, query.Order("id ASC").Find(&logs).Error)
+	return logs
 }
 
 func setupAffiliateTransferApprovalControllerFixture(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.AffiliateRebateRateChange{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.AffiliateRebateRateChange{}, &model.Log{}, &model.AuditLog{}))
 
 	require.NoError(t, db.Create(&model.User{
 		Id:       1,
@@ -282,7 +282,7 @@ func newAffiliateTransferApprovalContext(requestID int) (*httptest.ResponseRecor
 func setupAffiliateTransferApproveAllControllerFixture(t *testing.T, invalidSecond bool) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.AffiliateRebateRateChange{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.AffiliateTransferRequest{}, &model.AffiliateRebateRateChange{}, &model.Log{}, &model.AuditLog{}))
 
 	users := []model.User{
 		{

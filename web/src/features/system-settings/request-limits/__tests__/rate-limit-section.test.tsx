@@ -16,12 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { expect, mock, test } from 'bun:test'
-
 import * as ReactQuery from '@tanstack/react-query'
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
+import { expect, test, vi } from 'vitest'
 
 import type { RateLimitFormValues } from '../types'
 
@@ -32,8 +31,8 @@ type MutationOptions = {
 let mutationOptions: MutationOptions | undefined
 let toastErrorMessage = ''
 
-mock.module('@tanstack/react-query', () => ({
-  ...ReactQuery,
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
   useMutation: (options: MutationOptions) => {
     mutationOptions = options
     return {
@@ -43,7 +42,7 @@ mock.module('@tanstack/react-query', () => ({
   },
 }))
 
-mock.module('sonner', () => ({
+vi.mock('sonner', () => ({
   toast: {
     error: (message: string) => {
       toastErrorMessage = message
@@ -52,19 +51,19 @@ mock.module('sonner', () => ({
   },
 }))
 
-mock.module('../distillation-penalties-table', () => ({
+vi.mock('../distillation-penalties-table', () => ({
   DistillationPenaltiesTable: () => null,
 }))
 
-mock.module('../distillation-settings', () => ({
+vi.mock('../distillation-settings', () => ({
   DistillationSettings: () => null,
 }))
 
-mock.module('../rate-limit-visual-editor', () => ({
+vi.mock('../rate-limit-visual-editor', () => ({
   RateLimitVisualEditor: () => null,
 }))
 
-mock.module('../user-rate-limit-editor', () => ({
+vi.mock('../user-rate-limit-editor', () => ({
   UserRateLimitEditor: () => null,
 }))
 

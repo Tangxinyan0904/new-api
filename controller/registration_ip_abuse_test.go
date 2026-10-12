@@ -130,8 +130,8 @@ func TestRegistrationIPAbuseMutationsAreIdempotentAndRecordStructuredAudits(t *t
 	assert.True(t, removedResponse.Success, removedResponse.Message)
 	assert.False(t, removedResponse.Data.Allowlisted)
 
-	var auditLogs []model.Log
-	require.NoError(t, db.Where("type = ?", model.LogTypeManage).Order("id ASC").Find(&auditLogs).Error)
+	var auditLogs []model.AuditLog
+	require.NoError(t, db.Table("audit_logs").Where("action LIKE ?", "registration_ip.%").Order("id ASC").Find(&auditLogs).Error)
 	require.Len(t, auditLogs, 3)
 	wantActions := []string{
 		"registration_ip.allowlist_add",
@@ -139,14 +139,10 @@ func TestRegistrationIPAbuseMutationsAreIdempotentAndRecordStructuredAudits(t *t
 		"registration_ip.allowlist_remove",
 	}
 	for index, auditLog := range auditLogs {
-		other, err := common.StrToMap(auditLog.Other)
-		require.NoError(t, err)
-		op, ok := other["op"].(map[string]interface{})
-		require.True(t, ok)
-		assert.Equal(t, wantActions[index], op["action"])
-		params, ok := op["params"].(map[string]interface{})
-		require.True(t, ok)
-		assert.Equal(t, registrationIP, params["ip"])
+		require.NotNil(t, auditLog.Other.Op)
+		assert.Equal(t, wantActions[index], auditLog.Other.Op.Action)
+		params := auditLog.Other.Op.Params
+		assert.JSONEq(t, `"`+registrationIP+`"`, auditParamJSON(t, params["ip"]))
 		assert.NotNil(t, params["affected_account_count"])
 		assert.NotNil(t, params["affected_user_ids"])
 		assert.NotNil(t, params["allowlisted"])
@@ -174,14 +170,9 @@ func TestRegistrationIPAbuseUnblockRestoresEligibleAccountsAndRecordsAudit(t *te
 	assert.ElementsMatch(t, userIDs, response.Data.AffectedUserIDs)
 	assert.False(t, response.Data.Allowlisted)
 
-	var auditLog model.Log
-	require.NoError(t, db.Where("type = ?", model.LogTypeManage).First(&auditLog).Error)
+	var auditLog model.AuditLog
+	require.NoError(t, db.Table("audit_logs").Where("action = ?", "registration_ip.unblock").First(&auditLog).Error)
 	assert.Contains(t, auditLog.Content, registrationIP)
-	other, err := common.StrToMap(auditLog.Other)
-	require.NoError(t, err)
-	op, ok := other["op"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "registration_ip.unblock", op["action"])
 }
 
 func TestRegistrationIPAbuseRejectsInvalidAndCIDRInputsWithoutAudit(t *testing.T) {
@@ -214,7 +205,7 @@ func TestRegistrationIPAbuseRejectsInvalidAndCIDRInputsWithoutAudit(t *testing.T
 	assert.False(t, invalidPathResponse.Success)
 
 	var auditCount int64
-	require.NoError(t, db.Model(&model.Log{}).Where("type = ?", model.LogTypeManage).Count(&auditCount).Error)
+	require.NoError(t, db.Table("audit_logs").Where("action LIKE ?", "registration_ip.%").Count(&auditCount).Error)
 	assert.Zero(t, auditCount)
 }
 

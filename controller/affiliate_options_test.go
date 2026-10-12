@@ -24,7 +24,7 @@ type affiliateOptionsResponse struct {
 func setupAffiliateOptionsControllerTest(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupGeoIPOptionControllerTest(t)
-	require.NoError(t, db.AutoMigrate(&model.AffiliateRebateRateChange{}))
+	require.NoError(t, db.AutoMigrate(&model.AffiliateRebateRateChange{}, &model.AuditLog{}))
 
 	previous := operation_setting.GetAffiliateSetting()
 	previousInviter, previousInvitee := common.QuotaForInviter, common.QuotaForInvitee
@@ -106,7 +106,7 @@ func TestUpdateAffiliateOptionsSavesSettingsAndRateHistory(t *testing.T) {
 	assert.Equal(t, "8.5", option.Value)
 
 	var auditCount int64
-	require.NoError(t, db.Model(&model.Log{}).Where("content LIKE ?", "Updated invitation rebate settings%").Count(&auditCount).Error)
+	require.NoError(t, db.Table("audit_logs").Where("action = ?", "affiliate.settings.update").Count(&auditCount).Error)
 	assert.EqualValues(t, 1, auditCount)
 }
 

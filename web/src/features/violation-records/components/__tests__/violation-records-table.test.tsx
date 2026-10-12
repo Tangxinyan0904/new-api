@@ -16,49 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, afterEach, beforeEach, mock, test } from 'bun:test'
 import assert from 'node:assert/strict'
 
-import { Window } from 'happy-dom'
+import { afterAll, afterEach, beforeEach, test, vi } from 'vitest'
 
 import type { ViolationRecordsApiResponse } from '../../types'
 
-const domWindow = new Window({ url: 'http://localhost/violations' })
-const domGlobals = [
-  'window',
-  'document',
-  'navigator',
-  'localStorage',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'KeyboardEvent',
-  'PointerEvent',
-  'MouseEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const
-
-for (const key of domGlobals) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
-
+const domWindow = window
+window.history.replaceState({}, '', '/violations')
 let apiResponse: ViolationRecordsApiResponse
 const apiCalls: string[] = []
 const routeSearch = { page: 1, pageSize: 20 }
 
-mock.module('@/lib/api', () => ({
+vi.mock('@/lib/api', () => ({
   api: {
     get: async (url: string) => {
       apiCalls.push(url)
@@ -69,7 +39,7 @@ mock.module('@/lib/api', () => ({
   getStatus: async () => ({}),
 }))
 
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({
     useSearch: () => routeSearch,
     useNavigate: () => () => undefined,
@@ -161,9 +131,7 @@ afterEach(async () => {
   document.body.replaceChildren()
 })
 
-afterAll(() => {
-  domWindow.close()
-})
+afterAll(() => {})
 
 test('renders violation records and enables next page from server total', async () => {
   apiResponse = {
@@ -175,25 +143,25 @@ test('renders violation records and enables next page from server total', async 
       items: [
         {
           id: 1,
-          cycle_started_at: 1_700_000_000,
-          triggered_at: 1_700_000_000,
+          cycle_started_at: 1_700_049_600,
+          triggered_at: 1_700_049_600,
           request_count: 200,
           detection_threshold: 200,
           penalty_rpm: 10,
           action: 'temporary_limit',
-          effective_until: 1_700_000_600,
-          created_at: 1_700_000_000,
+          effective_until: 1_700_050_200,
+          created_at: 1_700_049_600,
         },
         {
           id: 2,
-          cycle_started_at: 1_700_000_000,
-          triggered_at: 1_700_000_700,
+          cycle_started_at: 1_700_049_600,
+          triggered_at: 1_700_050_300,
           request_count: 200,
           detection_threshold: 200,
           penalty_rpm: 10,
           action: 'permanent_ban',
           effective_until: 0,
-          created_at: 1_700_000_700,
+          created_at: 1_700_050_300,
         },
       ],
     },
@@ -203,7 +171,7 @@ test('renders violation records and enables next page from server total', async 
 
   await waitForCondition(() => {
     assert.ok(host)
-    assert.match(host.textContent || '', /2023-11-14/)
+    assert.match(host.textContent || '', /2023-11-15/)
     assert.match(host.textContent || '', /200 \/ 200/)
     assert.match(host.textContent || '', /Temporary limit/)
     assert.match(host.textContent || '', /Permanent non-stream ban/)

@@ -16,42 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, afterEach, beforeEach, expect, mock, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { Window } from 'happy-dom'
-
-const domWindow = new Window({ url: 'http://localhost/pricing' })
+const domWindow = window
+window.history.replaceState({}, '', '/pricing')
 Object.defineProperty(domWindow.document, 'compatMode', {
   configurable: true,
   value: 'CSS1Compat',
 })
-
-for (const key of [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'HTMLInputElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'MouseEvent',
-  'PointerEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
 
 const navigationCalls: Array<Record<string, unknown>> = []
 let authUser: { id: number; role: number } | null = null
@@ -117,11 +89,15 @@ const publicSummary = {
   ],
 } as const
 
-const actualReactQuery = await import('@tanstack/react-query')
-const actualRouter = await import('@tanstack/react-router')
+const actualReactQuery = await vi.importActual<
+  typeof import('@tanstack/react-query')
+>('@tanstack/react-query')
+const actualRouter = await vi.importActual<
+  typeof import('@tanstack/react-router')
+>('@tanstack/react-router')
 const realUseQuery = actualReactQuery.useQuery
 
-mock.module('@tanstack/react-query', () => ({
+vi.mock('@tanstack/react-query', () => ({
   ...actualReactQuery,
   useQuery: (...args: Parameters<typeof actualReactQuery.useQuery>) => {
     const options = args[0] as { queryKey?: readonly unknown[] }
@@ -132,14 +108,14 @@ mock.module('@tanstack/react-query', () => ({
   },
 }))
 
-mock.module('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', () => ({
   ...actualRouter,
   useNavigate: () => (options: Record<string, unknown>) => {
     navigationCalls.push(options)
   },
 }))
 
-mock.module('react-i18next', () => ({
+vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
       key.replaceAll(/\{\{(\w+)\}\}/g, (_match, name: string) =>
@@ -148,12 +124,12 @@ mock.module('react-i18next', () => ({
   }),
 }))
 
-mock.module('@/stores/auth-store', () => ({
+vi.mock('@/stores/auth-store', () => ({
   useAuthStore: (selector: (state: Record<string, unknown>) => unknown) =>
     selector({ auth: { user: authUser } }),
 }))
 
-mock.module('@/components/layout', () => ({
+vi.mock('@/components/layout', () => ({
   PublicLayout: (props: { children: React.ReactNode }) => (
     <div data-testid='public-layout'>{props.children}</div>
   ),
@@ -176,14 +152,14 @@ mock.module('@/components/layout', () => ({
   ),
 }))
 
-mock.module('@/components/page-transition', () => ({
+vi.mock('@/components/page-transition', () => ({
   PageTransition: (props: {
     children: React.ReactNode
     className?: string
   }) => <div className={props.className}>{props.children}</div>,
 }))
 
-mock.module('@/features/pricing/components', () => ({
+vi.mock('@/features/pricing/components', () => ({
   LoadingSkeleton: () => <div data-testid='pricing-loading' />,
   EmptyState: () => <div data-testid='pricing-empty' />,
   SearchBar: (props: { value: string; onChange: (value: string) => void }) => (
@@ -200,7 +176,7 @@ mock.module('@/features/pricing/components', () => ({
   ModelDetailsDrawer: () => <div data-testid='model-details' />,
 }))
 
-mock.module('@/features/pricing/hooks/use-pricing-data', () => ({
+vi.mock('@/features/pricing/hooks/use-pricing-data', () => ({
   usePricingData: () => ({
     models: [{ model_name: 'gpt-primary' }],
     vendors: [],
@@ -214,7 +190,7 @@ mock.module('@/features/pricing/hooks/use-pricing-data', () => ({
   }),
 }))
 
-mock.module('@/features/pricing/hooks/use-filters', () => ({
+vi.mock('@/features/pricing/hooks/use-filters', () => ({
   useFilters: (models: Array<{ model_name: string }>) => ({
     searchInput: '',
     sortBy: 'name',
@@ -283,9 +259,7 @@ afterEach(async () => {
   host = null
 })
 
-afterAll(() => {
-  domWindow.close()
-})
+afterAll(() => {})
 
 test('keeps a stable public status region while loading', async () => {
   await act(async () => root?.render(<PublicStatusSummary />))
@@ -336,7 +310,7 @@ test('renders operational, degraded, failed, and unknown states with text and ic
   expect(host?.textContent).toContain('OpenAI global')
   expect(
     host?.querySelector<HTMLElement>('[title="OpenAI global"]')?.style.color
-  ).toBe('#123ABC')
+  ).toBe('rgb(18, 58, 188)')
   expect(host?.textContent).toContain('321 ms')
   expect(host?.textContent).toContain('99.13%')
 })

@@ -10,6 +10,16 @@ import (
 	"github.com/QuantumNous/new-api/common"
 )
 
+// maxRateLimitDurationSeconds is the largest window the count cap is computed
+// against (24h). Token-bucket capacity is count*duration; this keeps that
+// product inside int64 when the window is at most a day.
+const maxRateLimitDurationSeconds = 24 * 60 * 60
+
+// maxModelRequestRateLimitCount is math.MaxInt64 / maxRateLimitDurationSeconds.
+// It is the largest count that cannot overflow int64(count)*duration for a
+// window of at most 24 hours.
+const maxModelRequestRateLimitCount int64 = math.MaxInt64 / maxRateLimitDurationSeconds
+
 var ModelRequestRateLimitEnabled = false
 var ModelRequestRateLimitDurationMinutes = 1
 var ModelRequestRateLimitCount = 0

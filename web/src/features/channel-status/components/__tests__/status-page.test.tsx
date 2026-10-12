@@ -16,15 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, afterEach, beforeEach, expect, mock, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { Window } from 'happy-dom'
-
-const domWindow = new Window({ url: 'http://localhost/channel-status' })
-domWindow.document.write(
-  '<!doctype html><html><head></head><body></body></html>'
-)
-domWindow.document.close()
+const domWindow = window
+window.history.replaceState({}, '', '/channel-status')
 Object.defineProperty(domWindow.document, 'compatMode', {
   configurable: true,
   value: 'CSS1Compat',
@@ -153,34 +148,6 @@ const monitorDetail = {
   timeline: [],
 } as const
 
-for (const key of [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'HTMLDivElement',
-  'SVGElement',
-  'Node',
-  'Element',
-  'Event',
-  'MouseEvent',
-  'PointerEvent',
-  'KeyboardEvent',
-  'FocusEvent',
-  'CustomEvent',
-  'MutationObserver',
-  'ResizeObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-  'getComputedStyle',
-] as const) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
-
 Object.defineProperty(globalThis, 'matchMedia', {
   configurable: true,
   value: () => ({
@@ -195,7 +162,7 @@ Object.defineProperty(globalThis, 'matchMedia', {
   }),
 })
 
-mock.module('@/lib/http-client', () => ({
+vi.mock('@/lib/http-client', () => ({
   api: {
     get: async (url: string, config?: { params?: Record<string, unknown> }) => {
       apiCalls.push({ url, params: config?.params })
@@ -216,7 +183,7 @@ mock.module('@/lib/http-client', () => ({
   },
 }))
 
-mock.module('react-i18next', () => ({
+vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string, values?: Record<string, unknown>) =>
       key.replaceAll(/\{\{(\w+)\}\}/g, (_match, name: string) =>
@@ -307,9 +274,7 @@ afterEach(async () => {
   host = null
 })
 
-afterAll(() => {
-  domWindow.close()
-})
+afterAll(() => {})
 
 test('switching the availability window updates the monitor metrics', async () => {
   await renderWithQueries(<ChannelStatus />)
@@ -389,7 +354,7 @@ test('monitor cards are keyboard focusable and open primary plus extra model det
   expect(document.activeElement).toBe(card)
   expect(
     card.querySelector<HTMLElement>('[data-slot="monitor-name"]')?.style.color
-  ).toBe('#123ABC')
+  ).toBe('rgb(18, 58, 188)')
 
   await act(async () => card.click())
 
@@ -401,7 +366,7 @@ test('monitor cards are keyboard focusable and open primary plus extra model det
     document.body.querySelector<HTMLElement>(
       '[data-slot="monitor-detail-name"]'
     )?.style.color
-  ).toBe('#123ABC')
+  ).toBe('rgb(18, 58, 188)')
 })
 
 test('renders real timeline points oldest to newest across the full row', async () => {
@@ -433,7 +398,7 @@ test('renders real timeline points oldest to newest across the full row', async 
 test('unknown state keeps text, an icon, bounded names, and an empty timeline message', async () => {
   const longName =
     'A very long public monitor name that must remain inside its card'
-  const onSelect = mock(() => undefined)
+  const onSelect = vi.fn(() => undefined)
 
   await act(async () => {
     root?.render(

@@ -16,31 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { afterAll, afterEach, beforeEach, expect, mock, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, expect, test, vi } from 'vitest'
 
-import { Window } from 'happy-dom'
-
-const domWindow = new Window({ url: 'http://localhost/channel-status' })
-
-for (const key of [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'Node',
-  'Element',
-  'Event',
-  'MouseEvent',
-  'MutationObserver',
-  'requestAnimationFrame',
-  'cancelAnimationFrame',
-] as const) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
+window.history.replaceState({}, '', '/channel-status')
 
 const originalSetInterval = globalThis.setInterval
 const originalClearInterval = globalThis.clearInterval
@@ -116,11 +94,10 @@ afterEach(async () => {
 afterAll(() => {
   globalThis.setInterval = originalSetInterval
   globalThis.clearInterval = originalClearInterval
-  domWindow.close()
 })
 
 test('counts down from sixty and refreshes exactly once at zero', async () => {
-  const onRefresh = mock(async () => undefined)
+  const onRefresh = vi.fn(async () => undefined)
   await act(async () => root?.render(<RefreshHarness onRefresh={onRefresh} />))
 
   expect(currentState()).toBe('true:60:false')
@@ -140,7 +117,7 @@ test('counts down from sixty and refreshes exactly once at zero', async () => {
 })
 
 test('toggle stops and restarts the automatic countdown', async () => {
-  const onRefresh = mock(async () => undefined)
+  const onRefresh = vi.fn(async () => undefined)
   await act(async () => root?.render(<RefreshHarness onRefresh={onRefresh} />))
   const toggle = host?.querySelectorAll('button')[0]
 
@@ -158,7 +135,7 @@ test('toggle stops and restarts the automatic countdown', async () => {
 })
 
 test('manual refresh resets the countdown and unmount clears the timer', async () => {
-  const onRefresh = mock(async () => undefined)
+  const onRefresh = vi.fn(async () => undefined)
   await act(async () => root?.render(<RefreshHarness onRefresh={onRefresh} />))
   const tick = [...intervalCallbacks.values()][0]
   await act(async () => tick?.())

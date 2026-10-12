@@ -16,44 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import assert from 'node:assert/strict'
-import { after, beforeEach, test } from 'node:test'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { beforeEach, expect, test } from 'vitest'
 
-import { Window } from 'happy-dom'
+import { THEME_STORAGE_KEYS } from '@/lib/theme-storage'
 
-const domWindow = new Window({ url: 'https://example.test/' })
-const domGlobals = [
-  'window',
-  'document',
-  'navigator',
-  'HTMLElement',
-  'HTMLButtonElement',
-  'Node',
-  'Element',
-  'Event',
-  'MouseEvent',
-] as const
-
-for (const key of domGlobals) {
-  Object.defineProperty(globalThis, key, {
-    configurable: true,
-    value: domWindow[key],
-  })
-}
-
-const { act } = await import('react')
-const { createRoot } = await import('react-dom/client')
-const { ThemeCustomizationProvider, useThemeCustomization } =
-  await import('../theme-customization-provider')
-
-const reactTestGlobals = globalThis as typeof globalThis & {
-  IS_REACT_ACT_ENVIRONMENT?: boolean
-}
-reactTestGlobals.IS_REACT_ACT_ENVIRONMENT = true
-
-function clearPresetCookie() {
-  document.cookie = 'theme_preset=; path=/; max-age=0'
-}
+import {
+  ThemeCustomizationProvider,
+  useThemeCustomization,
+} from '../theme-customization-provider'
 
 function ThemeProbe() {
   const theme = useThemeCustomization()
@@ -68,81 +40,39 @@ function ThemeProbe() {
   )
 }
 
-beforeEach(() => {
-  clearPresetCookie()
-  document.body.removeAttribute('data-theme-preset')
-  document.body.replaceChildren()
-})
-
-after(() => {
-  domWindow.close()
-})
-
-test('uses and persists simple-large when the browser has no saved preset', async () => {
-  const host = document.createElement('div')
-  document.body.append(host)
-  const root = createRoot(host)
-
-  await act(async () => {
-    root.render(
-      <ThemeCustomizationProvider>
-        <ThemeProbe />
-      </ThemeCustomizationProvider>
-    )
-  })
-
-  assert.equal(
-    host.querySelector('[data-testid="preset"]')?.textContent,
-    'simple-large'
+function renderProvider() {
+  return render(
+    <ThemeCustomizationProvider>
+      <ThemeProbe />
+    </ThemeCustomizationProvider>
   )
-  assert.equal(document.body.dataset.themePreset, 'simple-large')
-  assert.match(document.cookie, /(?:^|; )theme_preset=simple-large(?:;|$)/)
+}
 
-  await act(async () => root.unmount())
-  host.remove()
+beforeEach(() => {
+  localStorage.clear()
+  document.body.removeAttribute('data-theme-preset')
+})
+
+test('uses simple-large when the browser has no saved preset', () => {
+  renderProvider()
+
+  expect(screen.getByTestId('preset')).toHaveTextContent('simple-large')
+  expect(document.body).toHaveAttribute('data-theme-preset', 'simple-large')
+  expect(localStorage.getItem(THEME_STORAGE_KEYS.preset)).toBeNull()
 })
 
 test('persists an explicit base preset and restores it after remount', async () => {
-  document.cookie = 'theme_preset=simple-large; path=/'
-  const firstHost = document.createElement('div')
-  document.body.append(firstHost)
-  const firstRoot = createRoot(firstHost)
+  const user = userEvent.setup()
+  const first = renderProvider()
 
-  await act(async () => {
-    firstRoot.render(
-      <ThemeCustomizationProvider>
-        <ThemeProbe />
-      </ThemeCustomizationProvider>
-    )
-  })
+  await user.click(screen.getByRole('button', { name: 'Select base preset' }))
 
-  const selectBaseButton = firstHost.querySelector<HTMLButtonElement>('button')
-  assert.ok(selectBaseButton)
-  await act(async () => selectBaseButton.click())
+  expect(document.body).not.toHaveAttribute('data-theme-preset')
+  expect(localStorage.getItem(THEME_STORAGE_KEYS.preset)).toBe('default')
 
-  assert.equal(document.body.hasAttribute('data-theme-preset'), false)
-  assert.match(document.cookie, /(?:^|; )theme_preset=default(?:;|$)/)
+  first.unmount()
+  renderProvider()
 
-  await act(async () => firstRoot.unmount())
-  firstHost.remove()
-
-  const secondHost = document.createElement('div')
-  document.body.append(secondHost)
-  const secondRoot = createRoot(secondHost)
-  await act(async () => {
-    secondRoot.render(
-      <ThemeCustomizationProvider>
-        <ThemeProbe />
-      </ThemeCustomizationProvider>
-    )
-  })
-
-  assert.equal(
-    secondHost.querySelector('[data-testid="preset"]')?.textContent,
-    'default'
-  )
-  assert.equal(document.body.hasAttribute('data-theme-preset'), false)
-
-  await act(async () => secondRoot.unmount())
-  secondHost.remove()
+  expect(screen.getByTestId('preset')).toHaveTextContent('default')
+  expect(document.body).not.toHaveAttribute('data-theme-preset')
 })

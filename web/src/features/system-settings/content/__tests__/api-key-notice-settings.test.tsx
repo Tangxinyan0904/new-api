@@ -16,13 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { describe, expect, mock, test } from 'bun:test'
-
 import { createInstance } from 'i18next'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { I18nextProvider } from 'react-i18next'
+import { describe, expect, test, vi } from 'vitest'
 
-mock.module('../../hooks/use-update-option', () => ({
+vi.mock('../../hooks/use-update-option', () => ({
   useUpdateOption: () => ({
     isPending: false,
     mutateAsync: async () => ({ success: true }),
