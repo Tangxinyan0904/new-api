@@ -315,7 +315,7 @@ func UpdateTicket(c *gin.Context) {
 	}
 	var request updateTicketRequest
 	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
-		common.ApiErrorT(c, "Invalid request body")
+		common.ApiErrorT(c, "Invalid parameters")
 		return
 	}
 	ticket, err := model.UpdateTicketByStaff(id, request.Status, request.Priority)
