@@ -16,23 +16,35 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+/** Usage in quota units: charged, and at the original price (before the group ratio). */
+export interface ChannelCostUsage {
+  quota: number
+  base_quota: number
+}
+
 export interface ChannelCostChannel {
   id: number
   name: string
   type: number
   status: number
   deleted: boolean
-  /** The channel's own ratio; null means it uses the default ratio. */
+  /** Cost ratio shared by all the channel's groups; null when none was entered. */
   ratio: number | null
-  today_quota: number
-  yesterday_quota: number
-  week_quota: number
+  today: ChannelCostUsage
+  yesterday: ChannelCostUsage
+  week: ChannelCostUsage
+}
+
+export interface ChannelCostGroup {
+  name: string
+  /** The group's configured ratio; null when it has none. */
+  ratio: number | null
+  channels: ChannelCostChannel[]
 }
 
 export interface ChannelCostStats {
-  default_ratio: number
   log_consume_enabled: boolean
-  channels: ChannelCostChannel[]
+  groups: ChannelCostGroup[]
 }
 
 export type ChannelCostRange = 'today' | 'yesterday' | 'week'

@@ -25,15 +25,13 @@ import { CostRatioInput } from '../cost-ratio-input'
 
 function renderInput(options: {
   value: number | null
-  allowEmpty: boolean
   onSave: (ratio: number | null) => Promise<boolean>
 }) {
   render(
     <CostRatioInput
       value={options.value}
       label='Cost ratio of openai'
-      placeholder='Default 0.5'
-      allowEmpty={options.allowEmpty}
+      placeholder='Not set'
       onSave={options.onSave}
     />
   )
@@ -48,7 +46,7 @@ describe('CostRatioInput', () => {
   it('saves a new ratio when Enter is pressed', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn(async () => true)
-    const input = renderInput({ value: 0.4, allowEmpty: true, onSave })
+    const input = renderInput({ value: 0.4, onSave })
 
     await user.clear(input)
     await user.type(input, '0.35{Enter}')
@@ -56,10 +54,10 @@ describe('CostRatioInput', () => {
     expect(onSave).toHaveBeenCalledWith(0.35)
   })
 
-  it('clears a channel ratio to fall back to the default', async () => {
+  it('saves null when the ratio is cleared', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn(async () => true)
-    const input = renderInput({ value: 0.4, allowEmpty: true, onSave })
+    const input = renderInput({ value: 0.4, onSave })
 
     await user.clear(input)
     await user.tab()
@@ -70,7 +68,7 @@ describe('CostRatioInput', () => {
   it('does not save an unchanged ratio', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn(async () => true)
-    const input = renderInput({ value: 0.4, allowEmpty: true, onSave })
+    const input = renderInput({ value: 0.4, onSave })
 
     await user.click(input)
     await user.tab()
@@ -78,33 +76,27 @@ describe('CostRatioInput', () => {
     expect(onSave).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['an out-of-range ratio', true, '101'],
-    ['an empty default ratio', false, ''],
-  ])(
-    'rejects %s and restores the saved value',
-    async (_name, allowEmpty, typed) => {
-      const user = userEvent.setup()
-      const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => '')
-      const onSave = vi.fn(async () => true)
-      const input = renderInput({ value: 0.4, allowEmpty, onSave })
+  it('rejects an out-of-range ratio and restores the saved value', async () => {
+    const user = userEvent.setup()
+    const errorToast = vi.spyOn(toast, 'error').mockImplementation(() => '')
+    const onSave = vi.fn(async () => true)
+    const input = renderInput({ value: 0.4, onSave })
 
-      await user.clear(input)
-      if (typed) await user.type(input, typed)
-      await user.tab()
+    await user.clear(input)
+    await user.type(input, '101')
+    await user.tab()
 
-      expect(onSave).not.toHaveBeenCalled()
-      expect(errorToast).toHaveBeenCalledWith(
-        'Cost ratio must be between 0 and 100'
-      )
-      expect(input).toHaveValue(0.4)
-    }
-  )
+    expect(onSave).not.toHaveBeenCalled()
+    expect(errorToast).toHaveBeenCalledWith(
+      'Cost ratio must be between 0 and 100'
+    )
+    expect(input).toHaveValue(0.4)
+  })
 
   it('discards the edit on Escape without saving', async () => {
     const user = userEvent.setup()
     const onSave = vi.fn(async () => true)
-    const input = renderInput({ value: 0.4, allowEmpty: true, onSave })
+    const input = renderInput({ value: 0.4, onSave })
 
     await user.clear(input)
     await user.type(input, '0.9{Escape}')
@@ -117,7 +109,6 @@ describe('CostRatioInput', () => {
     const user = userEvent.setup()
     const input = renderInput({
       value: 0.4,
-      allowEmpty: true,
       onSave: vi.fn(async () => false),
     })
 

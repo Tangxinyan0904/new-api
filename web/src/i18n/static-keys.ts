@@ -934,6 +934,6 @@ export const STATIC_I18N_KEYS = [
   'View cost statistics',
   'Edit cost ratios',
   'View channel usage, cost, and profit.',
-  'Change the default and per-channel cost ratios.',
+  'Change the cost ratio of each channel.',
   'Channel not found',
 ] as const

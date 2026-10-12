@@ -10,17 +10,14 @@ import (
 // MaxChannelCostRatio bounds the cost ratio an administrator can enter.
 const MaxChannelCostRatio = 100
 
-// ChannelCostSetting holds the cost ratios of the cost statistics page:
-// cost = used amount × ratio. Channels without their own ratio use the default.
+// ChannelCostSetting holds the cost ratios of the cost statistics page. A cost
+// ratio is priced like a group ratio: cost = usage at the original price ×
+// ratio. Channels without a ratio count their whole usage as cost.
 type ChannelCostSetting struct {
-	DefaultRatio  float64         `json:"default_ratio"`
 	ChannelRatios map[int]float64 `json:"channel_ratios"`
 }
 
 var channelCostSetting = ChannelCostSetting{
-	// 1 counts every channel at full cost until a ratio is entered, so the
-	// page never shows profit that was not configured.
-	DefaultRatio:  1,
 	ChannelRatios: map[int]float64{},
 }
 

@@ -29,13 +29,10 @@ import {
 } from '../lib/channel-cost-math'
 
 interface CostRatioInputProps {
-  /** Saved ratio; null shows the placeholder (the channel uses the default). */
+  /** Saved ratio; null shows the placeholder. Clearing the field saves null. */
   value: number | null
-  id?: string
   label: string
   placeholder?: string
-  /** Whether clearing the field is allowed (it saves null). */
-  allowEmpty: boolean
   disabled?: boolean
   className?: string
   /** Resolves true when the ratio was saved. */
@@ -65,7 +62,7 @@ export function CostRatioInput(props: CostRatioInputProps) {
       return
     }
     const ratio = parseCostRatioInput(text)
-    if (ratio === undefined || (ratio === null && !props.allowEmpty)) {
+    if (ratio === undefined) {
       toast.error(
         t('Cost ratio must be between 0 and {{max}}', {
           max: MAX_CHANNEL_COST_RATIO,
@@ -86,7 +83,6 @@ export function CostRatioInput(props: CostRatioInputProps) {
 
   return (
     <Input
-      id={props.id}
       type='number'
       inputMode='decimal'
       min={0}

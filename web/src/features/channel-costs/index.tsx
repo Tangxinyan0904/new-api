@@ -18,14 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { TriangleAlert } from 'lucide-react'
-import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
+import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Label } from '@/components/ui/label'
 import { hasPermission } from '@/lib/admin-permissions'
 import { handleServerError } from '@/lib/handle-server-error'
 import { useAuthStore } from '@/stores/auth-store'
@@ -34,18 +33,15 @@ import {
   channelCostQueryKeys,
   getChannelCostStats,
   updateChannelCostRatio,
-  updateDefaultCostRatio,
 } from './api'
+import { ChannelCostGroupSection } from './components/channel-cost-group-section'
 import { ChannelCostSummary } from './components/channel-cost-summary'
-import { ChannelCostsTable } from './components/channel-costs-table'
-import { CostRatioInput } from './components/cost-ratio-input'
 import { getChannelCostRangeStarts } from './lib/channel-cost-math'
 import type { ApiResponse } from './types'
 
 export function ChannelCosts() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const defaultRatioId = useId()
   const user = useAuthStore((state) => state.auth.user)
   const canEdit = hasPermission(user, 'channel_cost', 'write')
   const starts = getChannelCostRangeStarts(new Date())
@@ -54,6 +50,7 @@ export function ChannelCosts() {
     queryFn: () => getChannelCostStats(starts),
   })
   const stats = query.data
+  const channels = stats?.groups.flatMap((group) => group.channels) ?? []
 
   const save = async (request: Promise<ApiResponse>): Promise<boolean> => {
     try {
@@ -76,23 +73,6 @@ export function ChannelCosts() {
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Cost Statistics')}</SectionPageLayout.Title>
-      {stats && (
-        <SectionPageLayout.Actions>
-          <div className='flex items-center gap-2'>
-            <Label htmlFor={defaultRatioId} className='text-sm'>
-              {t('Default cost ratio')}
-            </Label>
-            <CostRatioInput
-              id={defaultRatioId}
-              value={stats.default_ratio}
-              label={t('Default cost ratio')}
-              allowEmpty={false}
-              disabled={!canEdit}
-              onSave={(ratio) => save(updateDefaultCostRatio(ratio ?? 0))}
-            />
-          </div>
-        </SectionPageLayout.Actions>
-      )}
       <SectionPageLayout.Content>
         {query.isError ? (
           <ErrorState
@@ -111,24 +91,23 @@ export function ChannelCosts() {
                 </AlertDescription>
               </Alert>
             )}
-            <ChannelCostSummary
-              channels={stats?.channels ?? []}
-              defaultRatio={stats?.default_ratio ?? 1}
-              loading={query.isLoading}
-            />
-            {stats && (
-              <ChannelCostsTable
-                channels={stats.channels}
-                defaultRatio={stats.default_ratio}
+            <ChannelCostSummary channels={channels} loading={query.isLoading} />
+            {stats?.groups.map((group) => (
+              <ChannelCostGroupSection
+                key={group.name}
+                group={group}
                 canEdit={canEdit}
                 onSaveRatio={(channelId, ratio) =>
                   save(updateChannelCostRatio(channelId, ratio))
                 }
               />
+            ))}
+            {stats && stats.groups.length === 0 && (
+              <EmptyState title={t('No channels yet')} bordered />
             )}
             <p className='text-muted-foreground text-xs leading-relaxed'>
               {t(
-                'Cost = usage amount × cost ratio; profit = usage amount − cost. Channels without their own ratio use the default ratio. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today.'
+                "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today."
               )}
             </p>
           </div>

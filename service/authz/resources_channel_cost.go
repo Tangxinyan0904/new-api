@@ -22,7 +22,7 @@ func init() {
 			{
 				Action:         ActionWrite,
 				LabelKey:       "Edit cost ratios",
-				DescriptionKey: "Change the default and per-channel cost ratios.",
+				DescriptionKey: "Change the cost ratio of each channel.",
 			},
 		},
 	})

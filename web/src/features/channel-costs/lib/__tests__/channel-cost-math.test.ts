@@ -26,21 +26,25 @@ import {
   sumChannelCostFigures,
 } from '../channel-cost-math'
 
+/** Usage per range as [charged quota, quota at the original price]. */
 function channel(
-  id: number,
   ratio: number | null,
-  quotas: [number, number, number]
+  usage: Partial<Record<'today' | 'yesterday' | 'week', [number, number]>>
 ): ChannelCostChannel {
+  const range = (pair?: [number, number]) => ({
+    quota: pair?.[0] ?? 0,
+    base_quota: pair?.[1] ?? 0,
+  })
   return {
-    id,
-    name: `channel-${id}`,
+    id: 1,
+    name: 'channel-1',
     type: 1,
     status: 1,
     deleted: false,
     ratio,
-    today_quota: quotas[0],
-    yesterday_quota: quotas[1],
-    week_quota: quotas[2],
+    today: range(usage.today),
+    yesterday: range(usage.yesterday),
+    week: range(usage.week),
   }
 }
 
@@ -67,53 +71,46 @@ describe('getChannelCostRangeStarts', () => {
 })
 
 describe('channelCostFigures', () => {
-  it('uses the channel ratio when it has one', () => {
+  it('prices the original-price usage at the cost ratio', () => {
+    // Sold at group ratio 0.1, bought at 0.08: 1000 charged is 10000 at the
+    // original price, which costs 800.
     expect(
-      channelCostFigures(channel(1, 0.4, [1000, 0, 0]), 'today', 0.9)
-    ).toEqual({
-      used: 1000,
-      cost: 400,
-      profit: 600,
-    })
+      channelCostFigures(channel(0.08, { today: [1000, 10000] }), 'today')
+    ).toEqual({ used: 1000, cost: 800, profit: 200 })
   })
 
-  it('falls back to the default ratio, including an explicit zero', () => {
+  it('counts the whole usage as cost when no cost ratio is set', () => {
     expect(
-      channelCostFigures(channel(1, null, [0, 500, 0]), 'yesterday', 0.5)
-    ).toEqual({
-      used: 500,
-      cost: 250,
-      profit: 250,
-    })
-    expect(channelCostFigures(channel(1, 0, [0, 0, 800]), 'week', 0.5)).toEqual(
-      {
-        used: 800,
-        cost: 0,
-        profit: 800,
-      }
-    )
+      channelCostFigures(channel(null, { yesterday: [500, 2500] }), 'yesterday')
+    ).toEqual({ used: 500, cost: 500, profit: 0 })
   })
 
-  it('reports a loss when the ratio is above 1', () => {
+  it('treats an explicit zero cost ratio as free', () => {
     expect(
-      channelCostFigures(channel(1, 1.25, [400, 0, 0]), 'today', 1).profit
-    ).toBe(-100)
+      channelCostFigures(channel(0, { week: [800, 4000] }), 'week')
+    ).toEqual({ used: 800, cost: 0, profit: 800 })
+  })
+
+  it('reports a loss when the cost ratio is above the charged ratio', () => {
+    expect(
+      channelCostFigures(channel(0.3, { today: [400, 2000] }), 'today').profit
+    ).toBe(-200)
   })
 })
 
 describe('sumChannelCostFigures', () => {
-  it('adds up every channel with its own effective ratio', () => {
+  it('adds up every channel with its own cost ratio', () => {
     const channels = [
-      channel(1, 0.5, [100, 0, 1000]),
-      channel(2, null, [200, 0, 2000]),
+      channel(0.05, { week: [1000, 10000] }),
+      channel(null, { week: [2000, 4000] }),
     ]
 
-    expect(sumChannelCostFigures(channels, 'week', 0.25)).toEqual({
+    expect(sumChannelCostFigures(channels, 'week')).toEqual({
       used: 3000,
-      cost: 1000,
-      profit: 2000,
+      cost: 2500,
+      profit: 500,
     })
-    expect(sumChannelCostFigures([], 'today', 1)).toEqual({
+    expect(sumChannelCostFigures([], 'today')).toEqual({
       used: 0,
       cost: 0,
       profit: 0,

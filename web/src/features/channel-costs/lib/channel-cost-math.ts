@@ -50,38 +50,27 @@ export function getChannelCostRangeStarts(now: Date): ChannelCostRangeStarts {
   }
 }
 
-export function effectiveCostRatio(
-  channel: ChannelCostChannel,
-  defaultRatio: number
-): number {
-  return channel.ratio ?? defaultRatio
-}
-
-const RANGE_QUOTA: Record<ChannelCostRange, keyof ChannelCostChannel> = {
-  today: 'today_quota',
-  yesterday: 'yesterday_quota',
-  week: 'week_quota',
-}
-
-/** cost = used × ratio, profit = used − cost. */
+/**
+ * cost = usage at the original price × cost ratio; without a cost ratio the
+ * whole usage counts as cost. profit = usage − cost.
+ */
 export function channelCostFigures(
   channel: ChannelCostChannel,
-  range: ChannelCostRange,
-  defaultRatio: number
+  range: ChannelCostRange
 ): ChannelCostFigures {
-  const used = channel[RANGE_QUOTA[range]] as number
-  const cost = used * effectiveCostRatio(channel, defaultRatio)
-  return { used, cost, profit: used - cost }
+  const usage = channel[range]
+  const cost =
+    channel.ratio === null ? usage.quota : usage.base_quota * channel.ratio
+  return { used: usage.quota, cost, profit: usage.quota - cost }
 }
 
 export function sumChannelCostFigures(
   channels: ChannelCostChannel[],
-  range: ChannelCostRange,
-  defaultRatio: number
+  range: ChannelCostRange
 ): ChannelCostFigures {
   const total: ChannelCostFigures = { used: 0, cost: 0, profit: 0 }
   for (const channel of channels) {
-    const figures = channelCostFigures(channel, range, defaultRatio)
+    const figures = channelCostFigures(channel, range)
     total.used += figures.used
     total.cost += figures.cost
     total.profit += figures.profit
@@ -90,7 +79,7 @@ export function sumChannelCostFigures(
 }
 
 /**
- * Parses ratio input. Empty input returns null (use the default); anything
+ * Parses ratio input. Empty input returns null (clear the ratio); anything
  * that is not a number within the allowed range returns undefined.
  */
 export function parseCostRatioInput(value: string): number | null | undefined {

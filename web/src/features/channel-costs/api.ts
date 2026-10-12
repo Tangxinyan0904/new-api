@@ -38,18 +38,7 @@ export async function getChannelCostStats(
     .data as ChannelCostStats
 }
 
-export async function updateDefaultCostRatio(
-  ratio: number
-): Promise<ApiResponse> {
-  const res = await api.put(
-    '/api/channel-cost/default-ratio',
-    { ratio },
-    mutationConfig
-  )
-  return res.data
-}
-
-/** A null ratio clears the channel's own ratio so it uses the default. */
+/** A null ratio clears the channel's cost ratio. */
 export async function updateChannelCostRatio(
   channelId: number,
   ratio: number | null

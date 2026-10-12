@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,10 +25,11 @@ type channelCostResponse struct {
 }
 
 type channelCostStats struct {
-	DefaultRatio float64              `json:"default_ratio"`
-	Channels     []channelCostChannel `json:"channels"`
+	Groups []channelCostGroup `json:"groups"`
 }
 
+// setupChannelCostTestDB also configures the group ratios "default" at 1 and
+// "vip" at 0.5.
 func setupChannelCostTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
@@ -37,11 +39,11 @@ func setupChannelCostTestDB(t *testing.T) *gorm.DB {
 		common.OptionMap = map[string]string{}
 	}
 	common.OptionMapRWMutex.Unlock()
+	savedGroupRatios := ratio_setting.GroupRatio2JSONString()
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":0.5}`))
 	t.Cleanup(func() {
-		require.NoError(t, model.UpdateOptionsBulk(map[string]string{
-			channelCostDefaultRatioOption:  "1",
-			channelCostChannelRatiosOption: "{}",
-		}))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(savedGroupRatios))
+		require.NoError(t, model.UpdateOptionsBulk(map[string]string{channelCostChannelRatiosOption: "{}"}))
 	})
 	return db
 }
@@ -60,54 +62,66 @@ func callChannelCost(t *testing.T, handler gin.HandlerFunc, method, target strin
 	return response
 }
 
-func TestRebuildChannelCostHourNetsRefundsAndReplacesTheBucket(t *testing.T) {
+func TestRebuildChannelCostHourSplitsGroupsAtTheChargedRatio(t *testing.T) {
 	db := setupChannelCostTestDB(t)
 	const hour int64 = 1_790_000_000 - 1_790_000_000%3600
 	require.NoError(t, db.Create(&[]model.Log{
-		{ChannelId: 1, Type: model.LogTypeConsume, Quota: 100, CreatedAt: hour},
-		{ChannelId: 1, Type: model.LogTypeConsume, Quota: 50, CreatedAt: hour + 3599},
-		{ChannelId: 1, Type: model.LogTypeRefund, Quota: 30, CreatedAt: hour + 10},
-		{ChannelId: 2, Type: model.LogTypeConsume, Quota: 70, CreatedAt: hour + 20},
-		{ChannelId: 1, Type: model.LogTypeTopup, Quota: 5000, CreatedAt: hour + 30},
-		{ChannelId: 0, Type: model.LogTypeConsume, Quota: 10, CreatedAt: hour + 40},
-		{ChannelId: 1, Type: model.LogTypeConsume, Quota: 999, CreatedAt: hour + 3600},
+		{ChannelId: 1, Group: "vip", Type: model.LogTypeConsume, Quota: 100, CreatedAt: hour, Other: `{"group_ratio":0.5,"user_group_ratio":-1}`},
+		// A user group special ratio is what the request was charged at.
+		{ChannelId: 1, Group: "vip", Type: model.LogTypeConsume, Quota: 40, CreatedAt: hour + 3599, Other: `{"group_ratio":0.4,"user_group_ratio":0.4}`},
+		{ChannelId: 1, Group: "vip", Type: model.LogTypeRefund, Quota: 50, CreatedAt: hour + 10, Other: `{"group_ratio":0.5}`},
+		{ChannelId: 1, Group: "default", Type: model.LogTypeConsume, Quota: 60, CreatedAt: hour + 20, Other: `{"group_ratio":"0.25"}`},
+		// Without a recorded ratio: the group's current ratio, or 1 if it has none.
+		{ChannelId: 2, Group: "vip", Type: model.LogTypeConsume, Quota: 70, CreatedAt: hour + 30},
+		{ChannelId: 2, Group: "retired", Type: model.LogTypeConsume, Quota: 9, CreatedAt: hour + 40, Other: "{}"},
+		{ChannelId: 1, Group: "vip", Type: model.LogTypeTopup, Quota: 5000, CreatedAt: hour + 50},
+		{ChannelId: 0, Group: "vip", Type: model.LogTypeConsume, Quota: 10, CreatedAt: hour + 60},
+		{ChannelId: 1, Group: "vip", Type: model.LogTypeConsume, Quota: 999, CreatedAt: hour + 3600},
 	}).Error)
 
 	require.NoError(t, model.RebuildChannelCostHour(hour))
-	require.NoError(t, db.Create(&model.Log{ChannelId: 2, Type: model.LogTypeConsume, Quota: 5, CreatedAt: hour + 50}).Error)
+	require.NoError(t, db.Create(&model.Log{ChannelId: 2, Group: "vip", Type: model.LogTypeConsume, Quota: 5, CreatedAt: hour + 70}).Error)
 	require.NoError(t, model.RebuildChannelCostHour(hour))
 
 	var buckets []model.ChannelCostHourly
-	require.NoError(t, db.Order("channel_id").Find(&buckets).Error)
-	require.Len(t, buckets, 2, "a rebuild replaces the hour instead of adding to it")
-	assert.Equal(t, model.ChannelCostHourly{Id: buckets[0].Id, BucketStart: hour, ChannelId: 1, Quota: 120}, buckets[0])
-	assert.Equal(t, model.ChannelCostHourly{Id: buckets[1].Id, BucketStart: hour, ChannelId: 2, Quota: 75}, buckets[1])
+	require.NoError(t, db.Order("group_name, channel_id").Find(&buckets).Error)
+	got := make([]model.ChannelCostHourly, 0, len(buckets))
+	for _, bucket := range buckets {
+		assert.Equal(t, hour, bucket.BucketStart)
+		bucket.Id, bucket.BucketStart = 0, 0
+		got = append(got, bucket)
+	}
+	assert.Equal(t, []model.ChannelCostHourly{
+		{Group: "default", ChannelId: 1, Quota: 60, BaseQuota: 240},
+		{Group: "retired", ChannelId: 2, Quota: 9, BaseQuota: 9},
+		{Group: "vip", ChannelId: 1, Quota: 90, BaseQuota: 200},
+		{Group: "vip", ChannelId: 2, Quota: 75, BaseQuota: 150},
+	}, got, "a rebuild replaces the hour instead of adding to it")
 }
 
-func TestGetChannelCostStatsSplitsRangesAndKeepsDeletedChannels(t *testing.T) {
+func TestGetChannelCostStatsListsChannelsUnderEachGroup(t *testing.T) {
 	db := setupChannelCostTestDB(t)
 	now := common.GetTimestamp()
 	today := now - now%3600 - 5*3600
 	yesterday := today - 24*3600
 	week := today - 6*24*3600
 	require.NoError(t, db.Create(&[]model.Channel{
-		{Id: 1, Name: "openai-main", Type: 1, Status: 1},
-		{Id: 2, Name: "claude-backup", Type: 14, Status: 2},
-		{Id: 3, Name: "idle", Type: 1, Status: 1},
+		{Id: 1, Name: "openai-main", Type: 1, Status: 1, Group: "default,vip"},
+		{Id: 2, Name: "claude-backup", Type: 14, Status: 2, Group: "vip"},
+		{Id: 3, Name: "idle", Type: 1, Status: 1, Group: "default"},
 	}).Error)
 	require.NoError(t, db.Create(&[]model.ChannelCostHourly{
-		{BucketStart: today, ChannelId: 1, Quota: 100},
-		{BucketStart: today + 3600, ChannelId: 1, Quota: 20},
-		{BucketStart: yesterday, ChannelId: 1, Quota: 300},
-		{BucketStart: week, ChannelId: 1, Quota: 1000},
-		{BucketStart: week - 3600, ChannelId: 1, Quota: 9999},
-		{BucketStart: yesterday + 3600, ChannelId: 2, Quota: 50},
-		{BucketStart: today, ChannelId: 9, Quota: 7},
+		{BucketStart: today, Group: "vip", ChannelId: 1, Quota: 100, BaseQuota: 200},
+		{BucketStart: yesterday, Group: "vip", ChannelId: 1, Quota: 300, BaseQuota: 600},
+		{BucketStart: week, Group: "vip", ChannelId: 1, Quota: 1000, BaseQuota: 2000},
+		{BucketStart: week - 3600, Group: "vip", ChannelId: 1, Quota: 9999, BaseQuota: 9999},
+		{BucketStart: yesterday + 3600, Group: "vip", ChannelId: 2, Quota: 50, BaseQuota: 100},
+		{BucketStart: today + 3600, Group: "default", ChannelId: 1, Quota: 20, BaseQuota: 20},
+		// Channel 2 has since left "default"; its usage there still counts.
+		{BucketStart: week, Group: "default", ChannelId: 2, Quota: 5, BaseQuota: 5},
+		{BucketStart: today, Group: "legacy", ChannelId: 9, Quota: 7, BaseQuota: 7},
 	}).Error)
-	require.NoError(t, model.UpdateOptionsBulk(map[string]string{
-		channelCostDefaultRatioOption:  "0.6",
-		channelCostChannelRatiosOption: `{"1":0.4}`,
-	}))
+	require.NoError(t, model.UpdateOptionsBulk(map[string]string{channelCostChannelRatiosOption: `{"1":0.4}`}))
 
 	target := "/api/channel-cost/stats?today_start=" + strconv.FormatInt(today, 10) +
 		"&yesterday_start=" + strconv.FormatInt(yesterday, 10) + "&week_start=" + strconv.FormatInt(week, 10)
@@ -116,24 +130,41 @@ func TestGetChannelCostStatsSplitsRangesAndKeepsDeletedChannels(t *testing.T) {
 	var stats channelCostStats
 	require.NoError(t, common.Unmarshal(response.Data, &stats))
 
-	assert.Equal(t, 0.6, stats.DefaultRatio)
-	require.Len(t, stats.Channels, 4)
-	first := stats.Channels[0]
-	assert.Equal(t, 1, first.Id)
-	assert.Equal(t, [3]int64{120, 300, 1420}, [3]int64{first.TodayQuota, first.YesterdayQuota, first.WeekQuota})
-	require.NotNil(t, first.Ratio)
-	assert.Equal(t, 0.4, *first.Ratio)
-
-	assert.Equal(t, 2, stats.Channels[1].Id)
-	assert.Equal(t, [3]int64{0, 50, 50}, [3]int64{stats.Channels[1].TodayQuota, stats.Channels[1].YesterdayQuota, stats.Channels[1].WeekQuota})
-	assert.Nil(t, stats.Channels[1].Ratio, "channels without their own ratio use the default")
-
-	assert.Equal(t, 9, stats.Channels[2].Id)
-	assert.True(t, stats.Channels[2].Deleted)
-	assert.Equal(t, int64(7), stats.Channels[2].TodayQuota)
-
-	assert.Equal(t, 3, stats.Channels[3].Id, "unused channels are listed after used ones")
-	assert.Zero(t, stats.Channels[3].WeekQuota)
+	ratio := func(value float64) *float64 { return &value }
+	assert.Equal(t, []channelCostGroup{
+		{Name: "vip", Ratio: ratio(0.5), Channels: []channelCostChannel{
+			{
+				Id: 1, Name: "openai-main", Type: 1, Status: 1, Ratio: ratio(0.4),
+				Today:     model.ChannelCostUsage{Quota: 100, BaseQuota: 200},
+				Yesterday: model.ChannelCostUsage{Quota: 300, BaseQuota: 600},
+				Week:      model.ChannelCostUsage{Quota: 1400, BaseQuota: 2800},
+			},
+			{
+				Id: 2, Name: "claude-backup", Type: 14, Status: 2,
+				Yesterday: model.ChannelCostUsage{Quota: 50, BaseQuota: 100},
+				Week:      model.ChannelCostUsage{Quota: 50, BaseQuota: 100},
+			},
+		}},
+		{Name: "default", Ratio: ratio(1), Channels: []channelCostChannel{
+			{
+				Id: 1, Name: "openai-main", Type: 1, Status: 1, Ratio: ratio(0.4),
+				Today: model.ChannelCostUsage{Quota: 20, BaseQuota: 20},
+				Week:  model.ChannelCostUsage{Quota: 20, BaseQuota: 20},
+			},
+			{
+				Id: 2, Name: "claude-backup", Type: 14, Status: 2,
+				Week: model.ChannelCostUsage{Quota: 5, BaseQuota: 5},
+			},
+			{Id: 3, Name: "idle", Type: 1, Status: 1},
+		}},
+		{Name: "legacy", Channels: []channelCostChannel{
+			{
+				Id: 9, Deleted: true,
+				Today: model.ChannelCostUsage{Quota: 7, BaseQuota: 7},
+				Week:  model.ChannelCostUsage{Quota: 7, BaseQuota: 7},
+			},
+		}},
+	}, stats.Groups)
 }
 
 func TestGetChannelCostStatsRejectsInvalidRanges(t *testing.T) {
@@ -155,33 +186,29 @@ func TestGetChannelCostStatsRejectsInvalidRanges(t *testing.T) {
 	}
 }
 
-func TestUpdateChannelCostRatios(t *testing.T) {
+func TestUpdateChannelCostRatio(t *testing.T) {
 	db := setupChannelCostTestDB(t)
 	require.NoError(t, db.Create(&model.Channel{Id: 5, Name: "upstream", Type: 1, Status: 1}).Error)
 	idParam := gin.Params{{Key: "id", Value: "5"}}
 
-	ok := callChannelCost(t, UpdateChannelCostDefaultRatio, http.MethodPut, "/", nil, `{"ratio":0.35}`)
-	require.True(t, ok.Success)
-	assert.Equal(t, 0.35, operation_setting.GetChannelCostSetting().DefaultRatio)
-
-	set := callChannelCost(t, UpdateChannelCostRatio, http.MethodPut, "/", idParam, `{"ratio":0.2}`)
+	set := callChannelCost(t, UpdateChannelCostRatio, http.MethodPut, "/", idParam, `{"ratio":0.08}`)
 	require.True(t, set.Success)
-	assert.Equal(t, map[int]float64{5: 0.2}, operation_setting.GetChannelCostSetting().ChannelRatios)
-
-	cleared := callChannelCost(t, UpdateChannelCostRatio, http.MethodPut, "/", idParam, `{"ratio":null}`)
-	require.True(t, cleared.Success)
-	assert.Empty(t, operation_setting.GetChannelCostSetting().ChannelRatios)
+	assert.Equal(t, map[int]float64{5: 0.08}, operation_setting.GetChannelCostSetting().ChannelRatios)
 
 	for body, key := range map[string]string{
 		`{"ratio":-0.1}`: "Cost ratio must be between 0 and {{max}}",
 		`{"ratio":101}`:  "Cost ratio must be between 0 and {{max}}",
-		`{}`:             "Invalid parameters",
+		`not json`:       "Invalid parameters",
 	} {
-		response := callChannelCost(t, UpdateChannelCostDefaultRatio, http.MethodPut, "/", nil, body)
+		response := callChannelCost(t, UpdateChannelCostRatio, http.MethodPut, "/", idParam, body)
 		assert.False(t, response.Success, body)
 		assert.Equal(t, key, response.MessageKey, body)
 	}
-	assert.Equal(t, 0.35, operation_setting.GetChannelCostSetting().DefaultRatio, "rejected input keeps the saved ratio")
+	assert.Equal(t, map[int]float64{5: 0.08}, operation_setting.GetChannelCostSetting().ChannelRatios, "rejected input keeps the saved ratio")
+
+	cleared := callChannelCost(t, UpdateChannelCostRatio, http.MethodPut, "/", idParam, `{"ratio":null}`)
+	require.True(t, cleared.Success)
+	assert.Empty(t, operation_setting.GetChannelCostSetting().ChannelRatios)
 
 	missing := callChannelCost(t, UpdateChannelCostRatio, http.MethodPut, "/", gin.Params{{Key: "id", Value: "404"}}, `{"ratio":0.5}`)
 	assert.False(t, missing.Success)
@@ -189,5 +216,5 @@ func TestUpdateChannelCostRatios(t *testing.T) {
 
 	var audits int64
 	require.NoError(t, db.Model(&model.AuditLog{}).Where("action = ?", "option.update").Count(&audits).Error)
-	assert.Equal(t, int64(3), audits, "each saved change is audited")
+	assert.Equal(t, int64(2), audits, "each saved change is audited")
 }

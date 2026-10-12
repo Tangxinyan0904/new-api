@@ -36,7 +36,6 @@ const RANGE_CONFIG = {
 
 interface ChannelCostSummaryProps {
   channels: ChannelCostChannel[]
-  defaultRatio: number
   loading: boolean
 }
 
@@ -50,11 +49,7 @@ export function ChannelCostSummary(props: ChannelCostSummaryProps) {
     >
       {CHANNEL_COST_RANGES.map((range) => {
         const config = RANGE_CONFIG[range]
-        const total = sumChannelCostFigures(
-          props.channels,
-          range,
-          props.defaultRatio
-        )
+        const total = sumChannelCostFigures(props.channels, range)
         return (
           <div
             key={range}

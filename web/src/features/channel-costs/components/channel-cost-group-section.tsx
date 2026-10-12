@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -29,8 +30,14 @@ import { cn } from '@/lib/utils'
 import {
   CHANNEL_COST_RANGES,
   channelCostFigures,
+  sumChannelCostFigures,
 } from '../lib/channel-cost-math'
-import type { ChannelCostChannel, ChannelCostRange } from '../types'
+import type {
+  ChannelCostChannel,
+  ChannelCostFigures,
+  ChannelCostGroup,
+  ChannelCostRange,
+} from '../types'
 import { CostRatioInput } from './cost-ratio-input'
 
 const RANGE_HEADER: Record<ChannelCostRange, string> = {
@@ -39,45 +46,40 @@ const RANGE_HEADER: Record<ChannelCostRange, string> = {
   week: 'Last 7 days',
 }
 
-interface ChannelCostsTableProps {
-  channels: ChannelCostChannel[]
-  defaultRatio: number
+interface ChannelCostGroupSectionProps {
+  group: ChannelCostGroup
   canEdit: boolean
   onSaveRatio: (channelId: number, ratio: number | null) => Promise<boolean>
+}
+
+function profitClassName(figures: ChannelCostFigures): string {
+  return figures.profit < 0 ? 'text-destructive' : 'text-success'
 }
 
 function ChannelCostFiguresCell(props: {
   channel: ChannelCostChannel
   range: ChannelCostRange
-  defaultRatio: number
 }) {
   const { t } = useTranslation()
-  const figures = channelCostFigures(
-    props.channel,
-    props.range,
-    props.defaultRatio
-  )
+  const figures = channelCostFigures(props.channel, props.range)
   return (
     <div className='flex flex-col gap-0.5 whitespace-nowrap tabular-nums'>
       <span className='font-medium'>{formatQuota(figures.used)}</span>
       <span className='text-muted-foreground text-xs'>
         {t('Upstream cost')} {formatQuota(figures.cost)}
       </span>
-      <span
-        className={cn(
-          'text-xs',
-          figures.profit < 0 ? 'text-destructive' : 'text-success'
-        )}
-      >
+      <span className={cn('text-xs', profitClassName(figures))}>
         {t('Profit')} {formatQuota(figures.profit)}
       </span>
     </div>
   )
 }
 
-export function ChannelCostsTable(props: ChannelCostsTableProps) {
+/** One group: its ratio, 7-day totals and the channels serving it. */
+export function ChannelCostGroupSection(props: ChannelCostGroupSectionProps) {
   const { t } = useTranslation()
-  const defaultLabel = t('Default {{ratio}}', { ratio: props.defaultRatio })
+  const headingId = useId()
+  const week = sumChannelCostFigures(props.group.channels, 'week')
 
   const columns: StaticDataTableColumn<ChannelCostChannel>[] = [
     {
@@ -106,13 +108,14 @@ export function ChannelCostsTable(props: ChannelCostsTableProps) {
       header: t('Cost ratio'),
       cell: (channel) =>
         channel.deleted ? (
-          <span className='text-muted-foreground text-sm'>{defaultLabel}</span>
+          <span className='text-muted-foreground text-sm tabular-nums'>
+            {channel.ratio ?? t('Not set')}
+          </span>
         ) : (
           <CostRatioInput
             value={channel.ratio}
             label={t('Cost ratio of {{name}}', { name: channel.name })}
-            placeholder={defaultLabel}
-            allowEmpty
+            placeholder={t('Not set')}
             disabled={!props.canEdit}
             className='w-28'
             onSave={(ratio) => props.onSaveRatio(channel.id, ratio)}
@@ -124,23 +127,50 @@ export function ChannelCostsTable(props: ChannelCostsTableProps) {
         id: range,
         header: t(RANGE_HEADER[range]),
         cell: (channel) => (
-          <ChannelCostFiguresCell
-            channel={channel}
-            range={range}
-            defaultRatio={props.defaultRatio}
-          />
+          <ChannelCostFiguresCell channel={channel} range={range} />
         ),
       })
     ),
   ]
 
   return (
-    <StaticDataTable
-      columns={columns}
-      data={props.channels}
-      getRowKey={(channel) => channel.id}
-      empty={props.channels.length === 0}
-      emptyContent={t('No channels yet')}
-    />
+    <section
+      aria-labelledby={headingId}
+      className='bg-card flex flex-col gap-3 rounded-2xl border p-3 shadow-xs sm:p-5'
+    >
+      <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-2'>
+        <div className='flex min-w-0 flex-wrap items-center gap-2'>
+          <h2 id={headingId} className='text-base font-semibold break-all'>
+            {props.group.name || t('Ungrouped')}
+          </h2>
+          <StatusBadge
+            label={
+              props.group.ratio === null
+                ? t('No group ratio')
+                : t('Group ratio {{ratio}}', { ratio: props.group.ratio })
+            }
+            variant='neutral'
+            copyable={false}
+          />
+        </div>
+        <div className='text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-xs tabular-nums'>
+          <span>{t('Last 7 days')}</span>
+          <span>
+            {t('Usage amount')} {formatQuota(week.used)}
+          </span>
+          <span>
+            {t('Upstream cost')} {formatQuota(week.cost)}
+          </span>
+          <span className={profitClassName(week)}>
+            {t('Profit')} {formatQuota(week.profit)}
+          </span>
+        </div>
+      </div>
+      <StaticDataTable
+        columns={columns}
+        data={props.group.channels}
+        getRowKey={(channel) => channel.id}
+      />
+    </section>
   )
 }
