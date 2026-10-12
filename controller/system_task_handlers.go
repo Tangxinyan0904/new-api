@@ -21,6 +21,7 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(modelUpdateHandler{})
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
+	service.RegisterSystemTaskHandler(ticketAutoCloseHandler{})
 }
 
 // channelTestHandler runs the scheduled "test all channels" job. Enablement and
@@ -149,6 +150,36 @@ func (asyncTaskPollHandler) NewPayload() any { return nil }
 func (asyncTaskPollHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
 	summary := service.RunTaskPollingOnce(ctx, service.NewSystemTaskProgressReporter(task, runnerID))
 	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+// ticketAutoCloseHandler closes tickets that waited for the user longer than
+// model.TicketAutoCloseSeconds. Enabled() only schedules a run while such a
+// ticket exists, so an idle system schedules no rows.
+type ticketAutoCloseHandler struct{}
+
+func (ticketAutoCloseHandler) Type() string { return model.SystemTaskTypeTicketAutoClose }
+
+func (ticketAutoCloseHandler) Enabled() bool {
+	stale, err := model.HasStaleWaitingTickets(common.GetTimestamp() - model.TicketAutoCloseSeconds)
+	if err != nil {
+		common.SysLog(common.LogText("failed to check stale tickets: %s", err.Error()))
+		return false
+	}
+	return stale
+}
+
+func (ticketAutoCloseHandler) Interval() time.Duration { return time.Hour }
+
+func (ticketAutoCloseHandler) NewPayload() any { return nil }
+
+func (ticketAutoCloseHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	now := common.GetTimestamp()
+	closed, err := model.CloseStaleWaitingTickets(now-model.TicketAutoCloseSeconds, now)
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, map[string]any{"closed": closed}, nil)
 }
 
 func finishSystemTaskHandler(task *model.SystemTask, runnerID string, status model.SystemTaskStatus, result any, runErr error) {

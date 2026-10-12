@@ -442,7 +442,14 @@ test('unknown state keeps text, an icon, bounded names, and an empty timeline me
 })
 
 test('places channel status directly after dashboard for every signed-in user', async () => {
-  await act(async () => root?.render(<SidebarHarness />))
+  // The sidebar reads ticket badge counts through React Query.
+  await act(async () =>
+    root?.render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SidebarHarness />
+      </QueryClientProvider>
+    )
+  )
 
   const navigation = host?.querySelector(
     '[data-testid="general-navigation"]'

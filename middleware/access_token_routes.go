@@ -260,6 +260,15 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"DELETE /api/redemption/invalid": accessTokenScopeRule("redemption:write"),
 	"DELETE /api/redemption/:id":     accessTokenScopeRule("redemption:write"),
 
+	// router/api-router.go: /api/ticket (self)
+	"GET /api/ticket/self":           accessTokenScopeRule("support_ticket:read"),
+	"GET /api/ticket/self/unread":    accessTokenScopeRule("support_ticket:read"),
+	"POST /api/ticket/":              accessTokenScopeRule("support_ticket:write"),
+	"GET /api/ticket/attachment/:id": accessTokenScopeRule("support_ticket:read"),
+	"GET /api/ticket/:id":            accessTokenScopeRule("support_ticket:read"),
+	"POST /api/ticket/:id/reply":     accessTokenScopeRule("support_ticket:write"),
+	"POST /api/ticket/:id/close":     accessTokenScopeRule("support_ticket:write"),
+
 	// router/api-router.go: /api/audit, /api/log, /api/data
 	"GET /api/audit/self":                       accessTokenScopeRule("usage:read"),
 	"GET /api/log/":                             accessTokenScopeRule("log:read"),

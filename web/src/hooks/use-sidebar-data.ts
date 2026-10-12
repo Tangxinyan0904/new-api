@@ -23,8 +23,10 @@ import {
   CreditCard,
   FileText,
   FlaskConical,
+  Headset,
   Key,
   LayoutDashboard,
+  LifeBuoy,
   ListTodo,
   MessageSquare,
   PlugZap,
@@ -43,6 +45,7 @@ import {
 import { useTranslation } from 'react-i18next'
 
 import type { SidebarData } from '@/components/layout/types'
+import { useTicketBadgeCounts } from '@/features/tickets/hooks/use-ticket-badge-counts'
 import { ROLE } from '@/lib/roles'
 
 /**
@@ -53,6 +56,7 @@ import { ROLE } from '@/lib/roles'
  */
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const ticketCounts = useTicketBadgeCounts()
 
   return {
     navGroups: [
@@ -139,6 +143,12 @@ export function useSidebarData(): SidebarData {
             url: '/violations',
             icon: ShieldAlert,
           },
+          {
+            title: t('Tickets'),
+            url: '/tickets',
+            icon: LifeBuoy,
+            badge: formatBadgeCount(ticketCounts.unread),
+          },
         ],
       },
       {
@@ -176,6 +186,12 @@ export function useSidebarData(): SidebarData {
             icon: ReceiptText,
           },
           {
+            title: t('Ticket Management'),
+            url: '/ticket-management',
+            icon: Headset,
+            badge: formatBadgeCount(ticketCounts.awaiting),
+          },
+          {
             title: t('System Info'),
             url: '/system-info',
             icon: ServerCog,
@@ -198,4 +214,9 @@ export function useSidebarData(): SidebarData {
       },
     ],
   }
+}
+
+function formatBadgeCount(count: number): string | undefined {
+  if (count <= 0) return undefined
+  return count > 99 ? '99+' : String(count)
 }
