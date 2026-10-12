@@ -7703,6 +7703,7 @@
     "Unable to determine a valid registration IP. Please contact an administrator.": "無法取得有效的註冊 IP，請聯繫管理員。",
     "Group {{group}} is unavailable or unauthorized": "分組 {{group}} 不可用或無權存取",
     "{{days}} days": "{{days}} 天",
-    "{{days}}d": "{{days}}天"
+    "{{days}}d": "{{days}}天",
+    "Invitation rebate settings must be changed through the invitation rebate settings API": "邀請返利設定請透過邀請返利設定介面修改"
   }
 }

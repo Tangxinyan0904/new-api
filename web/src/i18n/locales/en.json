@@ -7703,6 +7703,7 @@
     "Unable to determine a valid registration IP. Please contact an administrator.": "Unable to determine a valid registration IP. Please contact an administrator.",
     "Group {{group}} is unavailable or unauthorized": "Group {{group}} is unavailable or unauthorized",
     "{{days}} days": "{{days}} days",
-    "{{days}}d": "{{days}}d"
+    "{{days}}d": "{{days}}d",
+    "Invitation rebate settings must be changed through the invitation rebate settings API": "Invitation rebate settings must be changed through the invitation rebate settings API"
   }
 }

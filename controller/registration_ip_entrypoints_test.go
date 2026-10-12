@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/oauth"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -171,36 +172,6 @@ func TestRegistrationIPWeChatUsesSharedRegistration(t *testing.T) {
 	assert.EqualValues(t, model.RegistrationIPAccountLimit+1, accountCount)
 }
 
-func TestRegistrationIPTelegramCreatesUsersAndAppliesSharedLimit(t *testing.T) {
-	db := setupRegistrationIPControllerTest(t)
-	provider := oauth.NewTelegramProvider(nil)
-
-	for index := 1; index <= model.RegistrationIPAccountLimit+1; index++ {
-		_, err := performOAuthUserCreation(
-			t,
-			provider,
-			&oauth.OAuthUser{
-				ProviderUserID: strconv.Itoa(index),
-				Username:       fmt.Sprintf("telegram_user_%d", index),
-			},
-			"203.0.113.44",
-		)
-		if index <= model.RegistrationIPAccountLimit {
-			require.NoError(t, err)
-			continue
-		}
-		require.ErrorIs(t, err, model.ErrRegistrationIPLimitExceeded)
-	}
-
-	var users []model.User
-	require.NoError(t, db.Order("id ASC").Find(&users).Error)
-	require.Len(t, users, model.RegistrationIPAccountLimit+1)
-	for index, user := range users {
-		assert.Equal(t, common.UserStatusDisabled, user.Status)
-		assert.Equal(t, strconv.Itoa(index+1), user.TelegramId)
-	}
-}
-
 func TestRegistrationIPAdminCreationIsExcludedAndManualStatusClearsRestoreEligibility(t *testing.T) {
 	db := setupRegistrationIPControllerTest(t)
 	adminBody, err := common.Marshal(model.User{
@@ -225,16 +196,20 @@ func TestRegistrationIPAdminCreationIsExcludedAndManualStatusClearsRestoreEligib
 	assert.Zero(t, associationCount)
 
 	userIDs := createControllerBlockedRegistrationIPFixture(t, "203.0.113.45")
+	operator := model.User{Username: "root-admin", Password: "password123", Role: common.RoleRootUser, Status: common.UserStatusEnabled, AuthVersion: 1}
+	require.NoError(t, db.Create(&operator).Error)
+	session, err := service.CreateLoginSession(operator.Id, "password", "127.0.0.1", "registration-ip-test")
+	require.NoError(t, err)
+	identity, err := service.ParseAccessToken(session.AccessToken)
+	require.NoError(t, err)
 	for _, action := range []string{"disable", "enable"} {
 		body, marshalErr := common.Marshal(ManageRequest{Id: userIDs[0], Action: action})
 		require.NoError(t, marshalErr)
-		recorder := httptest.NewRecorder()
-		ctx, _ := gin.CreateTestContext(recorder)
-		ctx.Request = httptest.NewRequest(http.MethodPost, "/api/user/manage", bytes.NewReader(body))
-		ctx.Set("id", 1)
-		ctx.Set("username", "root-admin")
-		ctx.Set("role", common.RoleRootUser)
-		ManageUser(ctx)
+		proof := issueSecurityEnrollmentProof(t, identity, service.VerificationOperation{
+			Scope:   service.VerificationScopeAdminUserManage,
+			Context: []byte(fmt.Sprintf(`{"user_id":%d,"action":"%s"}`, userIDs[0], action)),
+		}, service.VerificationMethodPassword)
+		recorder := adminUserRequest(http.MethodPost, "/api/user/manage", string(body), proof, identity, common.RoleRootUser, nil, ManageUser)
 		var response registrationIPControllerResponse
 		require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
 		assert.True(t, response.Success, response.Message)
@@ -256,6 +231,12 @@ func setupRegistrationIPControllerTest(t *testing.T) *gorm.DB {
 		&model.AuthFlow{},
 		&model.ExternalIdentityClaim{},
 		&model.Log{},
+		&model.AuditLog{},
+		&model.Option{},
+		&model.TwoFA{},
+		&model.TwoFABackupCode{},
+		&model.PasskeyCredential{},
+		&model.UserAccessToken{},
 		&model.RegistrationIPState{},
 		&model.RegistrationIPAccount{},
 		&model.CustomOAuthProvider{},

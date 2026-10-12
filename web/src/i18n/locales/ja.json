@@ -7703,6 +7703,7 @@
     "Unable to determine a valid registration IP. Please contact an administrator.": "有効な登録 IP を特定できません。管理者に連絡してください。",
     "Group {{group}} is unavailable or unauthorized": "グループ {{group}} は利用できないか、権限がありません",
     "{{days}} days": "{{days}} 日",
-    "{{days}}d": "{{days}}日"
+    "{{days}}d": "{{days}}日",
+    "Invitation rebate settings must be changed through the invitation rebate settings API": "招待リベート設定は招待リベート設定 API から変更してください"
   }
 }

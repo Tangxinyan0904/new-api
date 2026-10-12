@@ -297,14 +297,14 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorT(c, "Compliance confirmation fields cannot be changed through the general settings API")
 			return
 		}
+		if strings.HasPrefix(option.Key, operation_setting.AffiliateSettingOptionPrefix) {
+			common.ApiErrorT(c, "Invitation rebate settings must be changed through the invitation rebate settings API")
+			return
+		}
 	}
 	if option.Key == "TaskPublicAddress" && option.Value.(string) != "" {
 		if err := service.ValidateTaskArtifactBaseURL(option.Value.(string)); err != nil {
 			common.ApiError(c, err)
-			return
-		}
-		if strings.HasPrefix(option.Key, operation_setting.AffiliateSettingOptionPrefix) {
-			common.ApiErrorMsg(c, "邀请返利设置请通过邀请返利设置接口修改")
 			return
 		}
 	}

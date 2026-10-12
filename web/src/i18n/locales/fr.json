@@ -7703,6 +7703,7 @@
     "Unable to determine a valid registration IP. Please contact an administrator.": "Impossible de déterminer une adresse IP d’inscription valide. Veuillez contacter un administrateur.",
     "Group {{group}} is unavailable or unauthorized": "Le groupe {{group}} est indisponible ou non autorisé",
     "{{days}} days": "{{days}} jours",
-    "{{days}}d": "{{days}} j"
+    "{{days}}d": "{{days}} j",
+    "Invitation rebate settings must be changed through the invitation rebate settings API": "Les paramètres de remise de parrainage doivent être modifiés via l’API dédiée aux remises de parrainage"
   }
 }

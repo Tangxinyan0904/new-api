@@ -7703,6 +7703,7 @@
     "Unable to determine a valid registration IP. Please contact an administrator.": "Không thể xác định IP đăng ký hợp lệ. Vui lòng liên hệ quản trị viên.",
     "Group {{group}} is unavailable or unauthorized": "Nhóm {{group}} không khả dụng hoặc không có quyền truy cập",
     "{{days}} days": "{{days}} ngày",
-    "{{days}}d": "{{days}} ngày"
+    "{{days}}d": "{{days}} ngày",
+    "Invitation rebate settings must be changed through the invitation rebate settings API": "Cài đặt hoàn tiền giới thiệu phải được thay đổi qua API cài đặt hoàn tiền giới thiệu"
   }
 }

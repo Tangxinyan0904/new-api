@@ -28,7 +28,7 @@ func setupRateLimitControllerTest(t *testing.T) {
 	t.Helper()
 
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.Option{}, &model.Log{}, &model.AuditLog{}))
 
 	common.OptionMapRWMutex.Lock()
 	originalOptionMap := common.OptionMap
@@ -360,19 +360,13 @@ func TestClearDistillationPenaltyIsIdempotentInvalidatesCachedBanAndRecordsAudit
 	)
 	assert.Nil(t, afterClearError)
 
-	var auditLogs []model.Log
-	require.NoError(t, model.DB.Where("type = ?", model.LogTypeManage).Order("id ASC").Find(&auditLogs).Error)
+	var auditLogs []model.AuditLog
+	require.NoError(t, model.LOG_DB.Table("audit_logs").Where("action = ?", "rate_limit.distillation_clear").Order("id ASC").Find(&auditLogs).Error)
 	require.Len(t, auditLogs, 2)
 	for _, auditLog := range auditLogs {
 		assert.Contains(t, auditLog.Content, "Cleared distillation penalty for user 51")
-		other, err := common.StrToMap(auditLog.Other)
-		require.NoError(t, err)
-		op, ok := other["op"].(map[string]interface{})
-		require.True(t, ok)
-		assert.Equal(t, "rate_limit.distillation_clear", op["action"])
-		params, ok := op["params"].(map[string]interface{})
-		require.True(t, ok)
-		assert.EqualValues(t, 51, params["target_user_id"])
+		require.NotNil(t, auditLog.Other.Op)
+		assert.Equal(t, "51", auditParamJSON(t, auditLog.Other.Op.Params["target_user_id"]))
 	}
 }
 

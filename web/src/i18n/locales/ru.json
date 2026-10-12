@@ -7703,6 +7703,7 @@
     "Unable to determine a valid registration IP. Please contact an administrator.": "Не удалось определить действительный IP-адрес регистрации. Обратитесь к администратору.",
     "Group {{group}} is unavailable or unauthorized": "Группа {{group}} недоступна или нет прав доступа",
     "{{days}} days": "{{days}} дн.",
-    "{{days}}d": "{{days}} д"
+    "{{days}}d": "{{days}} д",
+    "Invitation rebate settings must be changed through the invitation rebate settings API": "Настройки реферальных бонусов изменяются только через API настроек реферальных бонусов"
   }
 }
