@@ -36,8 +36,11 @@ func StartChannelCostRollupTask() {
 			return
 		}
 		gopool.Go(func() {
-			logger.LogInfo(context.Background(), common.LogText("channel cost rollup task started: tick=%s", channelCostRollupInterval))
+			ctx := context.Background()
+			logger.LogInfo(ctx, common.LogText("channel cost rollup task started: tick=%s", channelCostRollupInterval))
+			backfillStart := time.Now()
 			rebuildRecentChannelCostHours(channelCostBackfillHours)
+			logger.LogInfo(ctx, common.LogText("channel cost rollup backfill finished in %s", time.Since(backfillStart).Round(time.Millisecond)))
 			ticker := time.NewTicker(channelCostRollupInterval)
 			defer ticker.Stop()
 			for range ticker.C {
