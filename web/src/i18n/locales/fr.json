@@ -7822,6 +7822,8 @@
     "View all": "Tout afficher",
     "Unknown model": "Modèle inconnu",
     "Cached {{count}}": "En cache {{count}}",
-    "Cache tokens": "Jetons en cache"
+    "Cache tokens": "Jetons en cache",
+    "Cache hit rate": "Taux de succès du cache",
+    "Cache hit rate {{rate}}": "Taux de succès du cache {{rate}}"
   }
 }

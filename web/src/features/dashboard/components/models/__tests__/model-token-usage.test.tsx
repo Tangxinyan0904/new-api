@@ -23,12 +23,17 @@ import { afterEach, describe, expect, it } from 'vitest'
 import type { QuotaDataItem } from '../../../types'
 import { ModelTokenUsageCard } from '../model-token-usage'
 
-/** Seven models; model-1 used the most tokens and model-7 the fewest. */
+/**
+ * Seven models; model-1 used the most tokens and model-7 the fewest. A
+ * quarter of each model's input was cached, except model-7, which was only
+ * used before input tokens were recorded.
+ */
 const data: QuotaDataItem[] = Array.from({ length: 7 }, (_, index) => ({
   created_at: 0,
   model_name: `model-${index + 1}`,
   token_used: (7 - index) * 1000,
-  cache_tokens: (7 - index) * 100,
+  cache_tokens: index === 6 ? 0 : (7 - index) * 100,
+  input_tokens: index === 6 ? 0 : (7 - index) * 400,
 }))
 
 afterEach(() => {
@@ -52,6 +57,7 @@ describe('ModelTokenUsageCard', () => {
     expect(within(card).queryByText('model-6')).not.toBeInTheDocument()
     expect(within(card).getByText('7,000')).toBeInTheDocument()
     expect(within(card).getByText('Cached 700')).toBeInTheDocument()
+    expect(within(card).getAllByText('Cache hit rate 25%')).toHaveLength(5)
   })
 
   it('lists every model when View all is opened', async () => {
@@ -62,10 +68,13 @@ describe('ModelTokenUsageCard', () => {
 
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getAllByRole('row')).toHaveLength(8)
+    const firstRow = within(dialog).getAllByRole('row')[1]
+    expect(within(firstRow).getByText('model-1')).toBeInTheDocument()
+    expect(within(firstRow).getByText('25%')).toBeInTheDocument()
     const lastRow = within(dialog).getAllByRole('row')[7]
     expect(within(lastRow).getByText('model-7')).toBeInTheDocument()
     expect(within(lastRow).getByText('1,000')).toBeInTheDocument()
-    expect(within(lastRow).getByText('100')).toBeInTheDocument()
+    expect(within(lastRow).getByText('-')).toBeInTheDocument()
   })
 
   it('says there is no data and disables View all without usage', () => {

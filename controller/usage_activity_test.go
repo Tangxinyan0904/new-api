@@ -101,37 +101,44 @@ func TestRelayActivityAddsLiveNodesAndCountsTheLastMinute(t *testing.T) {
 	assert.Equal(t, service.RelayActivityCounts{Users: map[int]int64{}, Tokens: map[int]int64{}}, service.LocalRelayActivity())
 }
 
-func TestConsumeLogsAddCachedTokensToDashboardData(t *testing.T) {
+func TestConsumeLogsAddCachedAndInputTokensToDashboardData(t *testing.T) {
 	db := setupUsageActivityTestDB(t)
 	require.NoError(t, db.Create(&model.User{Id: 1, Username: "alice", Password: "password123", AffCode: "alice-aff"}).Error)
 	model.CacheQuotaDataLock.Lock()
 	model.CacheQuotaData = make(map[string]*model.QuotaData)
 	model.CacheQuotaDataLock.Unlock()
 
-	record := func(promptTokens, cacheTokens int) {
+	record := func(modelName string, promptTokens int, public map[string]any) {
 		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 		ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
 		ctx.Set("username", "alice")
 		other := model.NewLogOther()
-		other.SetPublic("cache_tokens", cacheTokens)
+		other.MergePublic(public)
 		model.RecordConsumeLog(ctx, 1, model.RecordConsumeLogParams{
-			ModelName: "gpt-4o", PromptTokens: promptTokens, CompletionTokens: 10, Quota: 100, Other: other,
+			ModelName: modelName, PromptTokens: promptTokens, CompletionTokens: 10, Quota: 100, Other: other,
 		})
 	}
-	// The first save inserts the hour's row, the second adds to it.
-	record(1000, 800)
+	// OpenAI usage: prompt tokens already include the cached ones. The first
+	// save inserts the hour's row, the second adds to it.
+	record("gpt-4o", 1000, map[string]any{"cache_tokens": 800})
 	model.SaveQuotaDataCache()
-	record(500, 0)
-	record(300, 200)
+	record("gpt-4o", 500, map[string]any{"cache_tokens": 0})
+	record("gpt-4o", 300, map[string]any{"cache_tokens": 200})
+	// Anthropic usage: cache reads and writes come on top of prompt tokens.
+	record("claude-sonnet", 200, map[string]any{"usage_semantic": "anthropic", "cache_tokens": 600, "cache_write_tokens": 200})
+	record("claude-sonnet", 100, map[string]any{"claude": true, "cache_creation_tokens_5m": 30, "cache_creation_tokens_1h": 20})
 	model.SaveQuotaDataCache()
 
 	now := common.GetTimestamp()
 	target := "/api/data/self?start_timestamp=" + strconv.FormatInt(now-3600, 10) + "&end_timestamp=" + strconv.FormatInt(now, 10)
 	var rows []model.QuotaData
 	require.NoError(t, common.Unmarshal(callUsageActivity(t, GetUserQuotaDates, 1, target), &rows))
-	require.Len(t, rows, 1)
-	assert.Equal(t, "gpt-4o", rows[0].ModelName)
-	assert.Equal(t, 3, rows[0].Count)
-	assert.Equal(t, 1830, rows[0].TokenUsed)
-	assert.Equal(t, 1000, rows[0].CacheTokens)
+	got := map[string][4]int{}
+	for _, row := range rows {
+		got[row.ModelName] = [4]int{row.Count, row.TokenUsed, row.CacheTokens, row.InputTokens}
+	}
+	assert.Equal(t, map[string][4]int{
+		"gpt-4o":        {3, 1830, 1000, 1800},
+		"claude-sonnet": {2, 320, 600, 1150},
+	}, got, "count, tokens, cached tokens, input tokens")
 }

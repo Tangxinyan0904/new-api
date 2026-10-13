@@ -45,5 +45,6 @@ export {
   calculateDashboardStats,
   formatStatNumber,
   aggregateModelTokenUsage,
+  modelCacheHitRate,
 } from './stats'
 export { getPreviewText } from './text'

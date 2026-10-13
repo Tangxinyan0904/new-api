@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, it } from 'vitest'
 
-import { aggregateModelTokenUsage } from '../stats'
+import { aggregateModelTokenUsage, modelCacheHitRate } from '../stats'
 
 describe('aggregateModelTokenUsage', () => {
   it('sums every hour of a model and lists the busiest model first', () => {
@@ -29,23 +29,26 @@ describe('aggregateModelTokenUsage', () => {
           model_name: 'gpt-4o',
           token_used: 100,
           cache_tokens: 40,
+          input_tokens: 80,
         },
         {
           created_at: 3600,
           model_name: 'claude',
           token_used: 500,
           cache_tokens: 300,
+          input_tokens: 450,
         },
         {
           created_at: 3600,
           model_name: 'gpt-4o',
           token_used: 250,
           cache_tokens: 10,
+          input_tokens: 200,
         },
       ])
     ).toEqual([
-      { model: 'claude', tokens: 500, cacheTokens: 300 },
-      { model: 'gpt-4o', tokens: 350, cacheTokens: 50 },
+      { model: 'claude', tokens: 500, cacheTokens: 300, inputTokens: 450 },
+      { model: 'gpt-4o', tokens: 350, cacheTokens: 50, inputTokens: 280 },
     ])
   })
 
@@ -54,7 +57,9 @@ describe('aggregateModelTokenUsage', () => {
       aggregateModelTokenUsage([
         { created_at: 0, model_name: 'gpt-4o', token_used: 100 },
       ])
-    ).toEqual([{ model: 'gpt-4o', tokens: 100, cacheTokens: 0 }])
+    ).toEqual([
+      { model: 'gpt-4o', tokens: 100, cacheTokens: 0, inputTokens: 0 },
+    ])
   })
 
   it('orders models with equal usage by name', () => {
@@ -64,5 +69,40 @@ describe('aggregateModelTokenUsage', () => {
         { created_at: 0, model_name: 'a-model', token_used: 10 },
       ]).map((usage) => usage.model)
     ).toEqual(['a-model', 'b-model'])
+  })
+})
+
+describe('modelCacheHitRate', () => {
+  it('is the cached share of the input tokens', () => {
+    expect(
+      modelCacheHitRate({
+        model: 'claude',
+        tokens: 500,
+        cacheTokens: 300,
+        inputTokens: 400,
+      })
+    ).toBe(75)
+  })
+
+  it('is unknown when no input tokens were recorded', () => {
+    expect(
+      modelCacheHitRate({
+        model: 'old',
+        tokens: 500,
+        cacheTokens: 0,
+        inputTokens: 0,
+      })
+    ).toBeNull()
+  })
+
+  it('never exceeds 100%', () => {
+    expect(
+      modelCacheHitRate({
+        model: 'odd',
+        tokens: 10,
+        cacheTokens: 30,
+        inputTokens: 20,
+      })
+    ).toBe(100)
   })
 })

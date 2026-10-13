@@ -31,6 +31,8 @@ export interface QuotaDataItem {
   token_used?: number
   /** Cached prompt tokens; recorded only since the field was added. */
   cache_tokens?: number
+  /** Total input tokens, cached included; recorded like cache_tokens. */
+  input_tokens?: number
   count?: number
   quota?: number
 }
@@ -40,6 +42,7 @@ export interface ModelTokenUsage {
   model: string
   tokens: number
   cacheTokens: number
+  inputTokens: number
 }
 
 /** Requests in flight right now and finished in the last minute. */

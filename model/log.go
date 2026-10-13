@@ -394,6 +394,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 			CreatedAt:   createdAt,
 			TokenUsed:   params.PromptTokens + params.CompletionTokens,
 			CacheTokens: other.CacheTokens(),
+			InputTokens: other.InputTokens(params.PromptTokens),
 			UseGroup:    params.Group,
 			TokenID:     params.TokenId,
 			ChannelID:   params.ChannelId,

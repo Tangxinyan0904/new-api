@@ -7822,6 +7822,8 @@
     "View all": "Показать все",
     "Unknown model": "Неизвестная модель",
     "Cached {{count}}": "Из кэша {{count}}",
-    "Cache tokens": "Кэшированные токены"
+    "Cache tokens": "Кэшированные токены",
+    "Cache hit rate": "Доля попаданий в кэш",
+    "Cache hit rate {{rate}}": "Доля попаданий в кэш {{rate}}"
   }
 }

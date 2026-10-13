@@ -75,12 +75,27 @@ export function aggregateModelTokenUsage(
   const byModel = new Map<string, ModelTokenUsage>()
   for (const item of data) {
     const model = item.model_name || ''
-    const usage = byModel.get(model) ?? { model, tokens: 0, cacheTokens: 0 }
+    const usage = byModel.get(model) ?? {
+      model,
+      tokens: 0,
+      cacheTokens: 0,
+      inputTokens: 0,
+    }
     usage.tokens += Number(item.token_used) || 0
     usage.cacheTokens += Number(item.cache_tokens) || 0
+    usage.inputTokens += Number(item.input_tokens) || 0
     byModel.set(model, usage)
   }
   return [...byModel.values()].sort(
     (a, b) => b.tokens - a.tokens || a.model.localeCompare(b.model)
   )
+}
+
+/**
+ * Cached share of a model's input tokens, as a percentage (0-100), counted
+ * like the usage log cache hit column. null when no input was recorded.
+ */
+export function modelCacheHitRate(usage: ModelTokenUsage): number | null {
+  if (usage.inputTokens <= 0) return null
+  return Math.min(100, (usage.cacheTokens / usage.inputTokens) * 100)
 }

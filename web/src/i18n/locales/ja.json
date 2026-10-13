@@ -7822,6 +7822,8 @@
     "View all": "すべて表示",
     "Unknown model": "不明なモデル",
     "Cached {{count}}": "キャッシュ {{count}}",
-    "Cache tokens": "キャッシュトークン"
+    "Cache tokens": "キャッシュトークン",
+    "Cache hit rate": "キャッシュヒット率",
+    "Cache hit rate {{rate}}": "キャッシュヒット率 {{rate}}"
   }
 }

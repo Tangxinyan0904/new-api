@@ -7822,6 +7822,8 @@
     "View all": "查看全部",
     "Unknown model": "未知模型",
     "Cached {{count}}": "快取 {{count}}",
-    "Cache tokens": "快取 Token"
+    "Cache tokens": "快取 Token",
+    "Cache hit rate": "快取命中率",
+    "Cache hit rate {{rate}}": "快取命中率 {{rate}}"
   }
 }

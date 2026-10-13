@@ -29,6 +29,8 @@ export interface StatStripItem {
   /** Shown as a tooltip when value is abbreviated. */
   fullValue?: string
   description: string
+  /** An optional second line under the description. */
+  detail?: string
   icon: LucideIcon
   iconTone: IconBadgeTone
   loading?: boolean
@@ -99,6 +101,17 @@ export function StatStrip(props: StatStripProps) {
               >
                 {item.description}
               </div>
+              {item.detail && (
+                <div
+                  className={cn(
+                    'text-muted-foreground/60 truncate',
+                    descriptionClassName
+                  )}
+                  title={item.detail}
+                >
+                  {item.detail}
+                </div>
+              )}
             </>
           )
         }

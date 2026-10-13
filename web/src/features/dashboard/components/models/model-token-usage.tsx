@@ -34,10 +34,11 @@ import {
 import {
   aggregateModelTokenUsage,
   formatStatNumber,
+  modelCacheHitRate,
 } from '@/features/dashboard/lib'
 import type { ModelTokenUsage, QuotaDataItem } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
-import { formatNumber } from '@/lib/format'
+import { formatNumber, formatPercent } from '@/lib/format'
 
 const TOP_MODEL_COUNT = 5
 
@@ -84,6 +85,13 @@ function AllModelTokenUsageDialog(props: {
       className: 'text-end',
       cellClassName: 'text-end tabular-nums',
       cell: (row) => formatNumber(row.cacheTokens, locale),
+    },
+    {
+      id: 'cache_hit_rate',
+      header: t('Cache hit rate'),
+      className: 'text-end',
+      cellClassName: 'text-end tabular-nums',
+      cell: (row) => formatPercent(modelCacheHitRate(row)),
     },
   ]
 
@@ -135,6 +143,9 @@ export function ModelTokenUsageCard(props: ModelTokenUsageCardProps) {
           fullValue: tokens.fullValue,
           description: t('Cached {{count}}', {
             count: formatStatNumber(model.cacheTokens, locale).displayValue,
+          }),
+          detail: t('Cache hit rate {{rate}}', {
+            rate: formatPercent(modelCacheHitRate(model)),
           }),
           icon: Boxes,
           iconTone: MODEL_TONES[index],
