@@ -27,7 +27,10 @@ type SystemInstanceInfo struct {
 	Runtime       SystemInstanceRuntimeInfo `json:"runtime"`
 	Host          SystemInstanceHostInfo    `json:"host"`
 	Resources     SystemInstanceResources   `json:"resources"`
-	Extra         map[string]any            `json:"extra,omitempty"`
+	// RelayActivity lets other nodes add this node's requests in flight to
+	// the dashboard and API key figures.
+	RelayActivity RelayActivityCounts `json:"relay_activity"`
+	Extra         map[string]any      `json:"extra,omitempty"`
 }
 
 type SystemInstanceRoleInfo struct {
@@ -119,6 +122,7 @@ func ReportCurrentSystemInstance() error {
 				UsedPercent: diskInfo.UsedPercent,
 			},
 		},
+		RelayActivity: LocalRelayActivity(),
 	}
 	return model.UpsertSystemInstance(identity.Name, info, common.StartTime, common.GetTimestamp())
 }

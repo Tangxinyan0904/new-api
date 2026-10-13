@@ -20,6 +20,7 @@ import { api } from '@/lib/api'
 
 import type {
   ApiKey,
+  ApiKeyActivity,
   ApiKeyGroupUpdateData,
   ApiResponse,
   GetApiKeysParams,
@@ -39,6 +40,14 @@ export async function getApiKeys(
 ): Promise<GetApiKeysResponse> {
   const { p = 1, size = 10 } = params
   const res = await api.get(`/api/token/?p=${p}&size=${size}`)
+  return res.data
+}
+
+// Concurrency and RPM of the user's API keys that have any
+export async function getApiKeyActivity(): Promise<
+  ApiResponse<ApiKeyActivity[]>
+> {
+  const res = await api.get('/api/token/activity')
   return res.data
 }
 

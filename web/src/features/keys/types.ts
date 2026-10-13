@@ -61,6 +61,13 @@ export interface ApiResponse<T = unknown> {
   data?: T
 }
 
+/** One API key's requests in flight and finished in the last minute. */
+export interface ApiKeyActivity {
+  token_id: number
+  concurrency: number
+  rpm: number
+}
+
 export interface GetApiKeysParams {
   p?: number
   size?: number

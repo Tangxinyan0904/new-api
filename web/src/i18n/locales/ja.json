@@ -7813,6 +7813,17 @@
     "Group ratio {{ratio}}": "グループ倍率 {{ratio}}",
     "No group ratio": "グループ倍率未設定",
     "Ungrouped": "グループなし",
-    "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today.": "コスト = 元の価格での利用量 × コスト倍率。元の価格は、各リクエストの請求額を実際に適用されたグループ倍率（ユーザーグループの特別倍率を含む）で割った値です。利益 = 利用金額 − コスト。チャネルのコスト倍率は所属するすべてのグループで共通です。コスト倍率のないチャネルは、利用金額全体がコストとして計算されます。利用金額は返金を差し引いた値で、ローカル時間で集計され、5 分ごとに更新されます。直近 7 日間には今日が含まれます。"
+    "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today.": "コスト = 元の価格での利用量 × コスト倍率。元の価格は、各リクエストの請求額を実際に適用されたグループ倍率（ユーザーグループの特別倍率を含む）で割った値です。利益 = 利用金額 − コスト。チャネルのコスト倍率は所属するすべてのグループで共通です。コスト倍率のないチャネルは、利用金額全体がコストとして計算されます。利用金額は返金を差し引いた値で、ローカル時間で集計され、5 分ごとに更新されます。直近 7 日間には今日が含まれます。",
+    "Concurrency / RPM": "同時実行 / RPM",
+    "Whole site, live, refreshed every minute": "サイト全体・リアルタイム・毎分更新",
+    "Your account, live, refreshed every minute": "あなたのアカウント・リアルタイム・毎分更新",
+    "Model token usage": "モデル別トークン使用量",
+    "Every model used in the selected time range.": "選択した期間に使われたすべてのモデル。",
+    "View all": "すべて表示",
+    "Unknown model": "不明なモデル",
+    "Cached {{count}}": "キャッシュ {{count}}",
+    "Cache tokens": "キャッシュトークン",
+    "Cache hit rate": "キャッシュヒット率",
+    "Cache hit rate {{rate}}": "キャッシュヒット率 {{rate}}"
   }
 }

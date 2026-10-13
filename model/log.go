@@ -387,16 +387,18 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	}
 	if common.DataExportEnabled {
 		LogQuotaData(QuotaDataLogParams{
-			UserID:    userId,
-			Username:  username,
-			ModelName: params.ModelName,
-			Quota:     params.Quota,
-			CreatedAt: createdAt,
-			TokenUsed: params.PromptTokens + params.CompletionTokens,
-			UseGroup:  params.Group,
-			TokenID:   params.TokenId,
-			ChannelID: params.ChannelId,
-			NodeName:  common.NodeName,
+			UserID:      userId,
+			Username:    username,
+			ModelName:   params.ModelName,
+			Quota:       params.Quota,
+			CreatedAt:   createdAt,
+			TokenUsed:   params.PromptTokens + params.CompletionTokens,
+			CacheTokens: other.CacheTokens(),
+			InputTokens: other.InputTokens(params.PromptTokens),
+			UseGroup:    params.Group,
+			TokenID:     params.TokenId,
+			ChannelID:   params.ChannelId,
+			NodeName:    common.NodeName,
 		})
 	}
 }
@@ -674,6 +676,40 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	stat.Tpm = rateStat.Tpm
 
 	return stat, nil
+}
+
+// CountRecentConsumeLogs counts consume logs created at or after since, for
+// one user or, when userId is 0, for everyone.
+func CountRecentConsumeLogs(userId int, since int64) (int64, error) {
+	tx := LOG_DB.Model(&Log{}).Where("created_at >= ? AND type = ?", since, LogTypeConsume)
+	if userId != 0 {
+		tx = tx.Where("user_id = ?", userId)
+	}
+	var count int64
+	err := tx.Count(&count).Error
+	return count, err
+}
+
+// CountRecentConsumeLogsByToken counts one user's consume logs created at or
+// after since, per token.
+func CountRecentConsumeLogsByToken(userId int, since int64) (map[int]int64, error) {
+	var rows []struct {
+		TokenId int
+		Count   int64
+	}
+	err := LOG_DB.Model(&Log{}).
+		Select("token_id, COUNT(*) AS count").
+		Where("created_at >= ? AND type = ? AND user_id = ?", since, LogTypeConsume, userId).
+		Group("token_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	counts := make(map[int]int64, len(rows))
+	for _, row := range rows {
+		counts[row.TokenId] = row.Count
+	}
+	return counts, nil
 }
 
 func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string) (token int) {

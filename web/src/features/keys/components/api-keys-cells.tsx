@@ -37,11 +37,14 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { toIntlLocale } from '@/i18n/languages'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
+import { formatNumber } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 import { updateApiKeyGroup } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
-import type { ApiKey, ApiKeyGroupUpdateData } from '../types'
+import type { ApiKey, ApiKeyActivity, ApiKeyGroupUpdateData } from '../types'
 import {
   ApiKeyGroupCombobox,
   type ApiKeyGroupOption,
@@ -333,5 +336,32 @@ function ApiKeyRestrictionCell(props: {
         {details}
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+/**
+ * Concurrency / RPM of one key. stat is undefined for keys without activity;
+ * loaded is false until the first response arrives.
+ */
+export function ApiKeyConcurrencyCell(props: {
+  stat?: ApiKeyActivity
+  loaded: boolean
+}) {
+  const { i18n } = useTranslation()
+  if (!props.loaded) {
+    return <span className='text-muted-foreground'>-</span>
+  }
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  const concurrency = props.stat?.concurrency ?? 0
+  const rpm = props.stat?.rpm ?? 0
+  return (
+    <span
+      className={cn(
+        'font-mono text-sm tabular-nums',
+        concurrency === 0 && rpm === 0 && 'text-muted-foreground'
+      )}
+    >
+      {formatNumber(concurrency, locale)} / {formatNumber(rpm, locale)}
+    </span>
   )
 }

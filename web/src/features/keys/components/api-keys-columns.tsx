@@ -30,8 +30,9 @@ import { formatQuota } from '@/lib/format'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 
-import { API_KEY_STATUSES } from '../constants'
-import type { ApiKey } from '../types'
+import { getApiKeyActivity } from '../api'
+import { API_KEY_ACTIVITY_REFRESH_MS, API_KEY_STATUSES } from '../constants'
+import type { ApiKey, ApiKeyActivity } from '../types'
 import type { ApiKeyGroupOption } from './api-key-group-combobox'
 import { ApiKeyQuotaCell } from './api-key-quota-cell'
 import {
@@ -40,6 +41,7 @@ import {
 } from './api-key-timestamp-cell'
 import {
   ApiKeyCell,
+  ApiKeyConcurrencyCell,
   EditableApiKeyGroupCell,
   IpRestrictionsCell,
   ModelLimitsCell,
@@ -77,12 +79,26 @@ function useGroupOptions(): GroupOptionsData {
   return data ?? EMPTY_GROUP_OPTIONS_DATA
 }
 
+/** Activity per key id; undefined until the first response arrives. */
+function useApiKeyActivity(): Map<number, ApiKeyActivity> | undefined {
+  const { data } = useQuery({
+    queryKey: ['api-key-activity'],
+    queryFn: async () => requireServerSuccess(await getApiKeyActivity()),
+    refetchInterval: API_KEY_ACTIVITY_REFRESH_MS,
+    meta: { errorToast: false },
+    select: (res) =>
+      new Map((res.data ?? []).map((stat) => [stat.token_id, stat])),
+  })
+  return data
+}
+
 export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
   const { t, i18n } = useTranslation()
   useSystemConfigStore((state) => state.config.currency)
   const { meta: currency } = getCurrencyDisplay()
   const quotaUnit = currency.kind === 'tokens' ? t('Tokens') : currency.symbol
   const { options: groupOptions } = useGroupOptions()
+  const activity = useApiKeyActivity()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const justNowLabel = t('Just now')
   return useMemo<ColumnDef<ApiKey>[]>(
@@ -200,6 +216,18 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         meta: { mobileHidden: true },
       },
       {
+        id: 'concurrency_rpm',
+        header: t('Concurrency / RPM'),
+        cell: ({ row }) => (
+          <ApiKeyConcurrencyCell
+            stat={activity?.get(row.original.id)}
+            loaded={activity !== undefined}
+          />
+        ),
+        enableSorting: false,
+        size: 130,
+      },
+      {
         id: 'activity_time',
         accessorKey: 'created_time',
         header: t('Time'),
@@ -248,6 +276,6 @@ export function useApiKeysColumns(now: number): ColumnDef<ApiKey>[] {
         meta: { pinned: 'right' as const },
       },
     ],
-    [t, quotaUnit, now, groupOptions, locale, justNowLabel]
+    [t, quotaUnit, now, groupOptions, activity, locale, justNowLabel]
   )
 }

@@ -67,3 +67,6 @@ export const EMPTY_DASHBOARD_FILTERS: DashboardFilters = {
   time_granularity: 'hour',
   username: '',
 }
+
+/** How often the live concurrency and RPM are refreshed. */
+export const RELAY_ACTIVITY_REFRESH_MS = 60_000

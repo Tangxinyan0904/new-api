@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import { requireServerSuccess } from '@/lib/server-error-message'
 
 import type {
   FlowQuotaDataItem,
   QuotaDataItem,
+  RelayActivity,
   UptimeGroupResult,
 } from './types'
 
@@ -31,6 +33,19 @@ import type {
 // ----------------------------------------------------------------------------
 // Quota & Usage Data
 // ----------------------------------------------------------------------------
+
+// Requests in flight and RPM: site-wide for admins, the user's own otherwise.
+export async function getRelayActivity(
+  isAdmin: boolean
+): Promise<RelayActivity> {
+  const endpoint = isAdmin ? '/api/data/activity' : '/api/data/self/activity'
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data: RelayActivity
+  }>(endpoint)
+  return requireServerSuccess(res.data).data
+}
 
 // Get user quota data within a time range
 // Admin users get all users' data by default.

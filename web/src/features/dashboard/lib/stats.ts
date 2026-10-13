@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { QuotaDataItem } from '@/features/dashboard/types'
+import type { ModelTokenUsage, QuotaDataItem } from '@/features/dashboard/types'
+import { formatCompactNumber, formatNumber } from '@/lib/format'
 
 /**
  * Safe division: handles NaN and Infinity cases
@@ -44,4 +45,57 @@ export function calculateDashboardStats(data: QuotaDataItem[]) {
     }),
     { totalQuota: 0, totalCount: 0, totalTokens: 0 }
   )
+}
+
+const MAX_INLINE_STAT_CHARS = 9
+
+/**
+ * Formats a stat value, switching to the compact form when the full number
+ * would not fit on one line. fullValue is meant for the tooltip.
+ */
+export function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
+  const fullValue = formatNumber(value, locale)
+  const displayValue =
+    fullValue.length > MAX_INLINE_STAT_CHARS
+      ? formatCompactNumber(value, locale)
+      : fullValue
+
+  return {
+    displayValue,
+    fullValue,
+  }
+}
+
+/**
+ * Sums tokens and cached tokens per model, busiest model first.
+ */
+export function aggregateModelTokenUsage(
+  data: QuotaDataItem[]
+): ModelTokenUsage[] {
+  const byModel = new Map<string, ModelTokenUsage>()
+  for (const item of data) {
+    const model = item.model_name || ''
+    const usage = byModel.get(model) ?? {
+      model,
+      tokens: 0,
+      cacheTokens: 0,
+      inputTokens: 0,
+    }
+    usage.tokens += Number(item.token_used) || 0
+    usage.cacheTokens += Number(item.cache_tokens) || 0
+    usage.inputTokens += Number(item.input_tokens) || 0
+    byModel.set(model, usage)
+  }
+  return [...byModel.values()].sort(
+    (a, b) => b.tokens - a.tokens || a.model.localeCompare(b.model)
+  )
+}
+
+/**
+ * Cached share of a model's input tokens, as a percentage (0-100), counted
+ * like the usage log cache hit column. null when no input was recorded.
+ */
+export function modelCacheHitRate(usage: ModelTokenUsage): number | null {
+  if (usage.inputTokens <= 0) return null
+  return Math.min(100, (usage.cacheTokens / usage.inputTokens) * 100)
 }
