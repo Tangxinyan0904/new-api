@@ -279,29 +279,25 @@ func Register(c *gin.Context) {
 		DisplayName: user.Username,
 		InviterId:   inviterId,
 		Role:        common.RoleCommonUser, // 明确设置角色为普通用户
-		Status:      common.UserStatusEnabled,
 	}
 	if common.EmailVerificationEnabled {
 		cleanUser.Email = user.Email
 	}
-	registrationResult, err := model.RegisterSelfServiceUser(
-		&cleanUser,
-		inviterId,
-		c.ClientIP(),
-		nil,
-	)
-	if err != nil {
+	if err := cleanUser.Insert(inviterId); err != nil {
 		if errors.Is(err, model.ErrEmailAlreadyTaken) {
 			common.ApiErrorT(c, "Email address is already in use")
-			return
-		}
-		if handleSelfServiceRegistrationError(c, err) {
 			return
 		}
 		common.ApiError(c, err)
 		return
 	}
 
+	// 获取插入后的用户ID
+	var insertedUser model.User
+	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {
+		common.ApiErrorT(c, "User registration failed or user ID retrieval failed")
+		return
+	}
 	// 生成默认令牌
 	if constant.GenerateDefaultToken {
 		key, err := common.GenerateKey()
@@ -312,7 +308,7 @@ func Register(c *gin.Context) {
 		}
 		// 生成默认令牌
 		token := model.Token{
-			UserId:             cleanUser.Id,
+			UserId:             insertedUser.Id, // 使用插入后的用户ID
 			Name:               i18n.T(c, i18n.MsgUserDefaultTokenName, map[string]any{"Username": cleanUser.Username}),
 			Key:                key,
 			CreatedTime:        common.GetTimestamp(),
@@ -329,9 +325,6 @@ func Register(c *gin.Context) {
 			common.ApiErrorT(c, "Failed to create default token")
 			return
 		}
-	}
-	if respondToRegistrationIPLimit(c, registrationResult) {
-		return
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -1157,12 +1150,7 @@ func ManageUser(c *gin.Context) {
 	if authorization == nil {
 		return
 	}
-	if req.Action == "disable" || req.Action == "enable" {
-		if err := model.SetUserStatusByAdmin(user.Id, user.Status); err != nil {
-			common.ApiError(c, err)
-			return
-		}
-	} else if req.Action == "demote" {
+	if req.Action == "demote" {
 		if err := model.DB.Transaction(func(tx *gorm.DB) error {
 			if err := user.UpdateWithTx(tx, false); err != nil {
 				return err

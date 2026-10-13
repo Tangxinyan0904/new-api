@@ -52,10 +52,7 @@ var auditContentTemplates = map[string]string{
 	"option.passkey_domains_blocked":   "Passkey domain change blocked: ${domains}; affected ${known}; unknown ${unknown}",
 	"option.passkey_domains_failed":    "Passkey domain update failed",
 
-	"rate_limit.distillation_clear":    "Cleared distillation penalty for user ${target_user_id}",
-	"registration_ip.unblock":          "Unblocked registration IP ${ip}; restored ${affected_account_count} accounts",
-	"registration_ip.allowlist_add":    "Added registration IP ${ip} to allowlist; restored ${affected_account_count} accounts",
-	"registration_ip.allowlist_remove": "Removed registration IP ${ip} from allowlist",
+	"rate_limit.distillation_clear": "Cleared distillation penalty for user ${target_user_id}",
 
 	"channel.create":             "Created channel ${name} (type ${type}, count ${count})",
 	"channel.update":             "Updated channel ${name} (ID: ${id})",
