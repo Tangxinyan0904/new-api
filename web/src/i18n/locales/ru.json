@@ -7813,6 +7813,15 @@
     "Group ratio {{ratio}}": "Коэффициент группы {{ratio}}",
     "No group ratio": "Коэффициент группы не задан",
     "Ungrouped": "Без группы",
-    "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today.": "Себестоимость = использование по исходной цене × коэффициент себестоимости. Исходная цена — это списание за каждый запрос, делённое на коэффициент группы, по которому он был оплачен, включая специальные коэффициенты групп пользователей. Прибыль = сумма использования − себестоимость. Коэффициент себестоимости канала действует во всех его группах; для каналов без коэффициента всё использование считается себестоимостью. Использование указано за вычетом возвратов, сгруппировано по вашему местному времени и обновляется каждые 5 минут. Последние 7 дней включают сегодня."
+    "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today.": "Себестоимость = использование по исходной цене × коэффициент себестоимости. Исходная цена — это списание за каждый запрос, делённое на коэффициент группы, по которому он был оплачен, включая специальные коэффициенты групп пользователей. Прибыль = сумма использования − себестоимость. Коэффициент себестоимости канала действует во всех его группах; для каналов без коэффициента всё использование считается себестоимостью. Использование указано за вычетом возвратов, сгруппировано по вашему местному времени и обновляется каждые 5 минут. Последние 7 дней включают сегодня.",
+    "Concurrency / RPM": "Параллельно / RPM",
+    "Whole site, live, refreshed every minute": "Весь сайт, в реальном времени, обновляется каждую минуту",
+    "Your account, live, refreshed every minute": "Ваш аккаунт, в реальном времени, обновляется каждую минуту",
+    "Model token usage": "Использование токенов по моделям",
+    "Every model used in the selected time range.": "Все модели, использованные за выбранный период.",
+    "View all": "Показать все",
+    "Unknown model": "Неизвестная модель",
+    "Cached {{count}}": "Из кэша {{count}}",
+    "Cache tokens": "Кэшированные токены"
   }
 }

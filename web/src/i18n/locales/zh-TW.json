@@ -7813,6 +7813,15 @@
     "Group ratio {{ratio}}": "分組倍率 {{ratio}}",
     "No group ratio": "未設定分組倍率",
     "Ungrouped": "未分組",
-    "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today.": "成本 = 原價用量 × 成本倍率，原價用量 = 每次請求的扣費 ÷ 當次實際扣費的分組倍率（含使用者分組特殊倍率）。利潤 = 已使用金額 − 成本。管道的成本倍率在它所屬的所有分組中通用；未設定成本倍率的管道，成本按已使用金額計算。已使用金額已扣除退款，依你的本地時間分組，每 5 分鐘更新一次。近 7 天包含今天。"
+    "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today.": "成本 = 原價用量 × 成本倍率，原價用量 = 每次請求的扣費 ÷ 當次實際扣費的分組倍率（含使用者分組特殊倍率）。利潤 = 已使用金額 − 成本。管道的成本倍率在它所屬的所有分組中通用；未設定成本倍率的管道，成本按已使用金額計算。已使用金額已扣除退款，依你的本地時間分組，每 5 分鐘更新一次。近 7 天包含今天。",
+    "Concurrency / RPM": "並行 / RPM",
+    "Whole site, live, refreshed every minute": "全站即時資料，每分鐘重新整理",
+    "Your account, live, refreshed every minute": "目前帳號即時資料，每分鐘重新整理",
+    "Model token usage": "模型 Token 用量",
+    "Every model used in the selected time range.": "所選時間範圍內用過的全部模型。",
+    "View all": "查看全部",
+    "Unknown model": "未知模型",
+    "Cached {{count}}": "快取 {{count}}",
+    "Cache tokens": "快取 Token"
   }
 }

@@ -32,7 +32,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ROLE } from '@/lib/roles'
-import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
@@ -66,6 +65,7 @@ const LOG_STAT_CARD_FALLBACK_KEYS = [
   'tokens',
   'average-rpm',
   'average-tpm',
+  'concurrency-rpm',
 ] as const
 const PERFORMANCE_METRIC_FALLBACK_KEYS = [
   'success-rate',
@@ -80,6 +80,12 @@ const PERFORMANCE_MODEL_FALLBACK_KEYS = [
 const LazyLogStatCards = lazy(() =>
   import('./components/models/log-stat-cards').then((m) => ({
     default: m.LogStatCards,
+  }))
+)
+
+const LazyModelTokenUsageCard = lazy(() =>
+  import('./components/models/model-token-usage').then((m) => ({
+    default: m.ModelTokenUsageCard,
   }))
 )
 
@@ -116,16 +122,9 @@ const LazyFlowCharts = lazy(() =>
 function LogStatCardsFallback() {
   return (
     <div className='overflow-hidden rounded-lg border'>
-      <div className='divide-border/60 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5'>
-        {LOG_STAT_CARD_FALLBACK_KEYS.map((key, index) => (
-          <div
-            key={key}
-            className={cn(
-              'px-2.5 py-1.5 sm:px-5 sm:py-4',
-              index === LOG_STAT_CARD_FALLBACK_KEYS.length - 1 &&
-                'col-span-2 sm:col-span-1'
-            )}
-          >
+      <div className='divide-border/60 grid grid-cols-2 divide-x sm:grid-cols-3 2xl:grid-cols-6'>
+        {LOG_STAT_CARD_FALLBACK_KEYS.map((key) => (
+          <div key={key} className='px-2.5 py-1.5 sm:px-5 sm:py-4'>
             <div className='flex items-center gap-1.5 sm:gap-2'>
               <Skeleton className='size-4 rounded-sm sm:size-7 sm:rounded-md' />
               <Skeleton className='h-4 w-16' />
@@ -353,6 +352,14 @@ export function Dashboard() {
                   <LazyLogStatCards
                     filters={modelFilters}
                     onDataUpdate={handleDataUpdate}
+                  />
+                </Suspense>
+              </FadeIn>
+              <FadeIn delay={0.03}>
+                <Suspense fallback={<LogStatCardsFallback />}>
+                  <LazyModelTokenUsageCard
+                    data={modelData}
+                    loading={dataLoading}
                   />
                 </Suspense>
               </FadeIn>

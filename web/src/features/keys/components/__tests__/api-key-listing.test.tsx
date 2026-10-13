@@ -306,6 +306,14 @@ function KeysPage() {
 async function renderKeysPage(status = 1, overrides: Partial<ApiKey> = {}) {
   let currentKey = { ...key, status, ...overrides }
   vi.mocked(api.get).mockImplementation(async (url) => {
+    if (url === '/api/token/activity') {
+      return {
+        data: {
+          success: true,
+          data: [{ token_id: currentKey.id, concurrency: 2, rpm: 15 }],
+        },
+      }
+    }
     if (url.startsWith('/api/token/')) {
       return {
         data: { success: true, data: { items: [currentKey], total: 1 } },
@@ -350,11 +358,12 @@ async function renderKeysPage(status = 1, overrides: Partial<ApiKey> = {}) {
 }
 
 it('combines creation and last use while keeping expiry, models and IP restrictions separate', async () => {
-  // Models and IP restrictions are hidden by default to make room for the
-  // editable group column; this test shows them to check the layout.
+  // Time, models and IP restrictions are hidden by default to make room for
+  // concurrency and the editable group column; this test shows them to check
+  // the layout.
   localStorage.setItem(
     'api-keys:column-visibility',
-    JSON.stringify({ model_limits: true, allow_ips: true })
+    JSON.stringify({ model_limits: true, allow_ips: true, activity_time: true })
   )
   await renderKeysPage()
   for (const name of ['Name', 'API Key', 'Group', 'Models', 'IP Restriction']) {
@@ -374,7 +383,21 @@ it('combines creation and last use while keeping expiry, models and IP restricti
   expect(quotaTrigger.closest('td')).not.toHaveClass('pr-8')
 })
 
-it('restores dates hidden by the old default and preserves unrelated column preferences', async () => {
+it('shows concurrency and RPM in place of the time column by default', async () => {
+  await renderKeysPage()
+  expect(
+    screen.getByRole('columnheader', { name: 'Concurrency / RPM' })
+  ).toBeInTheDocument()
+  expect(await screen.findByText('2 / 15')).toBeInTheDocument()
+  expect(
+    screen.queryByRole('columnheader', { name: 'Time' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.getByRole('columnheader', { name: 'Expires' })
+  ).toBeInTheDocument()
+})
+
+it('restores the expiry date hidden by an old default and preserves unrelated column preferences', async () => {
   localStorage.setItem(
     'api-keys:column-visibility',
     JSON.stringify({
@@ -385,10 +408,12 @@ it('restores dates hidden by the old default and preserves unrelated column pref
     })
   )
   await renderKeysPage()
-  expect(screen.getByRole('columnheader', { name: 'Time' })).toBeInTheDocument()
   expect(
     screen.getByRole('columnheader', { name: 'Expires' })
   ).toBeInTheDocument()
+  expect(
+    screen.queryByRole('columnheader', { name: 'Time' })
+  ).not.toBeInTheDocument()
   expect(
     screen.queryByRole('columnheader', { name: 'Models' })
   ).not.toBeInTheDocument()

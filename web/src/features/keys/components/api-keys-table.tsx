@@ -327,6 +327,8 @@ export function ApiKeysTable() {
     initialColumnVisibility: {
       model_limits: false,
       allow_ips: false,
+      // Concurrency / RPM takes the time column's place by default.
+      activity_time: false,
     },
     columnVisibilityStorageKey: API_KEYS_COLUMN_VISIBILITY_STORAGE_KEY,
     globalFilter,
@@ -342,18 +344,22 @@ export function ApiKeysTable() {
 
   const columnVisibility = table.getState().columnVisibility
   useEffect(() => {
-    // Restore the dates hidden by the previous default when adopting the combined time column.
+    // Restore the expiry date hidden by an older default, which also hid the
+    // separate created and accessed columns, and drop those retired columns.
     if (
-      columnVisibility.activity_time === undefined &&
       columnVisibility.created_time === false &&
       columnVisibility.accessed_time === false &&
       columnVisibility.expired_time === false
     ) {
-      table.setColumnVisibility((previous) => ({
-        ...previous,
-        activity_time: true,
-        expired_time: true,
-      }))
+      table.setColumnVisibility((previous) => {
+        const next: Record<string, boolean> = {
+          ...previous,
+          expired_time: true,
+        }
+        delete next.created_time
+        delete next.accessed_time
+        return next
+      })
     }
   }, [columnVisibility, table])
 

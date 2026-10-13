@@ -16,16 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
+import { Activity } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { IconBadge } from '@/components/ui/icon-badge'
-import { Skeleton } from '@/components/ui/skeleton'
-import { getUserQuotaDates } from '@/features/dashboard/api'
+import { getRelayActivity, getUserQuotaDates } from '@/features/dashboard/api'
+import {
+  StatStrip,
+  type StatStripItem,
+} from '@/features/dashboard/components/ui/stat-strip'
+import { RELAY_ACTIVITY_REFRESH_MS } from '@/features/dashboard/constants'
 import { useModelStatCardsConfig } from '@/features/dashboard/hooks/use-dashboard-config'
 import {
   buildQueryParams,
   calculateDashboardStats,
+  formatStatNumber,
   getDefaultDays,
 } from '@/features/dashboard/lib'
 import type {
@@ -33,9 +39,8 @@ import type {
   DashboardFilters,
 } from '@/features/dashboard/types'
 import { toIntlLocale } from '@/i18n/languages'
-import { formatCompactNumber, formatNumber, formatQuota } from '@/lib/format'
+import { formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
-import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/stores/auth-store'
 
 interface LogStatCardsProps {
@@ -43,23 +48,8 @@ interface LogStatCardsProps {
   onDataUpdate?: (data: QuotaDataItem[], loading: boolean) => void
 }
 
-const MAX_INLINE_STAT_CHARS = 9
-
-function formatStatNumber(value: number, locale: Intl.LocalesArgument) {
-  const fullValue = formatNumber(value, locale)
-  const displayValue =
-    fullValue.length > MAX_INLINE_STAT_CHARS
-      ? formatCompactNumber(value, locale)
-      : fullValue
-
-  return {
-    displayValue,
-    fullValue,
-  }
-}
-
 export function LogStatCards(props: LogStatCardsProps) {
-  const { i18n } = useTranslation()
+  const { t, i18n } = useTranslation()
   const statCardsConfig = useModelStatCardsConfig()
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
@@ -74,6 +64,15 @@ export function LogStatCards(props: LogStatCardsProps) {
   const [timeRangeMinutes, setTimeRangeMinutes] = useState(0)
 
   const { filters, onDataUpdate } = props
+
+  // Live figures ignore the time filter: admins see the whole site, users
+  // their own account.
+  const activity = useQuery({
+    queryKey: ['dashboard', 'relay-activity', isAdmin],
+    queryFn: () => getRelayActivity(isAdmin),
+    refetchInterval: RELAY_ACTIVITY_REFRESH_MS,
+    meta: { errorToast: false },
+  })
 
   useEffect(() => {
     const abortController = new AbortController()
@@ -121,9 +120,9 @@ export function LogStatCards(props: LogStatCardsProps) {
     tpm: stats?.totalTokens ?? 0,
   }
 
-  const items = statCardsConfig.map((config) => {
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  const items: StatStripItem[] = statCardsConfig.map((config) => {
     const rawValue = config.getValue(adaptedStats, timeRangeMinutes)
-    const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
     const formatted =
       config.key === 'quota'
         ? {
@@ -133,83 +132,40 @@ export function LogStatCards(props: LogStatCardsProps) {
         : formatStatNumber(rawValue, locale)
 
     return {
+      key: config.key,
       title: config.title,
       value: formatted.displayValue,
       fullValue: formatted.fullValue,
-      desc: config.description,
+      description: config.description,
       icon: config.icon,
       iconTone: config.iconTone,
+      loading,
+      error,
     }
+  })
+  const concurrencyRpm = activity.data
+    ? `${formatNumber(activity.data.concurrency, locale)} / ${formatNumber(activity.data.rpm, locale)}`
+    : ''
+  items.push({
+    key: 'concurrency-rpm',
+    title: t('Concurrency / RPM'),
+    value: concurrencyRpm,
+    fullValue: concurrencyRpm,
+    description: isAdmin
+      ? t('Whole site, live, refreshed every minute')
+      : t('Your account, live, refreshed every minute'),
+    icon: Activity,
+    iconTone: 'chart-1',
+    loading: activity.isPending,
+    error: activity.isError,
   })
 
   return (
     <div className='overflow-hidden rounded-lg border'>
-      <div className='divide-border/60 grid min-w-0 grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5'>
-        {items.map((it, idx) => {
-          const Icon = it.icon
-          let valueContent
-          if (loading) {
-            valueContent = (
-              <div className='mt-1 flex flex-col gap-1 sm:mt-2 sm:gap-1.5'>
-                <Skeleton className='h-5 w-16 sm:h-7 sm:w-20' />
-                <Skeleton className='hidden h-3.5 w-28 md:block' />
-              </div>
-            )
-          } else if (error) {
-            valueContent = (
-              <>
-                <div className='text-muted-foreground mt-1 font-mono text-base leading-tight font-bold tracking-tight tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'>
-                  --
-                </div>
-                <div className='text-muted-foreground/40 mt-1 hidden text-xs md:block'>
-                  {it.desc}
-                </div>
-              </>
-            )
-          } else {
-            valueContent = (
-              <>
-                <div
-                  className='text-foreground mt-1 max-w-full truncate font-mono text-base leading-tight font-bold tracking-tight tabular-nums sm:mt-2 sm:text-2xl sm:leading-normal'
-                  title={it.fullValue}
-                >
-                  {it.value}
-                </div>
-                <div className='text-muted-foreground/60 mt-1 hidden text-xs md:block'>
-                  {it.desc}
-                </div>
-              </>
-            )
-          }
-
-          return (
-            <div
-              key={it.title}
-              className={cn(
-                'min-w-0 px-2.5 py-1.5 sm:px-5 sm:py-4',
-                idx === items.length - 1 &&
-                  items.length % 2 !== 0 &&
-                  'col-span-2 sm:col-span-1'
-              )}
-            >
-              <div className='flex min-w-0 items-center gap-1.5 sm:gap-2'>
-                <IconBadge
-                  tone={it.iconTone}
-                  size='stat'
-                  className='size-4 rounded-sm sm:size-7 sm:rounded-md [&>svg]:size-2.5 sm:[&>svg]:size-3.5'
-                >
-                  <Icon />
-                </IconBadge>
-                <div className='text-muted-foreground truncate text-[11px] leading-4 font-medium tracking-wide uppercase sm:text-xs sm:tracking-wider'>
-                  {it.title}
-                </div>
-              </div>
-
-              {valueContent}
-            </div>
-          )
-        })}
-      </div>
+      <StatStrip
+        items={items}
+        columnsClassName='grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6'
+      />
     </div>
   )
 }

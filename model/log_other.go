@@ -79,6 +79,15 @@ func (o *LogOther) MergePublic(values map[string]any) {
 // setContent stores structured content under content_parts, which the web
 // console renders in the viewer's language, and returns the English text kept
 // in the content column for exports and API callers.
+// CacheTokens returns the cached prompt tokens recorded for the request.
+func (o *LogOther) CacheTokens() int {
+	if o == nil {
+		return 0
+	}
+	cacheTokens, _ := o.public["cache_tokens"].(int)
+	return cacheTokens
+}
+
 func (o *LogOther) setContent(parts []*common.Message) string {
 	if len(parts) == 0 {
 		return ""

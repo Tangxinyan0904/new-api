@@ -29,8 +29,23 @@ export interface QuotaDataItem {
   model_name?: string
   created_at: number
   token_used?: number
+  /** Cached prompt tokens; recorded only since the field was added. */
+  cache_tokens?: number
   count?: number
   quota?: number
+}
+
+/** Tokens a model used over the dashboard range. */
+export interface ModelTokenUsage {
+  model: string
+  tokens: number
+  cacheTokens: number
+}
+
+/** Requests in flight right now and finished in the last minute. */
+export interface RelayActivity {
+  concurrency: number
+  rpm: number
 }
 
 export interface FlowQuotaDataItem {

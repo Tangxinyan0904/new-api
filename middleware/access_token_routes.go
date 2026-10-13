@@ -241,6 +241,7 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/token/":            accessTokenScopeRule("api_key:read"),
 	"GET /api/token/search":      accessTokenScopeRule("api_key:read"),
 	"GET /api/token/auto-groups": accessTokenScopeRule("api_key:read"),
+	"GET /api/token/activity":    accessTokenScopeRule("api_key:read"),
 	"GET /api/token/:id":         accessTokenScopeRule("api_key:read"),
 	"POST /api/token/:id/key":    accessTokenScopeRule("api_key:reveal"),
 	"POST /api/token/":           accessTokenScopeRule("api_key:write"),
@@ -281,6 +282,8 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"GET /api/data/":                            accessTokenScopeRule("log:read"),
 	"GET /api/data/users":                       accessTokenScopeRule("log:read"),
 	"GET /api/data/self":                        accessTokenScopeRule("usage:read"),
+	"GET /api/data/activity":                    accessTokenScopeRule("log:read"),
+	"GET /api/data/self/activity":               accessTokenScopeRule("usage:read"),
 	"GET /api/data/flow":                        accessTokenScopeRule("log:read"),
 	"GET /api/data/flow/self":                   accessTokenScopeRule("usage:read"),
 
