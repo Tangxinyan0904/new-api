@@ -163,15 +163,10 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"POST /api/option/geoip/download":  accessTokenScopeRule("option:write"),
 	"PUT /api/option/affiliate":        accessTokenScopeRule("option:write"),
 
-	// router/api-router.go: /api/rate-limit, /api/registration-ip-abuse
+	// router/api-router.go: /api/rate-limit
 	"PUT /api/rate-limit":                                    accessTokenScopeRule("option:write"),
 	"GET /api/rate-limit/distillation/penalties":             accessTokenScopeRule("user:read"),
 	"DELETE /api/rate-limit/distillation/penalties/:user_id": accessTokenScopeRule("user:write"),
-	"GET /api/registration-ip-abuse/blocked":                 accessTokenScopeRule("user:read"),
-	"POST /api/registration-ip-abuse/:ip/unblock":            accessTokenScopeRule("user:write"),
-	"GET /api/registration-ip-abuse/allowlist":               accessTokenScopeRule("user:read"),
-	"POST /api/registration-ip-abuse/allowlist":              accessTokenScopeRule("user:write"),
-	"DELETE /api/registration-ip-abuse/allowlist/:ip":        accessTokenScopeRule("user:write"),
 
 	// router/channel_monitor_router.go: the status page is readable by every user.
 	"GET /api/channel-monitor/status":                            accessTokenAnyRule,

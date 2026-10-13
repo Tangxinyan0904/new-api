@@ -358,8 +358,6 @@ func migrateDB() error {
 		&AffiliateRebateRateChange{},
 		&DistillationPenalty{},
 		&DistillationViolationRecord{},
-		&RegistrationIPState{},
-		&RegistrationIPAccount{},
 		&QuotaData{},
 		&Task{},
 		&TaskPlugin{},

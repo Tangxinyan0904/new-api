@@ -86,20 +86,8 @@ func WeChatAuth(c *gin.Context) {
 			user.Role = common.RoleCommonUser
 			user.Status = common.UserStatusEnabled
 
-			registrationResult, err := model.RegisterSelfServiceUser(
-				&user,
-				0,
-				c.ClientIP(),
-				nil,
-			)
-			if err != nil {
-				if handleSelfServiceRegistrationError(c, err) {
-					return
-				}
+			if err := user.Insert(0); err != nil {
 				common.ApiError(c, err)
-				return
-			}
-			if respondToRegistrationIPLimit(c, registrationResult) {
 				return
 			}
 		} else {
