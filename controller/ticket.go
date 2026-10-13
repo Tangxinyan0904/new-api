@@ -14,6 +14,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// ticketRefundMaxRangeSeconds bounds how far back refund usage may be asked
+// for: the 7-day range plus a day of time zone slack.
+const ticketRefundMaxRangeSeconds = 8 * 24 * 3600
+
 // ticketFormMaxBytes bounds a ticket form: the largest allowed images plus
 // room for the text fields and multipart framing.
 const ticketFormMaxBytes = model.TicketMaxImagesPerMessage*model.TicketMaxImageBytes + 1<<20
@@ -153,13 +157,43 @@ func CreateTicket(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	ticket, err := model.CreateTicket(c.GetInt("id"), subject, category, content, images)
+	// log_ids is a comma-separated list of the user's call logs to attach.
+	var logIds []int
+	for field := range strings.SplitSeq(c.PostForm("log_ids"), ",") {
+		field = strings.TrimSpace(field)
+		if field == "" {
+			continue
+		}
+		logId, err := strconv.Atoi(field)
+		if err != nil || logId <= 0 {
+			common.ApiErrorT(c, "Invalid parameters")
+			return
+		}
+		if !slices.Contains(logIds, logId) {
+			logIds = append(logIds, logId)
+		}
+	}
+	ticket, err := model.CreateTicket(c.GetInt("id"), subject, category, content, images, logIds)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	service.NotifyTicketStaff(*ticket, c.GetString("username"), true)
 	common.ApiSuccess(c, ticket)
+}
+
+// ListSelfTicketLogs lists the user's call logs that can be attached to an
+// API ticket, newest first.
+func ListSelfTicketLogs(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	items, total, err := model.ListTicketLogCandidates(c.GetInt("id"), strings.TrimSpace(c.Query("model_name")), pageInfo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(items)
+	common.ApiSuccess(c, pageInfo)
 }
 
 func GetSelfTicket(c *gin.Context) {
@@ -273,6 +307,38 @@ func GetTicket(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, detail)
+}
+
+// GetTicketRefundInfo returns the payment and usage facts of a refund
+// ticket's owner. The client sends the day starts in its own time zone.
+func GetTicketRefundInfo(c *gin.Context) {
+	id, ok := ticketIdParam(c)
+	if !ok {
+		return
+	}
+	todayStart, errToday := strconv.ParseInt(c.Query("today_start"), 10, 64)
+	weekStart, errWeek := strconv.ParseInt(c.Query("week_start"), 10, 64)
+	now := common.GetTimestamp()
+	if errToday != nil || errWeek != nil || weekStart > todayStart || todayStart > now ||
+		now-weekStart > ticketRefundMaxRangeSeconds {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	detail, err := model.GetStaffTicketDetail(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if detail.Category != model.TicketCategoryRefund {
+		common.ApiErrorT(c, "Refund details are only available for refund tickets")
+		return
+	}
+	info, err := model.GetTicketRefundInfo(detail.UserId, todayStart, weekStart)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, info)
 }
 
 func ReplyTicket(c *gin.Context) {

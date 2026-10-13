@@ -347,6 +347,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			ticketRoute.GET("/self", controller.ListSelfTickets)
 			ticketRoute.GET("/self/unread", controller.GetSelfTicketUnreadCount)
+			ticketRoute.GET("/logs", controller.ListSelfTicketLogs)
 			ticketRoute.POST("/", middleware.UserCriticalRateLimit("ticket"), controller.CreateTicket)
 			ticketRoute.GET("/attachment/:id", controller.GetSelfTicketAttachment)
 			ticketRoute.GET("/:id", controller.GetSelfTicket)
@@ -358,6 +359,7 @@ func SetApiRouter(router *gin.Engine) {
 		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/summary", authz.TicketRead, controller.GetTicketSummary)
 		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/attachment/:id", authz.TicketRead, controller.GetTicketAttachment)
 		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/:id", authz.TicketRead, controller.GetTicket)
+		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/:id/refund", authz.TicketRead, controller.GetTicketRefundInfo)
 		handlePermissionRoute(ticketAdminRoute, http.MethodPost, "/:id/reply", authz.TicketWrite, controller.ReplyTicket)
 		handlePermissionRoute(ticketAdminRoute, http.MethodPut, "/:id", authz.TicketWrite, controller.UpdateTicket)
 		channelCostRoute := apiRouter.Group("/channel-cost", middleware.DisableCache(), middleware.AdminAuth())

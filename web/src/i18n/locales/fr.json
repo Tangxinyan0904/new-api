@@ -7780,6 +7780,27 @@
     "Cached {{count}}": "En cache {{count}}",
     "Cache tokens": "Jetons en cache",
     "Cache hit rate": "Taux de succès du cache",
-    "Cache hit rate {{rate}}": "Taux de succès du cache {{rate}}"
+    "Cache hit rate {{rate}}": "Taux de succès du cache {{rate}}",
+    "Attached call logs": "Journaux d'appels joints",
+    "Call logs can only be attached to API & models tickets": "Seuls les tickets « API et modèles » peuvent joindre des journaux d'appels",
+    "Copy request ID": "Copier l'ID de requête",
+    "Failed to load call logs": "Échec du chargement des journaux d'appels",
+    "Failed to load refund details": "Échec du chargement des informations de remboursement",
+    "Latest top-up": "Dernière recharge",
+    "No call logs yet": "Aucun journal d'appel pour l'instant",
+    "Online top-ups": "Recharges en ligne",
+    "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.": "Les recharges en ligne additionnent le montant payé des commandes réussies ; l'utilisation est nette des remboursements et suit votre heure locale.",
+    "Optional. Tick the requests that went wrong so support can look them up directly.": "Facultatif. Cochez les requêtes en échec pour que le support puisse les retrouver directement.",
+    "Refund details are only available for refund tickets": "Les informations de remboursement ne concernent que les tickets de remboursement",
+    "Refund reference": "Référence de remboursement",
+    "Related call logs": "Journaux d'appels associés",
+    "Some selected call logs were not found": "Certains journaux d'appels sélectionnés sont introuvables",
+    "Used in the last 7 days": "Utilisé sur les 7 derniers jours",
+    "Used today": "Utilisé aujourd'hui",
+    "You can attach at most {{max}} call logs": "Vous pouvez joindre au plus {{max}} journaux d'appels",
+    "{{count}} codes": "{{count}} codes",
+    "{{count}} of {{max}} selected": "{{count}} sur {{max}} sélectionnés",
+    "{{count}} orders, {{amount}} credited": "{{count}} commandes, {{amount}} crédités",
+    "{{seconds}} s": "{{seconds}} s"
   }
 }

@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 export type TicketStatus = 'open' | 'processing' | 'waiting_user' | 'closed'
 
-export type TicketCategory = 'billing' | 'api' | 'account' | 'other'
+export type TicketCategory = 'billing' | 'api' | 'account' | 'refund' | 'other'
 
 export type TicketPriority = 1 | 2 | 3 | 4
 
@@ -56,8 +56,56 @@ export interface TicketMessage {
   attachments: TicketAttachment[]
 }
 
+/** A copy of a call log attached to an API ticket when it was opened. */
+export interface TicketLog {
+  log_id: number
+  created_at: number
+  /** 2 for a consumed request, 5 for a failed one. */
+  type: number
+  model_name: string
+  token_name: string
+  group: string
+  quota: number
+  prompt_tokens: number
+  completion_tokens: number
+  use_time: number
+  is_stream: boolean
+  request_id: string
+  content: string
+  /** Only present in staff views. */
+  channel_id?: number
+}
+
+export interface TicketLogPage {
+  items: TicketLog[]
+  total: number
+}
+
 export interface TicketDetail extends Ticket {
   messages: TicketMessage[]
+  logs: TicketLog[]
+}
+
+export interface TicketRefundTopUp {
+  payment_method: string
+  /** Credited amount in USD, as billing history shows it. */
+  amount: number
+  /** Money paid, in the payment currency. */
+  money: number
+  complete_time: number
+}
+
+/** A refund ticket owner's payments and recent usage, for staff. */
+export interface TicketRefundInfo {
+  quota: number
+  top_up_count: number
+  top_up_amount: number
+  top_up_money: number
+  latest_top_up: TicketRefundTopUp | null
+  redemption_count: number
+  redemption_quota: number
+  today_quota: number
+  week_quota: number
 }
 
 export interface TicketPage {

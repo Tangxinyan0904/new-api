@@ -24,8 +24,10 @@ import type {
   Ticket,
   TicketAudience,
   TicketDetail,
+  TicketLogPage,
   TicketPage,
   TicketPriority,
+  TicketRefundInfo,
   TicketStatus,
 } from './types'
 
@@ -79,12 +81,28 @@ export async function getUserUnreadTicketCount(): Promise<number> {
   return body.data?.unread ?? 0
 }
 
+/** The user's call logs that can be attached to an API ticket. */
+export async function getTicketLogCandidates(params: {
+  p: number
+  page_size: number
+  model_name?: string
+}): Promise<TicketLogPage> {
+  const res = await api.get(`/api/ticket/logs?${searchString(params)}`)
+  const body = requireServerSuccess(res.data as ApiResponse<TicketLogPage>)
+  return { items: body.data?.items ?? [], total: body.data?.total ?? 0 }
+}
+
 export async function createTicket(
-  input: TicketMessageInput & { subject: string; category: string }
+  input: TicketMessageInput & {
+    subject: string
+    category: string
+    logIds?: number[]
+  }
 ): Promise<ApiResponse<Ticket>> {
   const form = buildMessageForm(input, {
     subject: input.subject,
     category: input.category,
+    log_ids: (input.logIds ?? []).join(','),
   })
   const res = await api.post('/api/ticket/', form, mutationConfig)
   return res.data
@@ -174,4 +192,16 @@ export async function fetchTicketAttachment(
     skipErrorHandler: true,
   })
   return res.data as Blob
+}
+
+/** Payments and recent usage of a refund ticket's owner. */
+export async function getStaffTicketRefundInfo(
+  id: number,
+  starts: { today_start: number; week_start: number }
+): Promise<TicketRefundInfo> {
+  const res = await api.get(
+    `/api/ticket/admin/${id}/refund?${searchString(starts)}`
+  )
+  return requireServerSuccess(res.data as ApiResponse<TicketRefundInfo>)
+    .data as TicketRefundInfo
 }

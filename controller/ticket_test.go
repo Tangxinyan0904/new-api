@@ -40,7 +40,7 @@ type ticketResponse struct {
 func setupTicketControllerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.Ticket{}, &model.TicketMessage{}, &model.TicketAttachment{}))
+	require.NoError(t, db.AutoMigrate(&model.Ticket{}, &model.TicketMessage{}, &model.TicketAttachment{}, &model.TicketLog{}, &model.Log{}, &model.TopUp{}, &model.Redemption{}))
 	require.NoError(t, db.Create(&[]model.User{
 		{Id: ticketStaffID, Username: "root", AffCode: "ticket-aff-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled},
 		{Id: ticketOwnerID, Username: "owner", AffCode: "ticket-aff-owner", Role: common.RoleCommonUser, Status: common.UserStatusEnabled},
@@ -342,4 +342,128 @@ func TestCloseStaleWaitingTicketsOnlyClosesExpiredWaitingTickets(t *testing.T) {
 	stale, err = model.HasStaleWaitingTickets(cutoff)
 	require.NoError(t, err)
 	assert.False(t, stale)
+}
+
+func TestApiTicketsAttachTheOwnersCallLogs(t *testing.T) {
+	db := setupTicketControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Log{
+		{Id: 1, UserId: ticketOwnerID, Type: model.LogTypeConsume, ModelName: "gpt-4o", Quota: 120, PromptTokens: 30, ChannelId: 7, RequestId: "req-1", CreatedAt: 1_790_000_000},
+		{Id: 2, UserId: ticketOwnerID, Type: model.LogTypeError, ModelName: "gpt-4o", Content: "upstream timeout", ChannelId: 7, RequestId: "req-2", CreatedAt: 1_790_000_100},
+		{Id: 3, UserId: ticketOwnerID, Type: model.LogTypeTopup, Quota: 5000, CreatedAt: 1_790_000_200},
+		{Id: 4, UserId: ticketOtherID, Type: model.LogTypeConsume, ModelName: "gpt-4o", CreatedAt: 1_790_000_300},
+	}).Error)
+
+	candidates := callTicketHandler(t, ListSelfTicketLogs, http.MethodGet, "/api/ticket/logs?p=1&page_size=10", ticketOwnerID, nil, nil, nil, "")
+	require.True(t, candidates.Success, candidates.Message)
+	var page struct {
+		Total int               `json:"total"`
+		Items []model.TicketLog `json:"items"`
+	}
+	require.NoError(t, common.Unmarshal(candidates.Data, &page))
+	assert.Equal(t, 2, page.Total, "only the owner's consumed and failed requests")
+	require.Len(t, page.Items, 2)
+	assert.Equal(t, []int{2, 1}, []int{page.Items[0].LogId, page.Items[1].LogId})
+	assert.Zero(t, page.Items[0].ChannelId, "users never see the channel")
+
+	fields := func(category, logIds string) map[string]string {
+		return map[string]string{"subject": "Slow requests", "category": category, "content": "See attached logs.", "log_ids": logIds}
+	}
+	for name, test := range map[string]struct{ category, logIds, key string }{
+		"a log of another user": {model.TicketCategoryAPI, "1,4", model.ErrTicketLogNotFound.Key},
+		"a top-up log":          {model.TicketCategoryAPI, "3", model.ErrTicketLogNotFound.Key},
+		"too many logs":         {model.TicketCategoryAPI, "1,2,5,6,7,8", model.ErrTicketLogLimit.Key},
+		"a non-API ticket":      {model.TicketCategoryBilling, "1", model.ErrTicketLogCategory.Key},
+		"a malformed log id":    {model.TicketCategoryAPI, "1,abc", "Invalid parameters"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			response := callTicketHandler(t, CreateTicket, http.MethodPost, "/api/ticket/", ticketOwnerID, nil, fields(test.category, test.logIds), nil, "")
+			assert.False(t, response.Success)
+			assert.Equal(t, test.key, response.MessageKey)
+		})
+	}
+
+	created := callTicketHandler(t, CreateTicket, http.MethodPost, "/api/ticket/", ticketOwnerID, nil, fields(model.TicketCategoryAPI, "1, 2,1"), nil, "")
+	require.True(t, created.Success, created.Message)
+	var ticket model.Ticket
+	require.NoError(t, common.Unmarshal(created.Data, &ticket))
+
+	var userView model.TicketDetail
+	userDetail := callTicketHandler(t, GetSelfTicket, http.MethodGet, "/", ticketOwnerID, idParam(ticket.Id), nil, nil, "")
+	require.NoError(t, common.Unmarshal(userDetail.Data, &userView))
+	require.Len(t, userView.Logs, 2, "a repeated id is attached once")
+	assert.Equal(t, "upstream timeout", userView.Logs[0].Content)
+	assert.Equal(t, "req-1", userView.Logs[1].RequestId)
+	assert.Equal(t, 120, userView.Logs[1].Quota)
+	assert.Zero(t, userView.Logs[1].ChannelId)
+
+	// The copy survives the original log being cleaned up.
+	require.NoError(t, db.Delete(&model.Log{}, 1).Error)
+	var staffView model.TicketDetail
+	staffDetail := callTicketHandler(t, GetTicket, http.MethodGet, "/", ticketStaffID, idParam(ticket.Id), nil, nil, "")
+	require.NoError(t, common.Unmarshal(staffDetail.Data, &staffView))
+	require.Len(t, staffView.Logs, 2)
+	assert.Equal(t, 7, staffView.Logs[1].ChannelId)
+	assert.Equal(t, "req-1", staffView.Logs[1].RequestId)
+}
+
+func TestTicketRefundInfoSumsPaymentsAndRecentUsage(t *testing.T) {
+	db := setupTicketControllerTestDB(t)
+	now := common.GetTimestamp()
+	todayStart := now - 3600
+	weekStart := todayStart - 6*24*3600
+	require.NoError(t, db.Model(&model.User{}).Where("id = ?", ticketOwnerID).Update("quota", 1234).Error)
+	require.NoError(t, db.Create(&[]model.TopUp{
+		{UserId: ticketOwnerID, Amount: 5, Money: 10, TradeNo: "t1", PaymentMethod: "alipay", Status: common.TopUpStatusSuccess, CompleteTime: now - 200},
+		{UserId: ticketOwnerID, Amount: 10, Money: 20.5, TradeNo: "t2", PaymentMethod: "wxpay", Status: common.TopUpStatusSuccess, CompleteTime: now - 100},
+		{UserId: ticketOwnerID, Amount: 50, Money: 100, TradeNo: "t3", PaymentMethod: "alipay", Status: common.TopUpStatusPending},
+		{UserId: ticketOtherID, Amount: 70, Money: 140, TradeNo: "t4", PaymentMethod: "alipay", Status: common.TopUpStatusSuccess, CompleteTime: now},
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Redemption{
+		{Key: "redeemed-code-a", Name: "a", Quota: 500, Status: common.RedemptionCodeStatusUsed, UsedUserId: ticketOwnerID},
+		{Key: "redeemed-code-b", Name: "b", Quota: 300, Status: common.RedemptionCodeStatusUsed, UsedUserId: ticketOwnerID},
+		{Key: "unused-code-c", Name: "c", Quota: 900, Status: common.RedemptionCodeStatusEnabled},
+	}).Error)
+	// A deleted code was still redeemed.
+	require.NoError(t, db.Where("name = ?", "b").Delete(&model.Redemption{}).Error)
+	require.NoError(t, db.Create(&[]model.Log{
+		{UserId: ticketOwnerID, Type: model.LogTypeConsume, Quota: 100, CreatedAt: now - 60},
+		{UserId: ticketOwnerID, Type: model.LogTypeRefund, Quota: 30, CreatedAt: now - 30},
+		{UserId: ticketOwnerID, Type: model.LogTypeConsume, Quota: 200, CreatedAt: now - 3*24*3600},
+		{UserId: ticketOwnerID, Type: model.LogTypeConsume, Quota: 999, CreatedAt: now - 10*24*3600},
+		{UserId: ticketOwnerID, Type: model.LogTypeTopup, Quota: 5000, CreatedAt: now - 60},
+		{UserId: ticketOtherID, Type: model.LogTypeConsume, Quota: 77, CreatedAt: now - 60},
+	}).Error)
+
+	created := callTicketHandler(t, CreateTicket, http.MethodPost, "/api/ticket/", ticketOwnerID, nil, map[string]string{
+		"subject": "Please refund", "category": model.TicketCategoryRefund, "content": "I no longer need the balance.",
+	}, nil, "")
+	require.True(t, created.Success, created.Message)
+	var refundTicket model.Ticket
+	require.NoError(t, common.Unmarshal(created.Data, &refundTicket))
+	target := "/?today_start=" + strconv.FormatInt(todayStart, 10) + "&week_start=" + strconv.FormatInt(weekStart, 10)
+
+	response := callTicketHandler(t, GetTicketRefundInfo, http.MethodGet, target, ticketStaffID, idParam(refundTicket.Id), nil, nil, "")
+	require.True(t, response.Success, response.Message)
+	var info model.TicketRefundInfo
+	require.NoError(t, common.Unmarshal(response.Data, &info))
+	assert.Equal(t, model.TicketRefundInfo{
+		Quota:           1234,
+		TopUpCount:      2,
+		TopUpAmount:     15,
+		TopUpMoney:      30.5,
+		LatestTopUp:     &model.TicketRefundTopUp{PaymentMethod: "wxpay", Amount: 10, Money: 20.5, CompleteTime: now - 100},
+		RedemptionCount: 2,
+		RedemptionQuota: 800,
+		TodayQuota:      70,
+		WeekQuota:       270,
+	}, info)
+
+	other := createTestTicket(t, ticketOwnerID, nil)
+	notRefund := callTicketHandler(t, GetTicketRefundInfo, http.MethodGet, target, ticketStaffID, idParam(other.Id), nil, nil, "")
+	assert.False(t, notRefund.Success)
+	assert.Equal(t, "Refund details are only available for refund tickets", notRefund.MessageKey)
+
+	badRange := callTicketHandler(t, GetTicketRefundInfo, http.MethodGet, "/?today_start=1&week_start=2", ticketStaffID, idParam(refundTicket.Id), nil, nil, "")
+	assert.False(t, badRange.Success)
+	assert.Equal(t, "Invalid parameters", badRange.MessageKey)
 }

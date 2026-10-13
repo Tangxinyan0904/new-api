@@ -7780,6 +7780,27 @@
     "Cached {{count}}": "Cached {{count}}",
     "Cache tokens": "Cache tokens",
     "Cache hit rate": "Cache hit rate",
-    "Cache hit rate {{rate}}": "Cache hit rate {{rate}}"
+    "Cache hit rate {{rate}}": "Cache hit rate {{rate}}",
+    "Attached call logs": "Attached call logs",
+    "Call logs can only be attached to API & models tickets": "Call logs can only be attached to API & models tickets",
+    "Copy request ID": "Copy request ID",
+    "Failed to load call logs": "Failed to load call logs",
+    "Failed to load refund details": "Failed to load refund details",
+    "Latest top-up": "Latest top-up",
+    "No call logs yet": "No call logs yet",
+    "Online top-ups": "Online top-ups",
+    "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.": "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.",
+    "Optional. Tick the requests that went wrong so support can look them up directly.": "Optional. Tick the requests that went wrong so support can look them up directly.",
+    "Refund details are only available for refund tickets": "Refund details are only available for refund tickets",
+    "Refund reference": "Refund reference",
+    "Related call logs": "Related call logs",
+    "Some selected call logs were not found": "Some selected call logs were not found",
+    "Used in the last 7 days": "Used in the last 7 days",
+    "Used today": "Used today",
+    "You can attach at most {{max}} call logs": "You can attach at most {{max}} call logs",
+    "{{count}} codes": "{{count}} codes",
+    "{{count}} of {{max}} selected": "{{count}} of {{max}} selected",
+    "{{count}} orders, {{amount}} credited": "{{count}} orders, {{amount}} credited",
+    "{{seconds}} s": "{{seconds}} s"
   }
 }

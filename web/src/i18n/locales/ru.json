@@ -7780,6 +7780,27 @@
     "Cached {{count}}": "Из кэша {{count}}",
     "Cache tokens": "Кэшированные токены",
     "Cache hit rate": "Доля попаданий в кэш",
-    "Cache hit rate {{rate}}": "Доля попаданий в кэш {{rate}}"
+    "Cache hit rate {{rate}}": "Доля попаданий в кэш {{rate}}",
+    "Attached call logs": "Прикреплённые журналы вызовов",
+    "Call logs can only be attached to API & models tickets": "Журналы вызовов можно прикреплять только к обращениям «API и модели»",
+    "Copy request ID": "Скопировать ID запроса",
+    "Failed to load call logs": "Не удалось загрузить журналы вызовов",
+    "Failed to load refund details": "Не удалось загрузить данные для возврата",
+    "Latest top-up": "Последнее пополнение",
+    "No call logs yet": "Журналов вызовов пока нет",
+    "Online top-ups": "Онлайн-пополнения",
+    "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.": "Онлайн-пополнения считают оплаченную сумму успешных заказов; расход указан за вычетом возвратов по вашему местному времени.",
+    "Optional. Tick the requests that went wrong so support can look them up directly.": "Необязательно. Отметьте проблемные запросы, чтобы поддержка сразу их нашла.",
+    "Refund details are only available for refund tickets": "Данные для возврата доступны только для обращений о возврате",
+    "Refund reference": "Справка для возврата",
+    "Related call logs": "Связанные журналы вызовов",
+    "Some selected call logs were not found": "Некоторые выбранные журналы вызовов не найдены",
+    "Used in the last 7 days": "Израсходовано за 7 дней",
+    "Used today": "Израсходовано сегодня",
+    "You can attach at most {{max}} call logs": "Можно прикрепить не более {{max}} журналов вызовов",
+    "{{count}} codes": "Кодов: {{count}}",
+    "{{count}} of {{max}} selected": "Выбрано {{count}} из {{max}}",
+    "{{count}} orders, {{amount}} credited": "Заказов: {{count}}, зачислено {{amount}}",
+    "{{seconds}} s": "{{seconds}} с"
   }
 }

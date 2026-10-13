@@ -387,6 +387,7 @@ func migrateDB() error {
 		&Ticket{},
 		&TicketMessage{},
 		&TicketAttachment{},
+		&TicketLog{},
 		&ChannelCostHourly{},
 	)
 	if err != nil {

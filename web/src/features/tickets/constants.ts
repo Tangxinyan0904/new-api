@@ -28,7 +28,11 @@ export const TICKET_LIMITS = {
   MAX_IMAGE_BYTES: 2 * 1024 * 1024,
   MAX_OPEN_TICKETS: 5,
   AUTO_CLOSE_DAYS: 7,
+  MAX_LOGS: 5,
 } as const
+
+/** Log type of a failed request (usage-logs LOG_TYPE_ENUM.ERROR). */
+export const TICKET_LOG_TYPE_ERROR = 5
 
 export const TICKET_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp']
 
@@ -51,6 +55,7 @@ export const TICKET_CATEGORIES: Record<TicketCategory, { labelKey: string }> = {
   billing: { labelKey: 'Billing & top-up' },
   api: { labelKey: 'API & models' },
   account: { labelKey: 'Account & security' },
+  refund: { labelKey: 'Refund' },
   other: { labelKey: 'Other' },
 }
 
@@ -87,6 +92,9 @@ export const ticketQueryKeys = {
     ['tickets', 'staff', 'list', params] as const,
   staffDetail: (id: number) => ['tickets', 'staff', 'detail', id] as const,
   staffSummary: ['tickets', 'staff', 'summary'] as const,
+  logCandidates: (params: Record<string, unknown>) =>
+    ['tickets', 'user', 'logs', params] as const,
+  staffRefund: (id: number) => ['tickets', 'staff', 'refund', id] as const,
   // Outside the 'tickets' prefix: attachments never change, so refreshing a
   // ticket must not download its images again.
   attachment: (audience: string, id: number) =>

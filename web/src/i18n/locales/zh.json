@@ -7780,6 +7780,27 @@
     "Cached {{count}}": "缓存 {{count}}",
     "Cache tokens": "缓存 Token",
     "Cache hit rate": "缓存命中率",
-    "Cache hit rate {{rate}}": "缓存命中率 {{rate}}"
+    "Cache hit rate {{rate}}": "缓存命中率 {{rate}}",
+    "Attached call logs": "附加的调用日志",
+    "Call logs can only be attached to API & models tickets": "只有「API 与模型」类工单可以附加调用日志",
+    "Copy request ID": "复制请求 ID",
+    "Failed to load call logs": "加载调用日志失败",
+    "Failed to load refund details": "加载退款参考信息失败",
+    "Latest top-up": "最近充值",
+    "No call logs yet": "还没有调用日志",
+    "Online top-ups": "在线充值",
+    "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.": "在线充值按支付成功订单的实付金额统计；使用额度已扣除退款，按你的本地时间计算。",
+    "Optional. Tick the requests that went wrong so support can look them up directly.": "可选。勾选出问题的请求，客服可以直接查到对应记录。",
+    "Refund details are only available for refund tickets": "只有退款工单才有退款参考信息",
+    "Refund reference": "退款参考",
+    "Related call logs": "相关调用日志",
+    "Some selected call logs were not found": "部分所选调用日志不存在",
+    "Used in the last 7 days": "近 7 天使用",
+    "Used today": "今日使用",
+    "You can attach at most {{max}} call logs": "最多只能附加 {{max}} 条调用日志",
+    "{{count}} codes": "{{count}} 个兑换码",
+    "{{count}} of {{max}} selected": "已选 {{count}}/{{max}}",
+    "{{count}} orders, {{amount}} credited": "{{count}} 笔，到账 {{amount}}",
+    "{{seconds}} s": "{{seconds}} 秒"
   }
 }

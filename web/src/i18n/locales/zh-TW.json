@@ -7780,6 +7780,27 @@
     "Cached {{count}}": "快取 {{count}}",
     "Cache tokens": "快取 Token",
     "Cache hit rate": "快取命中率",
-    "Cache hit rate {{rate}}": "快取命中率 {{rate}}"
+    "Cache hit rate {{rate}}": "快取命中率 {{rate}}",
+    "Attached call logs": "附加的呼叫紀錄",
+    "Call logs can only be attached to API & models tickets": "只有「API 與模型」類工單可以附加呼叫紀錄",
+    "Copy request ID": "複製請求 ID",
+    "Failed to load call logs": "載入呼叫紀錄失敗",
+    "Failed to load refund details": "載入退款參考資訊失敗",
+    "Latest top-up": "最近儲值",
+    "No call logs yet": "還沒有呼叫紀錄",
+    "Online top-ups": "線上儲值",
+    "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.": "線上儲值依付款成功訂單的實付金額統計；使用額度已扣除退款，依你的本地時間計算。",
+    "Optional. Tick the requests that went wrong so support can look them up directly.": "可選。勾選出問題的請求，客服可以直接查到對應紀錄。",
+    "Refund details are only available for refund tickets": "只有退款工單才有退款參考資訊",
+    "Refund reference": "退款參考",
+    "Related call logs": "相關呼叫紀錄",
+    "Some selected call logs were not found": "部分所選呼叫紀錄不存在",
+    "Used in the last 7 days": "近 7 天使用",
+    "Used today": "今日使用",
+    "You can attach at most {{max}} call logs": "最多只能附加 {{max}} 筆呼叫紀錄",
+    "{{count}} codes": "{{count}} 個兌換碼",
+    "{{count}} of {{max}} selected": "已選 {{count}}/{{max}}",
+    "{{count}} orders, {{amount}} credited": "{{count}} 筆，入帳 {{amount}}",
+    "{{seconds}} s": "{{seconds}} 秒"
   }
 }
