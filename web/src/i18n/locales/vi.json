@@ -7780,6 +7780,27 @@
     "Cached {{count}}": "Bộ nhớ đệm {{count}}",
     "Cache tokens": "Token bộ nhớ đệm",
     "Cache hit rate": "Tỷ lệ trúng bộ nhớ đệm",
-    "Cache hit rate {{rate}}": "Tỷ lệ trúng bộ nhớ đệm {{rate}}"
+    "Cache hit rate {{rate}}": "Tỷ lệ trúng bộ nhớ đệm {{rate}}",
+    "Attached call logs": "Nhật ký gọi đã đính kèm",
+    "Call logs can only be attached to API & models tickets": "Chỉ phiếu hỗ trợ \"API và mô hình\" mới đính kèm được nhật ký gọi",
+    "Copy request ID": "Sao chép ID yêu cầu",
+    "Failed to load call logs": "Không tải được nhật ký gọi",
+    "Failed to load refund details": "Không tải được thông tin hoàn tiền",
+    "Latest top-up": "Lần nạp gần nhất",
+    "No call logs yet": "Chưa có nhật ký gọi",
+    "Online top-ups": "Nạp tiền trực tuyến",
+    "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.": "Nạp tiền trực tuyến tính theo số tiền đã thanh toán của các đơn thành công; mức dùng đã trừ hoàn tiền và theo giờ địa phương của bạn.",
+    "Optional. Tick the requests that went wrong so support can look them up directly.": "Không bắt buộc. Đánh dấu các yêu cầu bị lỗi để bộ phận hỗ trợ tra cứu trực tiếp.",
+    "Refund details are only available for refund tickets": "Thông tin hoàn tiền chỉ có ở phiếu hoàn tiền",
+    "Refund reference": "Thông tin tham khảo hoàn tiền",
+    "Related call logs": "Nhật ký gọi liên quan",
+    "Some selected call logs were not found": "Không tìm thấy một số nhật ký gọi đã chọn",
+    "Used in the last 7 days": "Đã dùng 7 ngày gần nhất",
+    "Used today": "Đã dùng hôm nay",
+    "You can attach at most {{max}} call logs": "Chỉ được đính kèm tối đa {{max}} nhật ký gọi",
+    "{{count}} codes": "{{count}} mã",
+    "{{count}} of {{max}} selected": "Đã chọn {{count}}/{{max}}",
+    "{{count}} orders, {{amount}} credited": "{{count}} đơn, đã cộng {{amount}}",
+    "{{seconds}} s": "{{seconds}} giây"
   }
 }

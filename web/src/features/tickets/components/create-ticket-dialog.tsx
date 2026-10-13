@@ -63,6 +63,7 @@ import {
 } from '../lib/ticket-form'
 import { pastedImages } from '../lib/ticket-images'
 import { TicketImagePicker } from './ticket-image-picker'
+import { TicketLogPicker } from './ticket-log-picker'
 
 export function CreateTicketDialog() {
   const { t } = useTranslation()
@@ -70,12 +71,15 @@ export function CreateTicketDialog() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [images, setImages] = useState<File[]>([])
+  const [logIds, setLogIds] = useState<number[]>([])
   const addImages = useTicketImageAdder(images, setImages)
   const form = useForm<CreateTicketFormValues>({
     resolver: zodResolver(getCreateTicketSchema(t)),
     defaultValues: CREATE_TICKET_DEFAULT_VALUES,
   })
   const isSubmitting = form.formState.isSubmitting
+  // Call logs can only be attached to API tickets.
+  const canAttachLogs = form.watch('category') === 'api'
   const categoryItems = TICKET_CATEGORY_VALUES.map((value) => ({
     value,
     label: t(TICKET_CATEGORIES[value].labelKey),
@@ -87,12 +91,17 @@ export function CreateTicketDialog() {
     if (!next) {
       form.reset(CREATE_TICKET_DEFAULT_VALUES)
       setImages([])
+      setLogIds([])
     }
   }
 
   const onSubmit = async (values: CreateTicketFormValues) => {
     try {
-      const result = await createTicket({ ...values, images })
+      const result = await createTicket({
+        ...values,
+        images,
+        logIds: values.category === 'api' ? logIds : [],
+      })
       if (!result.success || !result.data) {
         handleServerError(result)
         return
@@ -229,6 +238,13 @@ export function CreateTicketDialog() {
             onChange={setImages}
             disabled={isSubmitting}
           />
+          {canAttachLogs && (
+            <TicketLogPicker
+              value={logIds}
+              onChange={setLogIds}
+              disabled={isSubmitting}
+            />
+          )}
         </form>
       </Form>
     </Dialog>

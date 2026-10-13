@@ -7780,6 +7780,27 @@
     "Cached {{count}}": "キャッシュ {{count}}",
     "Cache tokens": "キャッシュトークン",
     "Cache hit rate": "キャッシュヒット率",
-    "Cache hit rate {{rate}}": "キャッシュヒット率 {{rate}}"
+    "Cache hit rate {{rate}}": "キャッシュヒット率 {{rate}}",
+    "Attached call logs": "添付された呼び出しログ",
+    "Call logs can only be attached to API & models tickets": "呼び出しログを添付できるのは「API とモデル」のチケットだけです",
+    "Copy request ID": "リクエスト ID をコピー",
+    "Failed to load call logs": "呼び出しログを読み込めませんでした",
+    "Failed to load refund details": "返金の参考情報を読み込めませんでした",
+    "Latest top-up": "最新のチャージ",
+    "No call logs yet": "呼び出しログはまだありません",
+    "Online top-ups": "オンラインチャージ",
+    "Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.": "オンラインチャージは成功した注文の支払額を合計します。利用額は返金を差し引き、ローカル時間で計算します。",
+    "Optional. Tick the requests that went wrong so support can look them up directly.": "任意。問題のあったリクエストにチェックを入れると、サポートが直接確認できます。",
+    "Refund details are only available for refund tickets": "返金の参考情報は返金チケットでのみ表示できます",
+    "Refund reference": "返金の参考情報",
+    "Related call logs": "関連する呼び出しログ",
+    "Some selected call logs were not found": "選択した呼び出しログの一部が見つかりません",
+    "Used in the last 7 days": "直近 7 日間の利用額",
+    "Used today": "本日の利用額",
+    "You can attach at most {{max}} call logs": "添付できる呼び出しログは最大 {{max}} 件です",
+    "{{count}} codes": "{{count}} 件のコード",
+    "{{count}} of {{max}} selected": "{{count}}/{{max}} 件選択中",
+    "{{count}} orders, {{amount}} credited": "{{count}} 件、入金 {{amount}}",
+    "{{seconds}} s": "{{seconds}} 秒"
   }
 }

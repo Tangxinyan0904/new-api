@@ -41,7 +41,9 @@ import {
   ticketQueryKeys,
 } from '../constants'
 import type { TicketPriority, TicketStatus } from '../types'
+import { TicketLogList } from './ticket-log-list'
 import { TicketOptionSelect } from './ticket-option-select'
+import { TicketRefundInfoPanel } from './ticket-refund-info'
 import { TicketReplyForm } from './ticket-reply-form'
 import { TicketSummary } from './ticket-summary'
 import { TicketThread } from './ticket-thread'
@@ -128,6 +130,10 @@ export function StaffTicketDetail(props: { ticketId: number }) {
     content = (
       <div className='mx-auto flex w-full max-w-4xl flex-col gap-4'>
         <TicketSummary ticket={ticket} audience='staff' />
+        {ticket.category === 'refund' && (
+          <TicketRefundInfoPanel ticketId={ticket.id} />
+        )}
+        <TicketLogList logs={ticket.logs ?? []} audience='staff' />
         {canWrite && (
           <div className='flex flex-wrap items-center gap-3'>
             <TicketOptionSelect

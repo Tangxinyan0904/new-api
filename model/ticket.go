@@ -27,6 +27,7 @@ const (
 	TicketCategoryBilling = "billing"
 	TicketCategoryAPI     = "api"
 	TicketCategoryAccount = "account"
+	TicketCategoryRefund  = "refund"
 	TicketCategoryOther   = "other"
 
 	TicketPriorityLow    = 1
@@ -53,7 +54,7 @@ var (
 	ErrTicketAttachment = common.NewMessage("Attachment not found")
 )
 
-var ticketCategories = []string{TicketCategoryBilling, TicketCategoryAPI, TicketCategoryAccount, TicketCategoryOther}
+var ticketCategories = []string{TicketCategoryBilling, TicketCategoryAPI, TicketCategoryAccount, TicketCategoryRefund, TicketCategoryOther}
 
 func IsValidTicketCategory(category string) bool {
 	return slices.Contains(ticketCategories, category)
@@ -139,6 +140,8 @@ type TicketListItem struct {
 type TicketDetail struct {
 	TicketListItem
 	Messages []TicketMessageView `json:"messages"`
+	// Logs are the call logs attached when the ticket was opened.
+	Logs []TicketLog `json:"logs"`
 }
 
 type TicketFilter struct {
@@ -150,9 +153,20 @@ type TicketFilter struct {
 	SortByPriority bool
 }
 
-// CreateTicket opens a ticket with its first message. The owner row is locked
-// so concurrent requests cannot exceed the open ticket limit.
-func CreateTicket(userId int, subject, category, content string, images []TicketImage) (*Ticket, error) {
+// CreateTicket opens a ticket with its first message and, for API tickets, a
+// copy of the attached call logs. The owner row is locked so concurrent
+// requests cannot exceed the open ticket limit.
+func CreateTicket(userId int, subject, category, content string, images []TicketImage, logIds []int) (*Ticket, error) {
+	var logs []TicketLog
+	if len(logIds) > 0 {
+		if category != TicketCategoryAPI {
+			return nil, ErrTicketLogCategory
+		}
+		var err error
+		if logs, err = snapshotTicketLogs(userId, logIds); err != nil {
+			return nil, err
+		}
+	}
 	now := common.GetTimestamp()
 	ticket := &Ticket{
 		UserId:      userId,
@@ -178,6 +192,14 @@ func CreateTicket(userId int, subject, category, content string, images []Ticket
 		}
 		if err := tx.Create(ticket).Error; err != nil {
 			return err
+		}
+		if len(logs) > 0 {
+			for i := range logs {
+				logs[i].TicketId = ticket.Id
+			}
+			if err := tx.Create(&logs).Error; err != nil {
+				return err
+			}
 		}
 		return createTicketMessage(tx, ticket.Id, userId, false, content, images, now)
 	})
@@ -456,7 +478,11 @@ func GetUserTicketDetail(ticketId, userId int) (*TicketDetail, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TicketDetail{TicketListItem: TicketListItem{Ticket: ticket}, Messages: messages}, nil
+	logs, err := ticketLogs(ticket.Id, false)
+	if err != nil {
+		return nil, err
+	}
+	return &TicketDetail{TicketListItem: TicketListItem{Ticket: ticket}, Messages: messages, Logs: logs}, nil
 }
 
 // GetStaffTicketDetail returns any ticket with its owner and author names.
@@ -469,6 +495,10 @@ func GetStaffTicketDetail(ticketId int) (*TicketDetail, error) {
 	if err != nil {
 		return nil, err
 	}
+	logs, err := ticketLogs(ticket.Id, true)
+	if err != nil {
+		return nil, err
+	}
 	users, err := ticketUserNames([]int{ticket.UserId})
 	if err != nil {
 		return nil, err
@@ -477,6 +507,7 @@ func GetStaffTicketDetail(ticketId int) (*TicketDetail, error) {
 	return &TicketDetail{
 		TicketListItem: TicketListItem{Ticket: ticket, Username: owner.Username, DisplayName: owner.DisplayName},
 		Messages:       messages,
+		Logs:           logs,
 	}, nil
 }
 

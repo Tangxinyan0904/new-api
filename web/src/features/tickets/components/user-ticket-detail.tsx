@@ -32,6 +32,7 @@ import { handleServerError } from '@/lib/handle-server-error'
 
 import { closeUserTicket, getUserTicket, replyUserTicket } from '../api'
 import { ticketQueryKeys } from '../constants'
+import { TicketLogList } from './ticket-log-list'
 import { TicketReplyForm } from './ticket-reply-form'
 import { TicketSummary } from './ticket-summary'
 import { TicketThread } from './ticket-thread'
@@ -103,6 +104,7 @@ export function UserTicketDetail(props: { ticketId: number }) {
     content = (
       <div className='mx-auto flex w-full max-w-4xl flex-col gap-4'>
         <TicketSummary ticket={ticket} audience='user' />
+        <TicketLogList logs={ticket.logs ?? []} audience='user' />
         <TicketThread audience='user' messages={ticket.messages} />
         {ticket.status === 'closed' ? (
           <p className='text-muted-foreground rounded-lg border border-dashed p-4 text-center text-sm'>

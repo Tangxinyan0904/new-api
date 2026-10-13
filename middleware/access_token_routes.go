@@ -259,6 +259,7 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	// router/api-router.go: /api/ticket (self)
 	"GET /api/ticket/self":           accessTokenScopeRule("support_ticket:read"),
 	"GET /api/ticket/self/unread":    accessTokenScopeRule("support_ticket:read"),
+	"GET /api/ticket/logs":           accessTokenScopeRule("support_ticket:read"),
 	"POST /api/ticket/":              accessTokenScopeRule("support_ticket:write"),
 	"GET /api/ticket/attachment/:id": accessTokenScopeRule("support_ticket:read"),
 	"GET /api/ticket/:id":            accessTokenScopeRule("support_ticket:read"),
