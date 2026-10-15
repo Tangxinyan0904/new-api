@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"gorm.io/gorm"
 )
 
@@ -36,6 +37,7 @@ const (
 	TicketPriorityUrgent = 4
 
 	TicketMaxOpenPerUser      = 5
+	TicketDailyWindowSeconds  = 24 * 3600
 	TicketSubjectMaxRunes     = 100
 	TicketContentMaxRunes     = 5000
 	TicketMaxImagesPerMessage = 3
@@ -142,6 +144,8 @@ type TicketDetail struct {
 	Messages []TicketMessageView `json:"messages"`
 	// Logs are the call logs attached when the ticket was opened.
 	Logs []TicketLog `json:"logs"`
+	// OwnerBanned tells staff that the owner is blocked from tickets.
+	OwnerBanned bool `json:"owner_banned,omitempty"`
 }
 
 type TicketFilter struct {
@@ -155,7 +159,7 @@ type TicketFilter struct {
 
 // CreateTicket opens a ticket with its first message and, for API tickets, a
 // copy of the attached call logs. The owner row is locked so concurrent
-// requests cannot exceed the open ticket limit.
+// requests cannot exceed the open or daily ticket limits.
 func CreateTicket(userId int, subject, category, content string, images []TicketImage, logIds []int) (*Ticket, error) {
 	var logs []TicketLog
 	if len(logIds) > 0 {
@@ -183,12 +187,29 @@ func CreateTicket(userId int, subject, category, content string, images []Ticket
 		if err := lockForUpdate(tx).Select("id").Where("id = ?", userId).First(&owner).Error; err != nil {
 			return err
 		}
+		banned, err := isTicketBanned(tx, userId)
+		if err != nil {
+			return err
+		}
+		if banned {
+			return ErrTicketBanned
+		}
 		var openCount int64
 		if err := tx.Model(&Ticket{}).Where("user_id = ? AND status <> ?", userId, TicketStatusClosed).Count(&openCount).Error; err != nil {
 			return err
 		}
 		if openCount >= TicketMaxOpenPerUser {
 			return ErrTicketOpenLimit
+		}
+		// Closed tickets count too, so closing a ticket does not free a slot.
+		if dailyLimit := operation_setting.GetTicketDailyLimit(); dailyLimit > 0 {
+			var recentCount int64
+			if err := tx.Model(&Ticket{}).Where("user_id = ? AND created_at > ?", userId, now-TicketDailyWindowSeconds).Count(&recentCount).Error; err != nil {
+				return err
+			}
+			if recentCount >= int64(dailyLimit) {
+				return common.NewMessage("You can open at most {{max}} tickets in 24 hours. Please try again later.", map[string]any{"max": dailyLimit})
+			}
 		}
 		if err := tx.Create(ticket).Error; err != nil {
 			return err
@@ -239,12 +260,19 @@ func createTicketMessage(tx *gorm.DB, ticketId, authorId int, staff bool, conten
 }
 
 // AddTicketUserReply appends the owner's reply and hands the ticket back to
-// staff. Closed tickets cannot be replied to.
+// staff. Closed tickets cannot be replied to, and blocked owners cannot reply.
 func AddTicketUserReply(ticketId, userId int, content string, images []TicketImage) (*Ticket, error) {
 	var ticket Ticket
 	err := DB.Transaction(func(tx *gorm.DB) error {
 		if err := lockForUpdate(tx).Where("id = ? AND user_id = ?", ticketId, userId).First(&ticket).Error; err != nil {
 			return ticketLookupError(err)
+		}
+		banned, err := isTicketBanned(tx, userId)
+		if err != nil {
+			return err
+		}
+		if banned {
+			return ErrTicketBanned
 		}
 		if ticket.Status == TicketStatusClosed {
 			return ErrTicketClosed
@@ -503,11 +531,16 @@ func GetStaffTicketDetail(ticketId int) (*TicketDetail, error) {
 	if err != nil {
 		return nil, err
 	}
+	banned, err := isTicketBanned(DB, ticket.UserId)
+	if err != nil {
+		return nil, err
+	}
 	owner := users[ticket.UserId]
 	return &TicketDetail{
 		TicketListItem: TicketListItem{Ticket: ticket, Username: owner.Username, DisplayName: owner.DisplayName},
 		Messages:       messages,
 		Logs:           logs,
+		OwnerBanned:    banned,
 	}, nil
 }
 

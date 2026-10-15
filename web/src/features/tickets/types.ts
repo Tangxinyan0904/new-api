@@ -84,6 +84,8 @@ export interface TicketLogPage {
 export interface TicketDetail extends Ticket {
   messages: TicketMessage[]
   logs: TicketLog[]
+  /** Staff view only: the owner is blocked from tickets. */
+  owner_banned?: boolean
 }
 
 export interface TicketRefundTopUp {

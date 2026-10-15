@@ -7801,6 +7801,20 @@
     "{{count}} codes": "{{count}} codes",
     "{{count}} of {{max}} selected": "{{count}} sur {{max}} sélectionnés",
     "{{count}} orders, {{amount}} credited": "{{count}} commandes, {{amount}} crédités",
-    "{{seconds}} s": "{{seconds}} s"
+    "{{seconds}} s": "{{seconds}} s",
+    "You can open at most {{max}} tickets in 24 hours. Please try again later.": "Vous pouvez ouvrir au maximum {{max}} tickets par 24 heures. Veuillez réessayer plus tard.",
+    "You have been blocked from submitting tickets.": "Vous n'êtes plus autorisé à soumettre des tickets.",
+    "Ticket Limits": "Limites des tickets",
+    "Save ticket limits": "Enregistrer les limites des tickets",
+    "Tickets per user in 24 hours": "Tickets par utilisateur sur 24 heures",
+    "Maximum number of tickets each user can open in any 24 hours, closed tickets included. 0 means no limit.": "Nombre maximal de tickets qu'un utilisateur peut ouvrir sur 24 heures glissantes, tickets fermés compris. 0 signifie aucune limite.",
+    "Block from tickets": "Bloquer les tickets",
+    "Block {{name}} from tickets?": "Empêcher {{name}} de soumettre des tickets ?",
+    "The user will not be able to open new tickets or reply to existing ones. The rest of the account is unaffected. You can unblock them here at any time.": "L'utilisateur ne pourra plus ouvrir de nouveaux tickets ni répondre aux tickets existants. Le reste du compte n'est pas affecté. Vous pouvez le débloquer ici à tout moment.",
+    "Block": "Bloquer",
+    "Blocked from tickets": "Tickets bloqués",
+    "Unblock": "Débloquer",
+    "User blocked from tickets": "Utilisateur bloqué pour les tickets",
+    "User unblocked from tickets": "Utilisateur débloqué pour les tickets"
   }
 }

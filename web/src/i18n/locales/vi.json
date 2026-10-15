@@ -7801,6 +7801,20 @@
     "{{count}} codes": "{{count}} mã",
     "{{count}} of {{max}} selected": "Đã chọn {{count}}/{{max}}",
     "{{count}} orders, {{amount}} credited": "{{count}} đơn, đã cộng {{amount}}",
-    "{{seconds}} s": "{{seconds}} giây"
+    "{{seconds}} s": "{{seconds}} giây",
+    "You can open at most {{max}} tickets in 24 hours. Please try again later.": "Bạn chỉ có thể tạo tối đa {{max}} phiếu hỗ trợ trong 24 giờ. Vui lòng thử lại sau.",
+    "You have been blocked from submitting tickets.": "Bạn đã bị chặn gửi phiếu hỗ trợ.",
+    "Ticket Limits": "Giới hạn phiếu hỗ trợ",
+    "Save ticket limits": "Lưu giới hạn phiếu hỗ trợ",
+    "Tickets per user in 24 hours": "Số phiếu mỗi người dùng trong 24 giờ",
+    "Maximum number of tickets each user can open in any 24 hours, closed tickets included. 0 means no limit.": "Số phiếu hỗ trợ tối đa mỗi người dùng có thể tạo trong 24 giờ bất kỳ, tính cả phiếu đã đóng. 0 nghĩa là không giới hạn.",
+    "Block from tickets": "Chặn gửi phiếu",
+    "Block {{name}} from tickets?": "Chặn {{name}} gửi phiếu hỗ trợ?",
+    "The user will not be able to open new tickets or reply to existing ones. The rest of the account is unaffected. You can unblock them here at any time.": "Người dùng sẽ không thể tạo phiếu mới hoặc trả lời các phiếu hiện có. Các chức năng khác của tài khoản không bị ảnh hưởng. Bạn có thể bỏ chặn tại đây bất cứ lúc nào.",
+    "Block": "Chặn",
+    "Blocked from tickets": "Đã chặn gửi phiếu",
+    "Unblock": "Bỏ chặn",
+    "User blocked from tickets": "Đã chặn người dùng gửi phiếu hỗ trợ",
+    "User unblocked from tickets": "Đã bỏ chặn người dùng gửi phiếu hỗ trợ"
   }
 }

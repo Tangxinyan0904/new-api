@@ -50,6 +50,7 @@ const defaultSecuritySettings: SecuritySettings = {
   'fetch_setting.allowed_ports': [],
   'fetch_setting.apply_ip_filter_for_domain': false,
   'token_setting.max_user_tokens': 1000,
+  'ticket_setting.daily_limit': 3,
   'geoip.mode': 'off',
   'geoip.database_path': 'Country.mmdb',
   'geoip.download_url': '',

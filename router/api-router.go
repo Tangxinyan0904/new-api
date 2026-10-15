@@ -362,6 +362,7 @@ func SetApiRouter(router *gin.Engine) {
 		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/:id/refund", authz.TicketRead, controller.GetTicketRefundInfo)
 		handlePermissionRoute(ticketAdminRoute, http.MethodPost, "/:id/reply", authz.TicketWrite, controller.ReplyTicket)
 		handlePermissionRoute(ticketAdminRoute, http.MethodPut, "/:id", authz.TicketWrite, controller.UpdateTicket)
+		handlePermissionRoute(ticketAdminRoute, http.MethodPut, "/:id/ban", authz.TicketWrite, controller.SetTicketOwnerBan)
 		channelCostRoute := apiRouter.Group("/channel-cost", middleware.DisableCache(), middleware.AdminAuth())
 		handlePermissionRoute(channelCostRoute, http.MethodGet, "/stats", authz.ChannelCostRead, controller.GetChannelCostStats)
 		handlePermissionRoute(channelCostRoute, http.MethodPut, "/channels/:id/ratio", authz.ChannelCostWrite, controller.UpdateChannelCostRatio)

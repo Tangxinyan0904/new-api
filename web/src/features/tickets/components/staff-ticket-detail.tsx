@@ -43,6 +43,7 @@ import {
 import type { TicketPriority, TicketStatus } from '../types'
 import { TicketLogList } from './ticket-log-list'
 import { TicketOptionSelect } from './ticket-option-select'
+import { TicketOwnerBan } from './ticket-owner-ban'
 import { TicketRefundInfoPanel } from './ticket-refund-info'
 import { TicketReplyForm } from './ticket-reply-form'
 import { TicketSummary } from './ticket-summary'
@@ -156,6 +157,13 @@ export function StaffTicketDetail(props: { ticketId: number }) {
                 })
               }
             />
+            <div className='ms-auto'>
+              <TicketOwnerBan
+                ticketId={ticket.id}
+                ownerName={ticket.display_name || ticket.username || ''}
+                banned={Boolean(ticket.owner_banned)}
+              />
+            </div>
           </div>
         )}
         <TicketThread

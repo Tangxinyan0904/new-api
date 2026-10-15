@@ -12,6 +12,8 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -40,7 +42,7 @@ type ticketResponse struct {
 func setupTicketControllerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.Ticket{}, &model.TicketMessage{}, &model.TicketAttachment{}, &model.TicketLog{}, &model.Log{}, &model.TopUp{}, &model.Redemption{}))
+	require.NoError(t, db.AutoMigrate(&model.Ticket{}, &model.TicketMessage{}, &model.TicketAttachment{}, &model.TicketLog{}, &model.TicketBan{}, &model.Log{}, &model.TopUp{}, &model.Redemption{}))
 	require.NoError(t, db.Create(&[]model.User{
 		{Id: ticketStaffID, Username: "root", AffCode: "ticket-aff-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled},
 		{Id: ticketOwnerID, Username: "owner", AffCode: "ticket-aff-owner", Role: common.RoleCommonUser, Status: common.UserStatusEnabled},
@@ -105,6 +107,17 @@ func createTestTicket(t *testing.T, userID int, images [][]byte) model.Ticket {
 
 func idParam(id int) gin.Params {
 	return gin.Params{{Key: "id", Value: strconv.Itoa(id)}}
+}
+
+// setTicketDailyLimit sets the daily ticket limit for one test.
+func setTicketDailyLimit(t *testing.T, limit int) {
+	t.Helper()
+	ticketSetting := config.GlobalConfig.Get("ticket_setting")
+	previous := operation_setting.GetTicketDailyLimit()
+	t.Cleanup(func() {
+		require.NoError(t, config.UpdateConfigFromMap(ticketSetting, map[string]string{"daily_limit": strconv.Itoa(previous)}))
+	})
+	require.NoError(t, config.UpdateConfigFromMap(ticketSetting, map[string]string{"daily_limit": strconv.Itoa(limit)}))
 }
 
 func TestCreateTicketValidatesImagesByContent(t *testing.T) {
@@ -173,6 +186,7 @@ func TestCreateTicketNormalizesSubjectAndValidatesFields(t *testing.T) {
 
 func TestCreateTicketEnforcesOpenTicketLimit(t *testing.T) {
 	setupTicketControllerTestDB(t)
+	setTicketDailyLimit(t, 0)
 	var first model.Ticket
 	for i := range model.TicketMaxOpenPerUser {
 		ticket := createTestTicket(t, ticketOwnerID, nil)
@@ -189,6 +203,66 @@ func TestCreateTicketEnforcesOpenTicketLimit(t *testing.T) {
 
 	closeResponse := callTicketHandler(t, CloseSelfTicket, http.MethodPost, "/", ticketOwnerID, idParam(first.Id), nil, nil, "")
 	require.True(t, closeResponse.Success, closeResponse.Message)
+	createTestTicket(t, ticketOwnerID, nil)
+}
+
+func TestCreateTicketEnforcesDailyLimitIncludingClosedTickets(t *testing.T) {
+	db := setupTicketControllerTestDB(t)
+	setTicketDailyLimit(t, 2)
+	first := createTestTicket(t, ticketOwnerID, nil)
+	second := createTestTicket(t, ticketOwnerID, nil)
+	for _, ticket := range []model.Ticket{first, second} {
+		closeResponse := callTicketHandler(t, CloseSelfTicket, http.MethodPost, "/", ticketOwnerID, idParam(ticket.Id), nil, nil, "")
+		require.True(t, closeResponse.Success, closeResponse.Message)
+	}
+
+	newTicket := map[string]string{"subject": "Again", "category": "other", "content": "x"}
+	response := callTicketHandler(t, CreateTicket, http.MethodPost, "/api/ticket/", ticketOwnerID, nil, newTicket, nil, "")
+	assert.False(t, response.Success)
+	assert.Equal(t, "You can open at most {{max}} tickets in 24 hours. Please try again later.", response.MessageKey)
+	createTestTicket(t, ticketOtherID, nil)
+
+	dayAgo := common.GetTimestamp() - model.TicketDailyWindowSeconds
+	require.NoError(t, db.Model(&model.Ticket{}).Where("id = ?", first.Id).Update("created_at", dayAgo).Error)
+	createTestTicket(t, ticketOwnerID, nil)
+}
+
+func TestBlockedOwnerCannotOpenOrReplyToTickets(t *testing.T) {
+	setupTicketControllerTestDB(t)
+	ticket := createTestTicket(t, ticketOwnerID, nil)
+	setBan := func(body string) ticketResponse {
+		return callTicketHandler(t, SetTicketOwnerBan, http.MethodPut, "/", ticketStaffID, idParam(ticket.Id), nil, nil, body)
+	}
+	staffView := func() model.TicketDetail {
+		response := callTicketHandler(t, GetTicket, http.MethodGet, "/", ticketStaffID, idParam(ticket.Id), nil, nil, "")
+		require.True(t, response.Success, response.Message)
+		var view model.TicketDetail
+		require.NoError(t, common.Unmarshal(response.Data, &view))
+		return view
+	}
+	reply := func() ticketResponse {
+		return callTicketHandler(t, ReplySelfTicket, http.MethodPost, "/", ticketOwnerID, idParam(ticket.Id), map[string]string{"content": "Any news?"}, nil, "")
+	}
+
+	assert.False(t, setBan(`{}`).Success, "banned is required")
+	missing := callTicketHandler(t, SetTicketOwnerBan, http.MethodPut, "/", ticketStaffID, idParam(ticket.Id+100), nil, nil, `{"banned":true}`)
+	assert.Equal(t, model.ErrTicketNotFound.Key, missing.MessageKey)
+
+	for range 2 {
+		response := setBan(`{"banned":true}`)
+		require.True(t, response.Success, response.Message)
+	}
+	assert.True(t, staffView().OwnerBanned)
+	created := callTicketHandler(t, CreateTicket, http.MethodPost, "/api/ticket/", ticketOwnerID, nil, map[string]string{"subject": "Hi", "category": "other", "content": "x"}, nil, "")
+	assert.Equal(t, model.ErrTicketBanned.Key, created.MessageKey)
+	assert.Equal(t, model.ErrTicketBanned.Key, reply().MessageKey)
+	createTestTicket(t, ticketOtherID, nil)
+
+	response := setBan(`{"banned":false}`)
+	require.True(t, response.Success, response.Message)
+	assert.False(t, staffView().OwnerBanned)
+	replied := reply()
+	assert.True(t, replied.Success, replied.Message)
 	createTestTicket(t, ticketOwnerID, nil)
 }
 
