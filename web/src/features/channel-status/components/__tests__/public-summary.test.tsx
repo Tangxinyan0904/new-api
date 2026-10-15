@@ -42,49 +42,29 @@ const publicSummary = {
       id: 17,
       public_name: 'OpenAI global',
       name_color: '#123ABC',
-      provider: 'openai',
-      primary_model: 'gpt-primary',
       status: 'operational',
-      latency_ms: 321,
-      error_category: '',
-      availability_1d: 99.125,
-      last_checked_at: 1_786_841_200,
+      success_rate: 99.125,
     },
     {
       id: 18,
       public_name: 'Claude edge',
       name_color: '#654321',
-      provider: 'anthropic',
-      primary_model: 'claude-primary',
       status: 'degraded',
-      latency_ms: 6321,
-      error_category: '',
-      availability_1d: 98.25,
-      last_checked_at: 1_786_841_100,
+      success_rate: 88.5,
     },
     {
       id: 19,
       public_name: 'Gemini regional',
       name_color: '',
-      provider: 'gemini',
-      primary_model: 'gemini-primary',
       status: 'failed',
-      latency_ms: null,
-      error_category: 'upstream',
-      availability_1d: 87.5,
-      last_checked_at: 1_786_841_000,
+      success_rate: 40,
     },
     {
       id: 20,
-      public_name: 'New monitor',
+      public_name: 'Quiet group',
       name_color: '#ABCDEF',
-      provider: 'openai',
-      primary_model: 'gpt-new',
       status: 'unknown',
-      latency_ms: null,
-      error_category: '',
-      availability_1d: null,
-      last_checked_at: 0,
+      success_rate: null,
     },
   ],
 } as const
@@ -290,7 +270,7 @@ test('shows a compact empty state when no monitors are published', async () => {
   ).not.toBeNull()
 })
 
-test('renders operational, degraded, failed, and unknown states with text and icons', async () => {
+test('renders operational, degraded, failed, and no-call states with text and icons', async () => {
   publicSummaryQuery = {
     data: publicSummary,
     isLoading: false,
@@ -299,7 +279,7 @@ test('renders operational, degraded, failed, and unknown states with text and ic
 
   await act(async () => root?.render(<PublicStatusSummary />))
 
-  for (const label of ['Operational', 'Degraded', 'Failed', 'Unknown']) {
+  for (const label of ['Operational', 'Degraded', 'Failed', 'No calls']) {
     const status = [...(host?.querySelectorAll('[role="status"]') ?? [])].find(
       (element) => element.textContent?.includes(label)
     )
@@ -311,8 +291,7 @@ test('renders operational, degraded, failed, and unknown states with text and ic
   expect(
     host?.querySelector<HTMLElement>('[title="OpenAI global"]')?.style.color
   ).toBe('rgb(18, 58, 188)')
-  expect(host?.textContent).toContain('321 ms')
-  expect(host?.textContent).toContain('99.13%')
+  expect(host?.textContent).toContain('Success rate in the last hour: 99.13%')
 })
 
 test('keeps model search usable when the summary request fails', async () => {

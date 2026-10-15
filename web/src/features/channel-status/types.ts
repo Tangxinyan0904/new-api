@@ -18,35 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
 
-export const channelStatusDaysSchema = z.union([
-  z.literal(1),
-  z.literal(3),
-  z.literal(7),
-])
-
 export const channelStatusSchema = z.enum([
   'operational',
   'degraded',
   'failed',
   'unknown',
-])
-
-export const channelStatusErrorCategorySchema = z.enum([
-  '',
-  'network',
-  'tls',
-  'auth',
-  'rate_limit',
-  'timeout',
-  'upstream',
-  'invalid_response',
-  'config',
-])
-
-export const channelStatusProviderSchema = z.enum([
-  'openai',
-  'anthropic',
-  'gemini',
 ])
 
 export const channelStatusCountsSchema = z.object({
@@ -56,73 +32,56 @@ export const channelStatusCountsSchema = z.object({
   unknown: z.number().int().nonnegative(),
 })
 
-export const channelStatusTimelinePointSchema = z.object({
+/** Request outcomes of a group, a model or a time bucket in the last hour. */
+export const channelStatusFiguresSchema = z.object({
   status: channelStatusSchema,
-  latency_ms: z.number().int().nonnegative(),
-  error_category: channelStatusErrorCategorySchema,
-  checked_at: z.number().int().nonnegative(),
+  /** Percentage of requests that succeeded; null without requests. */
+  success_rate: z.number().finite().nullable(),
+  success_count: z.number().int().nonnegative(),
+  failure_count: z.number().int().nonnegative(),
+  /** Mean duration of the successful requests. */
+  average_duration_ms: z.number().finite().nonnegative().nullable(),
 })
 
-export const channelStatusItemSchema = z.object({
+export const channelStatusTimelinePointSchema =
+  channelStatusFiguresSchema.extend({
+    start_at: z.number().int().nonnegative(),
+  })
+
+export const channelStatusItemSchema = channelStatusFiguresSchema.extend({
   id: z.number().int().positive(),
   public_name: z.string(),
   name_color: z.string(),
-  provider: channelStatusProviderSchema,
-  primary_model: z.string(),
-  status: channelStatusSchema,
-  latency_ms: z.number().int().nonnegative().nullable(),
-  error_category: channelStatusErrorCategorySchema,
-  last_checked_at: z.number().int().nonnegative(),
-  availability: z.number().finite().nullable(),
-  average_latency_ms: z.number().finite().nonnegative().nullable(),
-  timeline: z.array(channelStatusTimelinePointSchema).max(60),
+  /** Only sent to staff. */
+  group: z.string().optional(),
+  public_enabled: z.boolean(),
+  timeline: z.array(channelStatusTimelinePointSchema),
 })
 
 export const channelStatusResponseSchema = z.object({
   last_updated_at: z.number().int().nonnegative(),
+  window_start: z.number().int().nonnegative(),
+  bucket_seconds: z.number().int().positive(),
   counts: channelStatusCountsSchema,
-  days: channelStatusDaysSchema,
   items: z.array(channelStatusItemSchema),
 })
 
-export const channelModelStatusSchema = z.object({
+export const channelModelStatusSchema = channelStatusFiguresSchema.extend({
   model: z.string(),
-  is_primary: z.boolean(),
-  status: channelStatusSchema,
-  latency_ms: z.number().int().nonnegative().nullable(),
-  error_category: channelStatusErrorCategorySchema,
-  last_checked_at: z.number().int().nonnegative(),
-  availability_1d: z.number().finite().nullable(),
-  availability_3d: z.number().finite().nullable(),
-  availability_7d: z.number().finite().nullable(),
-  average_latency_ms_1d: z.number().finite().nonnegative().nullable(),
-  average_latency_ms_3d: z.number().finite().nonnegative().nullable(),
-  average_latency_ms_7d: z.number().finite().nonnegative().nullable(),
 })
 
 export const channelStatusDetailSchema = z.object({
-  id: z.number().int().positive(),
-  public_name: z.string(),
-  name_color: z.string(),
-  provider: channelStatusProviderSchema,
-  primary_model: z.string(),
-  status: channelStatusSchema,
   last_updated_at: z.number().int().nonnegative(),
+  monitor: channelStatusItemSchema,
   models: z.array(channelModelStatusSchema),
-  timeline: z.array(channelStatusTimelinePointSchema).max(60),
 })
 
 export const publicChannelStatusMonitorSchema = z.object({
   id: z.number().int().positive(),
   public_name: z.string(),
   name_color: z.string(),
-  provider: channelStatusProviderSchema,
-  primary_model: z.string(),
   status: channelStatusSchema,
-  latency_ms: z.number().int().nonnegative().nullable(),
-  error_category: channelStatusErrorCategorySchema,
-  availability_1d: z.number().finite().nullable(),
-  last_checked_at: z.number().int().nonnegative(),
+  success_rate: z.number().finite().nullable(),
 })
 
 export const publicChannelStatusSummarySchema = z.object({
@@ -131,17 +90,7 @@ export const publicChannelStatusSummarySchema = z.object({
   monitors: z.array(publicChannelStatusMonitorSchema),
 })
 
-export const CHANNEL_STATUS_PROVIDER_LABELS = {
-  openai: 'OpenAI',
-  anthropic: 'Anthropic',
-  gemini: 'Gemini',
-} as const
-
-export type ChannelStatusDays = z.infer<typeof channelStatusDaysSchema>
 export type ChannelStatus = z.infer<typeof channelStatusSchema>
-export type ChannelStatusErrorCategory = z.infer<
-  typeof channelStatusErrorCategorySchema
->
 export type ChannelStatusCounts = z.infer<typeof channelStatusCountsSchema>
 export type ChannelStatusTimelinePoint = z.infer<
   typeof channelStatusTimelinePointSchema
@@ -156,3 +105,11 @@ export type PublicChannelStatusMonitor = z.infer<
 export type PublicChannelStatusSummary = z.infer<
   typeof publicChannelStatusSummarySchema
 >
+
+/** What staff enter to show a group on the status page. */
+export interface ChannelStatusMonitorInput {
+  group: string
+  public_name: string
+  name_color: string
+  public_enabled: boolean
+}

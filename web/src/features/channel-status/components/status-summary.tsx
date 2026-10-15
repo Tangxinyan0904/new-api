@@ -68,7 +68,7 @@ export function ChannelStatusIndicator(props: {
   } else {
     presentation = {
       icon: CircleHelp,
-      label: t('Unknown'),
+      label: t('No calls'),
       variant: 'neutral',
     }
   }
@@ -119,7 +119,7 @@ function StatusCounts(props: { counts: ChannelStatusCounts }) {
     },
     {
       status: 'unknown' as const,
-      label: t('Unknown'),
+      label: t('No calls'),
       count: props.counts.unknown,
     },
   ]
@@ -144,12 +144,14 @@ export function StatusSummary(props: { data: ChannelStatusResponse }) {
       className='bg-muted/30 flex min-w-0 flex-col gap-4 rounded-lg border px-4 py-3 lg:flex-row lg:items-center lg:justify-between'
       aria-label={t('Channel status summary')}
     >
-      <span
-        className='text-muted-foreground truncate text-xs'
-        title={updatedAt}
-      >
-        {t('Last updated')}: {updatedAt}
-      </span>
+      <div className='text-muted-foreground min-w-0 text-xs'>
+        <span className='block truncate'>
+          {t('Based on user calls in the last hour')}
+        </span>
+        <span className='block truncate' title={updatedAt}>
+          {t('Last updated')}: {updatedAt}
+        </span>
+      </div>
       <StatusCounts counts={props.data.counts} />
     </section>
   )

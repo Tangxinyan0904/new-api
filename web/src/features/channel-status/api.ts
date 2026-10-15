@@ -24,8 +24,8 @@ import {
   channelStatusDetailSchema,
   channelStatusResponseSchema,
   publicChannelStatusSummarySchema,
-  type ChannelStatusDays,
   type ChannelStatusDetail,
+  type ChannelStatusMonitorInput,
   type ChannelStatusResponse,
   type PublicChannelStatusSummary,
 } from './types'
@@ -36,12 +36,20 @@ const apiEnvelopeSchema = z.object({
   data: z.unknown().optional(),
 })
 
+export interface ChannelStatusMutationResponse {
+  success: boolean
+  message?: string
+  message_key?: string
+  message_params?: Record<string, unknown>
+}
+
+const mutationConfig = { skipBusinessError: true, skipErrorHandler: true }
+
 export const channelStatusQueryKeys = {
-  all: ['channel-monitors'] as const,
-  status: (days: ChannelStatusDays) =>
-    ['channel-monitors', 'status', days] as const,
-  detail: (id: number) => ['channel-monitors', 'status-detail', id] as const,
-  publicSummary: ['channel-monitors', 'public-summary'] as const,
+  all: ['channel-status'] as const,
+  status: ['channel-status', 'status'] as const,
+  detail: (id: number) => ['channel-status', 'detail', id] as const,
+  publicSummary: ['channel-status', 'public-summary'] as const,
 }
 
 function parseApiData<T>(payload: unknown, schema: z.ZodType<T>): T {
@@ -52,12 +60,8 @@ function parseApiData<T>(payload: unknown, schema: z.ZodType<T>): T {
   return schema.parse(envelope.data)
 }
 
-export async function getChannelStatus(
-  days: ChannelStatusDays
-): Promise<ChannelStatusResponse> {
-  const response = await api.get('/api/channel-monitor/status', {
-    params: { days },
-  })
+export async function getChannelStatus(): Promise<ChannelStatusResponse> {
+  const response = await api.get('/api/channel-monitor/status')
   return parseApiData(response.data, channelStatusResponseSchema)
 }
 
@@ -71,4 +75,25 @@ export async function getChannelStatusDetail(
 export async function getPublicChannelStatus(): Promise<PublicChannelStatusSummary> {
   const response = await api.get('/api/channel-monitor/public-summary')
   return parseApiData(response.data, publicChannelStatusSummarySchema)
+}
+
+/** Creates a monitor, or updates it when id is given. */
+export async function saveChannelStatusMonitor(
+  input: ChannelStatusMonitorInput,
+  id?: number
+): Promise<ChannelStatusMutationResponse> {
+  const response = id
+    ? await api.put(`/api/channel-monitor/${id}`, input, mutationConfig)
+    : await api.post('/api/channel-monitor/', input, mutationConfig)
+  return response.data
+}
+
+export async function deleteChannelStatusMonitor(
+  id: number
+): Promise<ChannelStatusMutationResponse> {
+  const response = await api.delete(
+    `/api/channel-monitor/${id}`,
+    mutationConfig
+  )
+  return response.data
 }
