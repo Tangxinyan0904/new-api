@@ -16,14 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Activity, CircleAlert, Loader2, RefreshCw, Timer } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Activity,
+  CircleAlert,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Timer,
+} from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
-import { ButtonGroup } from '@/components/ui/button-group'
 import {
   Empty,
   EmptyDescription,
@@ -38,13 +46,21 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { hasPermission } from '@/lib/admin-permissions'
+import { handleServerError } from '@/lib/handle-server-error'
+import { useAuthStore } from '@/stores/auth-store'
 
-import { channelStatusQueryKeys, getChannelStatus } from './api'
+import {
+  channelStatusQueryKeys,
+  deleteChannelStatusMonitor,
+  getChannelStatus,
+} from './api'
+import { MonitorFormDialog } from './components/monitor-form-dialog'
 import { MonitorStatusCard } from './components/monitor-status-card'
 import { MonitorStatusDetails } from './components/monitor-status-details'
 import { StatusSummary } from './components/status-summary'
 import { useChannelStatusRefresh } from './hooks/use-channel-status-refresh'
-import type { ChannelStatusDays, ChannelStatusItem } from './types'
+import type { ChannelStatusItem } from './types'
 
 function ChannelStatusLoading() {
   return (
@@ -56,33 +72,6 @@ function ChannelStatusLoading() {
         ))}
       </div>
     </div>
-  )
-}
-
-function AvailabilityWindow(props: {
-  days: ChannelStatusDays
-  onChange: (days: ChannelStatusDays) => void
-}) {
-  const { t } = useTranslation()
-  const windows: ChannelStatusDays[] = [1, 3, 7]
-
-  return (
-    <ButtonGroup aria-label={t('Availability window')}>
-      {windows.map((days) => (
-        <Button
-          key={days}
-          type='button'
-          size='sm'
-          variant={props.days === days ? 'secondary' : 'outline'}
-          aria-pressed={props.days === days}
-          aria-label={t('Show {{days}}-day availability', { days })}
-          onClick={() => props.onChange(days)}
-          className='min-w-12 tabular-nums'
-        >
-          {t('{{days}}d', { days })}
-        </Button>
-      ))}
-    </ButtonGroup>
   )
 }
 
@@ -161,13 +150,19 @@ function RefreshControls(props: {
 export function ChannelStatus() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [days, setDays] = useState<ChannelStatusDays>(1)
+  const user = useAuthStore((state) => state.auth.user)
+  const canManage = hasPermission(user, 'channel', 'write')
   const [selectedMonitorId, setSelectedMonitorId] = useState<number | null>(
     null
   )
+  const [formOpen, setFormOpen] = useState(false)
+  const [editingMonitor, setEditingMonitor] =
+    useState<ChannelStatusItem | null>(null)
+  const [deletingMonitor, setDeletingMonitor] =
+    useState<ChannelStatusItem | null>(null)
   const statusQuery = useQuery({
-    queryKey: channelStatusQueryKeys.status(days),
-    queryFn: () => getChannelStatus(days),
+    queryKey: channelStatusQueryKeys.status,
+    queryFn: getChannelStatus,
   })
   const refreshAll = useCallback(async () => {
     await queryClient.refetchQueries({
@@ -181,12 +176,32 @@ export function ChannelStatus() {
     setSelectedMonitorId(monitor.id)
   }, [])
 
+  const openForm = (monitor: ChannelStatusItem | null) => {
+    setEditingMonitor(monitor)
+    setFormOpen(true)
+  }
+
+  const deleteMutation = useMutation({
+    mutationFn: (monitor: ChannelStatusItem) =>
+      deleteChannelStatusMonitor(monitor.id),
+    onSuccess: async (result) => {
+      if (!result.success) {
+        handleServerError(result)
+        return
+      }
+      toast.success(t('Monitor deleted'))
+      setDeletingMonitor(null)
+      await queryClient.invalidateQueries({
+        queryKey: channelStatusQueryKeys.all,
+      })
+    },
+  })
+
   return (
     <TooltipProvider>
       <SectionPageLayout>
         <SectionPageLayout.Title>{t('Channel Status')}</SectionPageLayout.Title>
         <SectionPageLayout.Actions>
-          <AvailabilityWindow days={days} onChange={setDays} />
           <RefreshControls
             enabled={refresh.enabled}
             secondsRemaining={refresh.secondsRemaining}
@@ -195,6 +210,12 @@ export function ChannelStatus() {
             onToggle={refresh.toggle}
             onRefresh={refresh.refreshNow}
           />
+          {canManage ? (
+            <Button type='button' size='sm' onClick={() => openForm(null)}>
+              <Plus data-icon='inline-start' aria-hidden='true' />
+              {t('Add monitor')}
+            </Button>
+          ) : null}
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           {statusQuery.isLoading ? <ChannelStatusLoading /> : null}
@@ -224,7 +245,9 @@ export function ChannelStatus() {
                       {t('No published channel monitors')}
                     </EmptyTitle>
                     <EmptyDescription>
-                      {t('No channel status data is currently published.')}
+                      {canManage
+                        ? t('Add a monitor to show how a group is doing.')
+                        : t('No channel status data is currently published.')}
                     </EmptyDescription>
                   </EmptyHeader>
                 </Empty>
@@ -233,9 +256,11 @@ export function ChannelStatus() {
                   {statusQuery.data.items.map((monitor) => (
                     <MonitorStatusCard
                       key={monitor.id}
-                      days={days}
                       monitor={monitor}
+                      bucketSeconds={statusQuery.data.bucket_seconds}
                       onSelect={handleMonitorSelect}
+                      onEdit={canManage ? openForm : undefined}
+                      onDelete={canManage ? setDeletingMonitor : undefined}
                     />
                   ))}
                 </div>
@@ -252,6 +277,33 @@ export function ChannelStatus() {
           if (!open) setSelectedMonitorId(null)
         }}
       />
+      {canManage ? (
+        <>
+          <MonitorFormDialog
+            open={formOpen}
+            monitor={editingMonitor}
+            onOpenChange={setFormOpen}
+          />
+          <ConfirmDialog
+            open={deletingMonitor !== null}
+            onOpenChange={(open) => {
+              if (!open) setDeletingMonitor(null)
+            }}
+            title={t('Delete monitor {{name}}?', {
+              name: deletingMonitor?.public_name ?? '',
+            })}
+            desc={t(
+              'The group is no longer shown on the status page. Its call logs are kept.'
+            )}
+            confirmText={t('Delete')}
+            destructive
+            isLoading={deleteMutation.isPending}
+            handleConfirm={() => {
+              if (deletingMonitor) deleteMutation.mutate(deletingMonitor)
+            }}
+          />
+        </>
+      ) : null}
     </TooltipProvider>
   )
 }

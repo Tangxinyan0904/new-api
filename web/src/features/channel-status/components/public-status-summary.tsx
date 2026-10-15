@@ -23,26 +23,14 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { formatTimestampToDate } from '@/lib/format'
+import { formatPercent, formatTimestampToDate } from '@/lib/format'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { channelStatusQueryKeys, getPublicChannelStatus } from '../api'
-import {
-  CHANNEL_STATUS_PROVIDER_LABELS,
-  type ChannelStatusCounts,
-  type PublicChannelStatusMonitor,
-} from '../types'
+import type { ChannelStatusCounts, PublicChannelStatusMonitor } from '../types'
 import { ChannelStatusIndicator } from './status-summary'
 
 const PUBLIC_STATUS_LOADING_SLOTS = ['first', 'second', 'third'] as const
-
-function formatAvailability(value: number | null): string {
-  return value === null ? '-' : `${value.toFixed(2)}%`
-}
-
-function formatLatency(value: number | null): string {
-  return value === null ? '-' : `${Math.round(value)} ms`
-}
 
 function SummaryCounts(props: { counts: ChannelStatusCounts }) {
   const { t } = useTranslation()
@@ -50,7 +38,7 @@ function SummaryCounts(props: { counts: ChannelStatusCounts }) {
     { label: t('Operational'), value: props.counts.operational },
     { label: t('Degraded'), value: props.counts.degraded },
     { label: t('Failed'), value: props.counts.failed },
-    { label: t('Unknown'), value: props.counts.unknown },
+    { label: t('No calls'), value: props.counts.unknown },
   ]
 
   return (
@@ -71,38 +59,23 @@ function MonitorSummary(props: { monitor: PublicChannelStatusMonitor }) {
   const { t } = useTranslation()
 
   return (
-    <div className='flex min-h-20 min-w-0 items-center gap-3 border-t py-3 pr-3'>
+    <div className='flex min-h-16 min-w-0 items-center gap-3 border-t py-3 pr-3'>
       <div className='min-w-0 flex-1'>
-        <div className='flex min-w-0 items-center gap-2'>
-          <span
-            className='truncate text-sm font-semibold'
-            title={props.monitor.public_name}
-            style={
-              props.monitor.name_color
-                ? { color: props.monitor.name_color }
-                : undefined
-            }
-          >
-            {props.monitor.public_name}
-          </span>
-          <span className='text-muted-foreground shrink-0 text-xs'>
-            {CHANNEL_STATUS_PROVIDER_LABELS[props.monitor.provider]}
-          </span>
-        </div>
         <span
-          className='text-muted-foreground mt-0.5 block truncate text-xs'
-          title={props.monitor.primary_model}
+          className='block truncate text-sm font-semibold'
+          title={props.monitor.public_name}
+          style={
+            props.monitor.name_color
+              ? { color: props.monitor.name_color }
+              : undefined
+          }
         >
-          {props.monitor.primary_model}
+          {props.monitor.public_name}
         </span>
-        <div className='text-muted-foreground mt-1.5 flex min-w-0 items-center gap-3 text-xs tabular-nums'>
-          <span className='truncate'>
-            {t('Latency')}: {formatLatency(props.monitor.latency_ms)}
-          </span>
-          <span className='truncate'>
-            {t('Today')}: {formatAvailability(props.monitor.availability_1d)}
-          </span>
-        </div>
+        <span className='text-muted-foreground mt-1 block truncate text-xs tabular-nums'>
+          {t('Success rate in the last hour')}:{' '}
+          {formatPercent(props.monitor.success_rate)}
+        </span>
       </div>
       <ChannelStatusIndicator status={props.monitor.status} />
     </div>

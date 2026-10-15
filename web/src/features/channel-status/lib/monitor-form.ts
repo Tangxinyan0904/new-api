@@ -16,19 +16,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute, redirect } from '@tanstack/react-router'
+import { z } from 'zod'
 
-import { ChannelMonitors } from '@/features/channel-monitors'
-import { ROLE } from '@/lib/roles'
-import { useAuthStore } from '@/stores/auth-store'
+export const NAME_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/
 
-export const Route = createFileRoute('/_authenticated/channel-monitors/')({
-  beforeLoad: () => {
-    const { auth } = useAuthStore.getState()
-
-    if (!auth.user || auth.user.role < ROLE.ADMIN) {
-      throw redirect({ to: '/403' })
-    }
-  },
-  component: ChannelMonitors,
+export const monitorFormSchema = z.object({
+  group: z.string().trim().min(1, 'Choose a group'),
+  public_name: z
+    .string()
+    .trim()
+    .min(1, 'Display name is required')
+    .max(128, 'Display name is too long'),
+  name_color: z
+    .string()
+    .trim()
+    .refine(
+      (value) => value === '' || NAME_COLOR_PATTERN.test(value),
+      'Name color must use #RRGGBB format'
+    )
+    .transform((value) => value.toUpperCase()),
+  public_enabled: z.boolean(),
 })
+
+export type MonitorFormInput = z.input<typeof monitorFormSchema>
+export type MonitorFormValues = z.output<typeof monitorFormSchema>

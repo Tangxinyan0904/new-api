@@ -16,30 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import dayjs from 'dayjs'
+import { Pencil, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Badge } from '@/components/ui/badge'
-import { formatTimestampToDate } from '@/lib/format'
+import { Button } from '@/components/ui/button'
+import { formatNumber, formatPercent } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-import {
-  CHANNEL_STATUS_PROVIDER_LABELS,
-  type ChannelStatus,
-  type ChannelStatusDays,
-  type ChannelStatusItem,
-  type ChannelStatusTimelinePoint,
+import { formatAverageDuration } from '../lib/status-format'
+import type {
+  ChannelStatus,
+  ChannelStatusItem,
+  ChannelStatusTimelinePoint,
 } from '../types'
 import { ChannelStatusIndicator } from './status-summary'
-
-const TIMELINE_POINT_COUNT = 60
-
-function formatAvailability(value: number | null): string {
-  return value === null ? '-' : `${value.toFixed(2)}%`
-}
-
-function formatLatency(value: number | null): string {
-  return value === null ? '-' : `${Math.round(value)} ms`
-}
 
 function timelineColor(status: ChannelStatus): string {
   if (status === 'operational') return 'bg-emerald-500 dark:bg-emerald-400'
@@ -48,10 +40,32 @@ function timelineColor(status: ChannelStatus): string {
   return 'bg-muted-foreground/20'
 }
 
+function useStatusLabel() {
+  const { t } = useTranslation()
+  return (status: ChannelStatus) => {
+    if (status === 'operational') return t('Operational')
+    if (status === 'degraded') return t('Degraded')
+    if (status === 'failed') return t('Failed')
+    return t('No calls')
+  }
+}
+
 function TimelinePoint(props: {
   point: ChannelStatusTimelinePoint
-  label: string
+  bucketSeconds: number
 }) {
+  const { t } = useTranslation()
+  const statusLabel = useStatusLabel()
+  const range = `${dayjs.unix(props.point.start_at).format('HH:mm')}–${dayjs
+    .unix(props.point.start_at + props.bucketSeconds)
+    .format('HH:mm')}`
+  const label = `${range} ${statusLabel(props.point.status)} · ${t(
+    '{{success}} succeeded, {{failure}} failed',
+    {
+      success: props.point.success_count,
+      failure: props.point.failure_count,
+    }
+  )}`
   return (
     <span
       data-slot='timeline-point'
@@ -60,138 +74,140 @@ function TimelinePoint(props: {
         'h-7 min-w-0 rounded-[2px]',
         timelineColor(props.point.status)
       )}
-      title={props.label}
-      aria-label={props.label}
+      title={label}
+      aria-label={label}
     />
   )
 }
 
+function Metric(props: { label: string; value: string }) {
+  return (
+    <div className='min-w-0'>
+      <span className='text-muted-foreground block truncate text-xs'>
+        {props.label}
+      </span>
+      <span className='mt-1 block truncate font-semibold tabular-nums'>
+        {props.value}
+      </span>
+    </div>
+  )
+}
+
 export function MonitorStatusCard(props: {
-  days: ChannelStatusDays
   monitor: ChannelStatusItem
+  bucketSeconds: number
   onSelect: (monitor: ChannelStatusItem) => void
+  /** Shown to staff who may change monitors. */
+  onEdit?: (monitor: ChannelStatusItem) => void
+  onDelete?: (monitor: ChannelStatusItem) => void
 }) {
   const { t } = useTranslation()
-  const recentPoints = props.monitor.timeline
-    .slice(0, TIMELINE_POINT_COUNT)
-    .reverse()
-  const availabilityLabel =
-    props.days === 1
-      ? t('24-hour availability')
-      : t('{{days}}-day availability', { days: props.days })
+  const monitor = props.monitor
 
   return (
-    <button
-      type='button'
-      className='bg-card hover:bg-muted/30 focus-visible:border-ring focus-visible:ring-ring/50 flex min-h-[15.5rem] min-w-0 flex-col gap-4 overflow-hidden rounded-lg border p-4 text-left shadow-sm transition-colors focus-visible:ring-[3px] focus-visible:outline-none'
-      aria-label={t('View {{name}} details', {
-        name: props.monitor.public_name,
-      })}
-      onClick={() => props.onSelect(props.monitor)}
-    >
-      <div className='flex w-full min-w-0 items-start justify-between gap-3'>
-        <div className='min-w-0 flex-1'>
-          <span
-            data-slot='monitor-name'
-            className='block truncate text-base font-semibold'
-            title={props.monitor.public_name}
-            style={
-              props.monitor.name_color
-                ? { color: props.monitor.name_color }
-                : undefined
-            }
-          >
-            {props.monitor.public_name}
-          </span>
-          <div className='mt-1 flex min-w-0 items-center gap-2'>
-            <Badge variant='outline' className='shrink-0'>
-              {CHANNEL_STATUS_PROVIDER_LABELS[props.monitor.provider]}
-            </Badge>
+    <div className='bg-card flex min-h-[14rem] min-w-0 flex-col overflow-hidden rounded-lg border shadow-sm'>
+      <button
+        type='button'
+        className='hover:bg-muted/30 focus-visible:border-ring focus-visible:ring-ring/50 flex min-w-0 flex-1 flex-col gap-4 p-4 text-left transition-colors focus-visible:ring-[3px] focus-visible:outline-none'
+        aria-label={t('View {{name}} details', { name: monitor.public_name })}
+        onClick={() => props.onSelect(monitor)}
+      >
+        <div className='flex w-full min-w-0 items-start justify-between gap-3'>
+          <div className='min-w-0 flex-1'>
             <span
-              className='text-muted-foreground min-w-0 truncate text-xs'
-              title={props.monitor.primary_model}
+              data-slot='monitor-name'
+              className='block truncate text-base font-semibold'
+              title={monitor.public_name}
+              style={
+                monitor.name_color ? { color: monitor.name_color } : undefined
+              }
             >
-              {props.monitor.primary_model}
+              {monitor.public_name}
+            </span>
+            {monitor.group !== undefined ? (
+              <div className='mt-1 flex min-w-0 items-center gap-2'>
+                <Badge variant='outline' className='min-w-0 truncate'>
+                  {t('Group')}: {monitor.group}
+                </Badge>
+                {monitor.public_enabled ? null : (
+                  <Badge variant='secondary' className='shrink-0'>
+                    {t('Staff only')}
+                  </Badge>
+                )}
+              </div>
+            ) : null}
+          </div>
+          <ChannelStatusIndicator status={monitor.status} />
+        </div>
+
+        <div className='grid w-full grid-cols-3 gap-3'>
+          <Metric
+            label={t('Success rate')}
+            value={formatPercent(monitor.success_rate)}
+          />
+          <Metric
+            label={t('Requests')}
+            value={formatNumber(monitor.success_count + monitor.failure_count)}
+          />
+          <Metric
+            label={t('Average duration')}
+            value={formatAverageDuration(monitor.average_duration_ms)}
+          />
+        </div>
+
+        <div className='mt-auto w-full min-w-0'>
+          <div className='text-muted-foreground mb-2 flex min-w-0 items-center justify-between gap-2 text-xs'>
+            <span className='truncate'>{t('Last hour')}</span>
+            <span className='truncate'>
+              {t('{{minutes}} min per bar', {
+                minutes: props.bucketSeconds / 60,
+              })}
             </span>
           </div>
-        </div>
-        <ChannelStatusIndicator status={props.monitor.status} />
-      </div>
-
-      <div className='grid w-full grid-cols-3 gap-3'>
-        <div className='min-w-0'>
-          <span className='text-muted-foreground block truncate text-xs'>
-            {availabilityLabel}
-          </span>
-          <span className='mt-1 block truncate font-semibold tabular-nums'>
-            {formatAvailability(props.monitor.availability)}
-          </span>
-        </div>
-        <div className='min-w-0'>
-          <span className='text-muted-foreground block truncate text-xs'>
-            {t('Latest latency')}
-          </span>
-          <span className='mt-1 block truncate font-semibold tabular-nums'>
-            {formatLatency(props.monitor.latency_ms)}
-          </span>
-        </div>
-        <div className='min-w-0'>
-          <span className='text-muted-foreground block truncate text-xs'>
-            {t('Average latency')}
-          </span>
-          <span className='mt-1 block truncate font-semibold tabular-nums'>
-            {formatLatency(props.monitor.average_latency_ms)}
-          </span>
-        </div>
-      </div>
-
-      <div className='mt-auto w-full min-w-0'>
-        <div className='mb-2 flex min-w-0 items-center justify-between gap-2'>
-          <span className='text-muted-foreground truncate text-xs'>
-            {t('Recent checks')}
-          </span>
-          <span className='text-muted-foreground truncate text-xs tabular-nums'>
-            {props.monitor.last_checked_at
-              ? formatTimestampToDate(props.monitor.last_checked_at)
-              : t('Never checked')}
-          </span>
-        </div>
-        {recentPoints.length === 0 ? (
-          <div
-            data-slot='timeline-empty'
-            className='bg-muted/30 text-muted-foreground flex h-7 w-full items-center justify-center rounded-[2px] px-2 text-xs'
-            aria-label={t('Recent channel checks')}
-          >
-            {t('No recent checks')}
-          </div>
-        ) : (
           <div
             className='grid h-7 w-full gap-px overflow-hidden'
             style={{
-              gridTemplateColumns: `repeat(${recentPoints.length}, minmax(0, 1fr))`,
+              gridTemplateColumns: `repeat(${monitor.timeline.length}, minmax(0, 1fr))`,
             }}
-            aria-label={t('Recent channel checks')}
+            aria-label={t('Status over the last hour')}
           >
-            {recentPoints.map((point) => {
-              let statusLabel = t('Unknown')
-              if (point.status === 'operational') {
-                statusLabel = t('Operational')
-              } else if (point.status === 'degraded') {
-                statusLabel = t('Degraded')
-              } else if (point.status === 'failed') {
-                statusLabel = t('Failed')
-              }
-              return (
-                <TimelinePoint
-                  key={point.checked_at}
-                  point={point}
-                  label={`${statusLabel}: ${formatTimestampToDate(point.checked_at)}`}
-                />
-              )
-            })}
+            {monitor.timeline.map((point) => (
+              <TimelinePoint
+                key={point.start_at}
+                point={point}
+                bucketSeconds={props.bucketSeconds}
+              />
+            ))}
           </div>
-        )}
-      </div>
-    </button>
+        </div>
+      </button>
+
+      {props.onEdit || props.onDelete ? (
+        <div className='flex items-center justify-end gap-1 border-t px-2 py-1.5'>
+          {props.onEdit ? (
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              onClick={() => props.onEdit?.(monitor)}
+            >
+              <Pencil data-icon='inline-start' aria-hidden='true' />
+              {t('Edit')}
+            </Button>
+          ) : null}
+          {props.onDelete ? (
+            <Button
+              type='button'
+              variant='ghost'
+              size='sm'
+              onClick={() => props.onDelete?.(monitor)}
+            >
+              <Trash2 data-icon='inline-start' aria-hidden='true' />
+              {t('Delete')}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   )
 }
