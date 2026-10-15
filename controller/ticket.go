@@ -392,6 +392,26 @@ func UpdateTicket(c *gin.Context) {
 	common.ApiSuccess(c, ticket)
 }
 
+// SetTicketOwnerBan blocks or unblocks a ticket's owner from tickets.
+func SetTicketOwnerBan(c *gin.Context) {
+	id, ok := ticketIdParam(c)
+	if !ok {
+		return
+	}
+	var request struct {
+		Banned *bool `json:"banned"`
+	}
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil || request.Banned == nil {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	if err := model.SetTicketOwnerBanned(id, c.GetInt("id"), *request.Banned); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"banned": *request.Banned})
+}
+
 func GetTicketAttachment(c *gin.Context) {
 	serveTicketAttachment(c, 0)
 }

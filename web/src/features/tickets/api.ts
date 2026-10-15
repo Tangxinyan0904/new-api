@@ -179,6 +179,19 @@ export async function updateStaffTicket(
   return res.data
 }
 
+/** Blocks or unblocks the ticket's owner from opening and replying to tickets. */
+export async function setStaffTicketOwnerBan(
+  id: number,
+  banned: boolean
+): Promise<ApiResponse> {
+  const res = await api.put(
+    `/api/ticket/admin/${id}/ban`,
+    { banned },
+    mutationConfig
+  )
+  return res.data
+}
+
 export async function fetchTicketAttachment(
   audience: TicketAudience,
   id: number

@@ -422,6 +422,7 @@ export type SecuritySettings = {
   'fetch_setting.allowed_ports': number[]
   'fetch_setting.apply_ip_filter_for_domain': boolean
   'token_setting.max_user_tokens': number
+  'ticket_setting.daily_limit': number
   'geoip.mode': GeoIPMode
   'geoip.database_path': string
   'geoip.download_url': string
