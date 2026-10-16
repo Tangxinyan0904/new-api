@@ -512,6 +512,8 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'option.clear_affinity_cache': 'Cleared channel affinity cache',
   'rate_limit.distillation_clear':
     'Cleared distillation penalty for user {{target_user_id}}',
+  'channel_cost.upstream_billing':
+    'Set the cost source of channel {{id}} to {{kind}}',
   // Custom OAuth
   'custom_oauth.create': 'Created a custom OAuth provider',
   'custom_oauth.update': 'Updated a custom OAuth provider',

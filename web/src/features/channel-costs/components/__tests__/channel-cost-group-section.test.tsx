@@ -16,13 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 
 import { formatQuota } from '@/lib/format'
 
-import type { ChannelCostChannel, ChannelCostGroup } from '../../types'
+import {
+  upstreamShareKey,
+  type UpstreamCostShares,
+} from '../../lib/channel-cost-math'
+import type {
+  ChannelCostChannel,
+  ChannelCostGroup,
+  ChannelUpstreamBilling,
+  ChannelUpstreamCost,
+} from '../../types'
 import { ChannelCostGroupSection } from '../channel-cost-group-section'
 
 function channel(
@@ -30,7 +39,8 @@ function channel(
   name: string,
   ratio: number | null,
   week: [number, number],
-  deleted = false
+  deleted = false,
+  upstreamBilling: ChannelUpstreamBilling | null = null
 ): ChannelCostChannel {
   const none = { quota: 0, base_quota: 0 }
   return {
@@ -40,6 +50,7 @@ function channel(
     status: 1,
     deleted,
     ratio,
+    upstream_billing: upstreamBilling,
     today: none,
     yesterday: none,
     week: { quota: week[0], base_quota: week[1] },
@@ -48,15 +59,38 @@ function channel(
 
 function renderSection(
   group: ChannelCostGroup,
-  onSaveRatio = vi.fn(async () => true)
+  onSaveRatio = vi.fn(async () => true),
+  upstream: {
+    shares?: UpstreamCostShares
+    costs?: ChannelUpstreamCost[]
+  } = {}
 ) {
+  const onSaveUpstream = vi.fn(async () => true)
   render(
-    <ChannelCostGroupSection group={group} canEdit onSaveRatio={onSaveRatio} />
+    <ChannelCostGroupSection
+      group={group}
+      canEdit
+      onSaveRatio={onSaveRatio}
+      shares={upstream.shares ?? new Map()}
+      upstreamCosts={
+        new Map((upstream.costs ?? []).map((cost) => [cost.channel_id, cost]))
+      }
+      upstreamLoading={false}
+      onSaveUpstream={onSaveUpstream}
+    />
   )
   return {
     onSaveRatio,
+    onSaveUpstream,
     section: screen.getByRole('region', { name: group.name }),
   }
+}
+
+const sub2apiBilling: ChannelUpstreamBilling = {
+  kind: 'sub2api',
+  usd_rate: 0.5,
+  upstream_user_id: 0,
+  access_token_set: false,
 }
 
 describe('ChannelCostGroupSection', () => {
@@ -122,5 +156,117 @@ describe('ChannelCostGroupSection', () => {
     expect(screen.getByText('Deleted channel')).toBeInTheDocument()
     expect(screen.getByText('0.1')).toBeInTheDocument()
     expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
+  })
+
+  it('uses the upstream bill instead of the ratio for a channel that reads it', () => {
+    const { section } = renderSection(
+      {
+        name: 'vip',
+        ratio: 0.5,
+        channels: [
+          channel(7, 'relay', 0.08, [1000, 5000], false, sub2apiBilling),
+        ],
+      },
+      undefined,
+      {
+        shares: new Map([
+          [upstreamShareKey('vip', 7), { today: 0, yesterday: 0, week: 300 }],
+        ]),
+      }
+    )
+
+    expect(
+      within(section).getByText(`Upstream cost ${formatQuota(300)}`, {
+        selector: 'span:not(.text-xs)',
+      })
+    ).toBeInTheDocument()
+    expect(
+      within(section).getByText('Upstream bill · sub2api')
+    ).toBeInTheDocument()
+    expect(
+      within(section).getByText('Upstream $1 = site $0.5')
+    ).toBeInTheDocument()
+    expect(within(section).queryByRole('spinbutton')).not.toBeInTheDocument()
+  })
+
+  it('shows why the upstream could not be read', () => {
+    renderSection(
+      {
+        name: 'vip',
+        ratio: 0.5,
+        channels: [channel(7, 'relay', null, [10, 10], false, sub2apiBilling)],
+      },
+      undefined,
+      {
+        costs: [
+          {
+            channel_id: 7,
+            kind: 'sub2api',
+            error: {
+              key: 'Upstream answered {{status}}: {{error}}',
+              params: { status: 401, error: 'Invalid API key' },
+            },
+            fetched_at: 0,
+            today: { usd: 0, quota: 0 },
+            yesterday: { usd: 0, quota: 0 },
+            week: { usd: 0, quota: 0 },
+          },
+        ],
+      }
+    )
+
+    expect(
+      screen.getByText('Upstream answered 401: Invalid API key')
+    ).toBeInTheDocument()
+  })
+
+  it('saves a sub2api upstream bill with the dollar rate', async () => {
+    const user = userEvent.setup()
+    const { onSaveUpstream } = renderSection({
+      name: 'vip',
+      ratio: 0.5,
+      channels: [channel(7, 'relay', null, [10, 10])],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Upstream bill' }))
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'sub2api' }))
+    const rate = screen.getByLabelText(
+      "1 upstream dollar = how many of this site's dollars"
+    )
+    await user.clear(rate)
+    await user.type(rate, '0.143')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(onSaveUpstream).toHaveBeenCalledWith(7, {
+        kind: 'sub2api',
+        usd_rate: 0.143,
+        upstream_user_id: 0,
+        access_token: '',
+      })
+    )
+  })
+
+  it('asks for the user ID and access token of a new-api upstream', async () => {
+    const user = userEvent.setup()
+    const { onSaveUpstream } = renderSection({
+      name: 'vip',
+      ratio: 0.5,
+      channels: [channel(7, 'relay', null, [10, 10])],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Upstream bill' }))
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'new-api' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    expect(
+      await screen.findByText('Enter your user ID on the upstream')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('Enter the system access token of your upstream account')
+    ).toBeInTheDocument()
+    expect(onSaveUpstream).not.toHaveBeenCalled()
   })
 })

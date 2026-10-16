@@ -3,12 +3,15 @@ package controller
 import (
 	"cmp"
 	"errors"
+	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -33,10 +36,21 @@ type channelCostChannel struct {
 	Deleted bool   `json:"deleted"`
 	// Ratio is the channel's cost ratio, shared by all its groups; nil means
 	// none was entered.
-	Ratio     *float64               `json:"ratio"`
-	Today     model.ChannelCostUsage `json:"today"`
-	Yesterday model.ChannelCostUsage `json:"yesterday"`
-	Week      model.ChannelCostUsage `json:"week"`
+	Ratio *float64 `json:"ratio"`
+	// UpstreamBilling is set when the cost is read from the upstream's bill.
+	UpstreamBilling *channelUpstreamBillingView `json:"upstream_billing"`
+	Today           model.ChannelCostUsage      `json:"today"`
+	Yesterday       model.ChannelCostUsage      `json:"yesterday"`
+	Week            model.ChannelCostUsage      `json:"week"`
+}
+
+// channelUpstreamBillingView is a channel's upstream billing without the
+// access token.
+type channelUpstreamBillingView struct {
+	Kind           string  `json:"kind"`
+	UsdRate        float64 `json:"usd_rate"`
+	UpstreamUserId int     `json:"upstream_user_id"`
+	AccessTokenSet bool    `json:"access_token_set"`
 }
 
 type channelCostGroup struct {
@@ -46,21 +60,43 @@ type channelCostGroup struct {
 	Channels []channelCostChannel `json:"channels"`
 }
 
+// channelCostTimezonePattern accepts IANA time zone names such as
+// Asia/Shanghai or Etc/GMT-8.
+var channelCostTimezonePattern = regexp.MustCompile(`^[A-Za-z0-9_+/-]{1,64}$`)
+
+// channelCostRanges reads the range starts the client sent in its own time
+// zone, and the time zone name when there is one.
+func channelCostRanges(c *gin.Context) (service.UpstreamCostRanges, bool) {
+	todayStart, errToday := strconv.ParseInt(c.Query("today_start"), 10, 64)
+	yesterdayStart, errYesterday := strconv.ParseInt(c.Query("yesterday_start"), 10, 64)
+	weekStart, errWeek := strconv.ParseInt(c.Query("week_start"), 10, 64)
+	timezone := c.Query("timezone")
+	now := common.GetTimestamp()
+	if errToday != nil || errYesterday != nil || errWeek != nil ||
+		weekStart > yesterdayStart || yesterdayStart > todayStart || todayStart > now ||
+		now-weekStart > channelCostMaxRangeSeconds ||
+		(timezone != "" && !channelCostTimezonePattern.MatchString(timezone)) {
+		common.ApiErrorT(c, "Invalid parameters")
+		return service.UpstreamCostRanges{}, false
+	}
+	return service.UpstreamCostRanges{
+		TodayStart:     todayStart,
+		YesterdayStart: yesterdayStart,
+		WeekStart:      weekStart,
+		Now:            now,
+		Timezone:       timezone,
+	}, true
+}
+
 // GetChannelCostStats returns the net usage of every channel in each of its
 // groups today, yesterday and in the last 7 days. The client sends the range
 // starts in its own time zone.
 func GetChannelCostStats(c *gin.Context) {
-	todayStart, errToday := strconv.ParseInt(c.Query("today_start"), 10, 64)
-	yesterdayStart, errYesterday := strconv.ParseInt(c.Query("yesterday_start"), 10, 64)
-	weekStart, errWeek := strconv.ParseInt(c.Query("week_start"), 10, 64)
-	now := common.GetTimestamp()
-	if errToday != nil || errYesterday != nil || errWeek != nil ||
-		weekStart > yesterdayStart || yesterdayStart > todayStart || todayStart > now ||
-		now-weekStart > channelCostMaxRangeSeconds {
-		common.ApiErrorT(c, "Invalid parameters")
+	ranges, ok := channelCostRanges(c)
+	if !ok {
 		return
 	}
-	totals, err := model.GetChannelCostTotals(weekStart, yesterdayStart, todayStart)
+	totals, err := model.GetChannelCostTotals(ranges.WeekStart, ranges.YesterdayStart, ranges.TodayStart)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -72,6 +108,11 @@ func GetChannelCostStats(c *gin.Context) {
 	}
 
 	channelRatios := operation_setting.GetChannelCostSetting().ChannelRatios
+	billings, err := model.GetChannelUpstreamBillings()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	channelsById := make(map[int]model.Channel, len(channels))
 	members := make(map[model.ChannelCostKey]bool)
 	for _, channel := range channels {
@@ -104,6 +145,14 @@ func GetChannelCostStats(c *gin.Context) {
 		}
 		if ratio, ok := channelRatios[key.ChannelId]; ok {
 			item.Ratio = &ratio
+		}
+		if billing, ok := billings[key.ChannelId]; ok {
+			item.UpstreamBilling = &channelUpstreamBillingView{
+				Kind:           billing.Kind,
+				UsdRate:        billing.UsdRate,
+				UpstreamUserId: billing.UpstreamUserId,
+				AccessTokenSet: billing.AccessToken != "",
+			}
 		}
 		if total := totals[key]; total != nil {
 			item.Today, item.Yesterday, item.Week = total.Today, total.Yesterday, total.Week
@@ -186,5 +235,176 @@ func UpdateChannelCostRatio(c *gin.Context) {
 		return
 	}
 	recordManageAudit(c, "option.update", map[string]any{"key": channelCostChannelRatiosOption})
+	common.ApiSuccess(c, nil)
+}
+
+// maxUpstreamUsdRate bounds how many of this site's dollars one upstream
+// dollar can be set to.
+const maxUpstreamUsdRate = 100
+
+// channelUpstreamCostAmount is an upstream charge in the upstream's dollars
+// and in this site's quota units.
+type channelUpstreamCostAmount struct {
+	Usd   float64 `json:"usd"`
+	Quota float64 `json:"quota"`
+}
+
+type channelUpstreamCostItem struct {
+	ChannelId int    `json:"channel_id"`
+	Kind      string `json:"kind"`
+	// Error says why the upstream could not be read; the amounts are then zero.
+	Error     *common.Message           `json:"error"`
+	FetchedAt int64                     `json:"fetched_at"`
+	Today     channelUpstreamCostAmount `json:"today"`
+	Yesterday channelUpstreamCostAmount `json:"yesterday"`
+	Week      channelUpstreamCostAmount `json:"week"`
+}
+
+// GetChannelUpstreamCosts reads what each channel with upstream billing was
+// charged by its upstream today, yesterday and in the last 7 days, and how
+// long each upstream account's balance lasts. Answers are cached for five
+// minutes unless refresh is set.
+func GetChannelUpstreamCosts(c *gin.Context) {
+	ranges, ok := channelCostRanges(c)
+	if !ok {
+		return
+	}
+	if ranges.Timezone == "" {
+		ranges.Timezone = "UTC"
+	}
+	billings, err := model.GetChannelUpstreamBillings()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	ids := make([]int, 0, len(billings))
+	for id := range billings {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	var channels []*model.Channel
+	if len(ids) > 0 {
+		if err := model.DB.Where("id IN ?", ids).Find(&channels).Error; err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	results := service.QueryChannelUpstreamCosts(c.Request.Context(), channels, billings, ranges, c.Query("refresh") == "true")
+	items := make([]channelUpstreamCostItem, 0, len(ids))
+	for _, id := range ids {
+		billing := billings[id]
+		item := channelUpstreamCostItem{ChannelId: id, Kind: billing.Kind}
+		result, found := results[id]
+		if !found {
+			item.Error = common.NewMessage("Channel not found")
+			items = append(items, item)
+			continue
+		}
+		item.FetchedAt = result.FetchedAt
+		if result.Err != nil {
+			var message *common.Message
+			if !errors.As(result.Err, &message) {
+				message = common.NewMessage("Upstream unreachable: {{error}}", map[string]any{"error": result.Err.Error()})
+			}
+			item.Error = message
+			items = append(items, item)
+			continue
+		}
+		toAmount := func(usd float64) channelUpstreamCostAmount {
+			return channelUpstreamCostAmount{Usd: usd, Quota: usd * billing.UsdRate * common.QuotaPerUnit}
+		}
+		item.Today = toAmount(result.Cost.Today)
+		item.Yesterday = toAmount(result.Cost.Yesterday)
+		item.Week = toAmount(result.Cost.Week)
+		items = append(items, item)
+	}
+	accounts := service.ForecastUpstreamAccounts(channels, billings, results, ranges)
+	common.ApiSuccess(c, gin.H{"channels": items, "accounts": accounts})
+}
+
+type channelUpstreamBillingRequest struct {
+	Kind           string  `json:"kind"`
+	UsdRate        float64 `json:"usd_rate"`
+	AccessToken    string  `json:"access_token"`
+	UpstreamUserId int     `json:"upstream_user_id"`
+}
+
+// UpdateChannelUpstreamBilling sets where a channel's cost is read from. An
+// empty kind goes back to the cost ratio. A new-api access token left empty
+// keeps the saved one. The settings are checked against the upstream first.
+func UpdateChannelUpstreamBilling(c *gin.Context) {
+	channelId, err := strconv.Atoi(c.Param("id"))
+	if err != nil || channelId <= 0 {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	var request channelUpstreamBillingRequest
+	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
+	if request.Kind == "" {
+		if err := model.DeleteChannelUpstreamBilling(channelId); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		recordManageAudit(c, "channel_cost.upstream_billing", map[string]any{"id": channelId, "kind": "none"})
+		common.ApiSuccess(c, nil)
+		return
+	}
+	if request.Kind != model.UpstreamBillingSub2API && request.Kind != model.UpstreamBillingNewAPI {
+		common.ApiErrorT(c, "Unsupported upstream type")
+		return
+	}
+	if !(request.UsdRate > 0 && request.UsdRate <= maxUpstreamUsdRate) {
+		common.ApiErrorT(c, "The dollar rate must be greater than 0 and at most {{max}}", map[string]any{"max": maxUpstreamUsdRate})
+		return
+	}
+	channel, err := model.GetChannelById(channelId, true)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			common.ApiErrorT(c, "Channel not found")
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+	billing := model.ChannelUpstreamBilling{
+		ChannelId: channelId,
+		Kind:      request.Kind,
+		UsdRate:   request.UsdRate,
+		UpdatedAt: common.GetTimestamp(),
+	}
+	if request.Kind == model.UpstreamBillingNewAPI {
+		if request.UpstreamUserId <= 0 {
+			common.ApiErrorT(c, "Enter your user ID on the upstream")
+			return
+		}
+		billing.UpstreamUserId = request.UpstreamUserId
+		billing.BaseURL = channel.GetBaseURL()
+		billing.AccessToken = strings.TrimSpace(request.AccessToken)
+		if billing.AccessToken == "" {
+			// Keep the saved token, but only for the address it was entered for.
+			saved, err := model.GetChannelUpstreamBilling(channelId)
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			if saved == nil || saved.AccessToken == "" || saved.BaseURL != billing.BaseURL {
+				common.ApiErrorT(c, "Enter the system access token of your upstream account")
+				return
+			}
+			billing.AccessToken = saved.AccessToken
+		}
+	}
+	if err := service.CheckChannelUpstreamBilling(c.Request.Context(), channel, billing); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.SaveChannelUpstreamBilling(&billing); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	recordManageAudit(c, "channel_cost.upstream_billing", map[string]any{"id": channelId, "kind": billing.Kind})
 	common.ApiSuccess(c, nil)
 }

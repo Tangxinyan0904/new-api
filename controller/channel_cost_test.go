@@ -33,7 +33,7 @@ type channelCostStats struct {
 func setupChannelCostTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.Log{}, &model.ChannelCostHourly{}, &model.Option{}, &model.AuditLog{}))
+	require.NoError(t, db.AutoMigrate(&model.Log{}, &model.ChannelCostHourly{}, &model.ChannelUpstreamBilling{}, &model.Option{}, &model.AuditLog{}))
 	common.OptionMapRWMutex.Lock()
 	if common.OptionMap == nil {
 		common.OptionMap = map[string]string{}
@@ -217,4 +217,211 @@ func TestUpdateChannelCostRatio(t *testing.T) {
 	var audits int64
 	require.NoError(t, db.Model(&model.AuditLog{}).Where("action = ?", "option.update").Count(&audits).Error)
 	assert.Equal(t, int64(2), audits, "each saved change is audited")
+}
+
+// upstreamCostTestChannel creates channel 7 pointing at baseURL with key.
+func upstreamCostTestChannel(t *testing.T, db *gorm.DB, baseURL, key string) {
+	t.Helper()
+	require.NoError(t, db.Create(&model.Channel{Id: 7, Name: "upstream", Type: 1, Key: key, BaseURL: &baseURL, Group: "default", Status: 1}).Error)
+}
+
+type upstreamCostTestItem struct {
+	Error *common.Message `json:"error"`
+	Today struct {
+		Usd   float64 `json:"usd"`
+		Quota float64 `json:"quota"`
+	} `json:"today"`
+	Yesterday struct {
+		Usd float64 `json:"usd"`
+	} `json:"yesterday"`
+	Week struct {
+		Usd float64 `json:"usd"`
+	} `json:"week"`
+}
+
+type upstreamAccountTestItem struct {
+	Kind       string   `json:"kind"`
+	ChannelIds []int    `json:"channel_ids"`
+	Balance    float64  `json:"balance"`
+	DailySpend float64  `json:"daily_spend"`
+	DaysLeft   *float64 `json:"days_left"`
+	Low        bool     `json:"low"`
+}
+
+var lastUpstreamAccounts []upstreamAccountTestItem
+
+func getUpstreamCosts(t *testing.T, todayStart int64) upstreamCostTestItem {
+	t.Helper()
+	target := "/?refresh=true&timezone=Asia/Shanghai&today_start=" + strconv.FormatInt(todayStart, 10) +
+		"&yesterday_start=" + strconv.FormatInt(todayStart-86400, 10) +
+		"&week_start=" + strconv.FormatInt(todayStart-6*86400, 10)
+	response := callChannelCost(t, GetChannelUpstreamCosts, http.MethodGet, target, nil, "")
+	require.True(t, response.Success)
+	var data struct {
+		Channels []upstreamCostTestItem    `json:"channels"`
+		Accounts []upstreamAccountTestItem `json:"accounts"`
+	}
+	require.NoError(t, common.Unmarshal(response.Data, &data))
+	require.Len(t, data.Channels, 1)
+	lastUpstreamAccounts = data.Accounts
+	return data.Channels[0]
+}
+
+func TestChannelUpstreamBillingReadsSub2APISpend(t *testing.T) {
+	db := setupChannelCostTestDB(t)
+	reportsDaily := true
+	var timezones []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/usage" || r.Header.Get("Authorization") != "Bearer sk-good" {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"error":{"message":"Invalid API key"}}`))
+			return
+		}
+		timezones = append(timezones, r.URL.Query().Get("timezone"))
+		if !reportsDaily {
+			_, _ = w.Write([]byte(`{"mode":"unrestricted","balance":10}`))
+			return
+		}
+		// Windows start at the viewer's midnight: today 2.5, yesterday 1.5.
+		days := map[string]string{
+			"1": `[{"actual_cost":2.5}]`,
+			"2": `[{"actual_cost":1.5},{"actual_cost":2.5}]`,
+			"7": `[{"actual_cost":6},{"actual_cost":4}]`,
+		}[r.URL.Query().Get("days")]
+		_, _ = w.Write([]byte(`{"mode":"unrestricted","remaining":10,"daily_usage":` + days + `}`))
+	}))
+	defer upstream.Close()
+	upstreamCostTestChannel(t, db, upstream.URL, "sk-good")
+	idParams := gin.Params{{Key: "id", Value: "7"}}
+
+	reportsDaily = false
+	old := callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", idParams, `{"kind":"sub2api","usd_rate":0.5}`)
+	assert.Equal(t, "This sub2api does not report daily usage. Update it to a newer version.", old.MessageKey)
+	reportsDaily = true
+	assert.Equal(t, "The dollar rate must be greater than 0 and at most {{max}}",
+		callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", idParams, `{"kind":"sub2api","usd_rate":0}`).MessageKey)
+	saved := callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", idParams, `{"kind":"sub2api","usd_rate":0.5}`)
+	require.True(t, saved.Success, saved.MessageKey)
+
+	todayStart := common.GetTimestamp() - 3600
+	item := getUpstreamCosts(t, todayStart)
+	require.Nil(t, item.Error)
+	assert.InDelta(t, 2.5, item.Today.Usd, 1e-9)
+	assert.InDelta(t, 2.5*0.5*common.QuotaPerUnit, item.Today.Quota, 1e-6)
+	assert.InDelta(t, 1.5, item.Yesterday.Usd, 1e-9)
+	assert.InDelta(t, 10, item.Week.Usd, 1e-9)
+	assert.Contains(t, timezones, "Asia/Shanghai")
+	// 4 dollars over the 25 hours since yesterday's start, against 10 left.
+	require.Len(t, lastUpstreamAccounts, 1)
+	account := lastUpstreamAccounts[0]
+	assert.Equal(t, []int{7}, account.ChannelIds)
+	assert.InDelta(t, 10, account.Balance, 1e-9)
+	assert.InDelta(t, 4*24.0/25, account.DailySpend, 0.01)
+	require.NotNil(t, account.DaysLeft)
+	assert.InDelta(t, 10/(4*24.0/25), *account.DaysLeft, 0.01)
+	assert.False(t, account.Low)
+
+	require.NoError(t, db.Model(&model.Channel{}).Where("id = 7").Update("key", "sk-revoked").Error)
+	failed := getUpstreamCosts(t, todayStart)
+	require.NotNil(t, failed.Error)
+	assert.Equal(t, "Upstream answered {{status}}: {{error}}", failed.Error.Key)
+	assert.Equal(t, "Invalid API key", failed.Error.Params["error"])
+
+	cleared := callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", idParams, `{"kind":""}`)
+	require.True(t, cleared.Success)
+	billing, err := model.GetChannelUpstreamBilling(7)
+	require.NoError(t, err)
+	assert.Nil(t, billing)
+}
+
+func TestChannelUpstreamBillingReadsNewAPIAccountStats(t *testing.T) {
+	db := setupChannelCostTestDB(t)
+	todayStart := common.GetTimestamp() - 3600
+	tokenLookups := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query()
+		switch r.URL.Path {
+		case "/api/status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"quota_per_unit":1000}}`))
+		case "/api/usage/token/":
+			tokenLookups++
+			if r.Header.Get("Authorization") != "Bearer sk-good" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			_, _ = w.Write([]byte(`{"code":true,"data":{"name":"cost key"}}`))
+		case "/api/user/self":
+			if r.Header.Get("Authorization") != "Bearer account-token" || r.Header.Get("New-Api-User") != "42" {
+				w.WriteHeader(http.StatusUnauthorized)
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"quota":3000}}`))
+		case "/api/log/self/stat":
+			if r.Header.Get("Authorization") != "Bearer account-token" || r.Header.Get("New-Api-User") != "42" {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"success":false,"message":"access token is invalid"}`))
+				return
+			}
+			quota := 0
+			if query.Get("token_name") == "cost key" {
+				start, _ := strconv.ParseInt(query.Get("start_timestamp"), 10, 64)
+				end, _ := strconv.ParseInt(query.Get("end_timestamp"), 10, 64)
+				switch {
+				case start == todayStart:
+					quota = 3000
+				case start == todayStart-86400 && end == todayStart-1:
+					quota = 1000
+				case start == todayStart-6*86400:
+					quota = 9000
+				}
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"quota":` + strconv.Itoa(quota) + `}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer upstream.Close()
+	upstreamCostTestChannel(t, db, upstream.URL, "sk-good")
+	idParams := gin.Params{{Key: "id", Value: "7"}}
+	save := func(body string) channelCostResponse {
+		return callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", idParams, body)
+	}
+
+	assert.Equal(t, "Enter your user ID on the upstream", save(`{"kind":"newapi","usd_rate":1}`).MessageKey)
+	assert.Equal(t, "Enter the system access token of your upstream account", save(`{"kind":"newapi","usd_rate":1,"upstream_user_id":42}`).MessageKey)
+	assert.Equal(t, "Upstream answered {{status}}: {{error}}", save(`{"kind":"newapi","usd_rate":1,"upstream_user_id":42,"access_token":"wrong"}`).MessageKey)
+	saved := save(`{"kind":"newapi","usd_rate":2,"upstream_user_id":42,"access_token":"account-token"}`)
+	require.True(t, saved.Success, saved.MessageKey)
+	kept := save(`{"kind":"newapi","usd_rate":2,"upstream_user_id":42}`)
+	require.True(t, kept.Success, "an empty token keeps the saved one")
+
+	target := "/?today_start=" + strconv.FormatInt(todayStart, 10) + "&yesterday_start=" + strconv.FormatInt(todayStart-86400, 10) +
+		"&week_start=" + strconv.FormatInt(todayStart-6*86400, 10)
+	stats := callChannelCost(t, GetChannelCostStats, http.MethodGet, target, nil, "")
+	require.True(t, stats.Success)
+	assert.Contains(t, string(stats.Data), `"upstream_billing":{"kind":"newapi","usd_rate":2,"upstream_user_id":42,"access_token_set":true}`)
+	assert.NotContains(t, string(stats.Data), "account-token")
+
+	item := getUpstreamCosts(t, todayStart)
+	require.Nil(t, item.Error)
+	assert.InDelta(t, 3, item.Today.Usd, 1e-9)
+	assert.InDelta(t, 3*2*common.QuotaPerUnit, item.Today.Quota, 1e-6)
+	assert.InDelta(t, 1, item.Yesterday.Usd, 1e-9)
+	assert.InDelta(t, 9, item.Week.Usd, 1e-9)
+	getUpstreamCosts(t, todayStart)
+	// new-api allows 20 token lookups per 20 minutes per IP; names are kept.
+	assert.Equal(t, 1, tokenLookups)
+	// 3 dollars left at about 3.84 a day lasts less than a day.
+	require.Len(t, lastUpstreamAccounts, 1)
+	assert.InDelta(t, 3, lastUpstreamAccounts[0].Balance, 1e-9)
+	require.NotNil(t, lastUpstreamAccounts[0].DaysLeft)
+	assert.Less(t, *lastUpstreamAccounts[0].DaysLeft, 1.0)
+	assert.True(t, lastUpstreamAccounts[0].Low)
+
+	// The token is only sent to the address it was entered for.
+	require.NoError(t, db.Model(&model.Channel{}).Where("id = 7").Update("base_url", "https://elsewhere.example").Error)
+	moved := getUpstreamCosts(t, todayStart)
+	require.NotNil(t, moved.Error)
+	assert.Equal(t, "The channel address changed. Enter the access token again.", moved.Error.Key)
+	assert.Equal(t, "Enter the system access token of your upstream account", save(`{"kind":"newapi","usd_rate":2,"upstream_user_id":42}`).MessageKey)
 }
