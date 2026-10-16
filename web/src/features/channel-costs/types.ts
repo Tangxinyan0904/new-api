@@ -30,9 +30,66 @@ export interface ChannelCostChannel {
   deleted: boolean
   /** Cost ratio shared by all the channel's groups; null when none was entered. */
   ratio: number | null
+  /** Set when the cost is read from the upstream's bill instead. */
+  upstream_billing: ChannelUpstreamBilling | null
   today: ChannelCostUsage
   yesterday: ChannelCostUsage
   week: ChannelCostUsage
+}
+
+export type UpstreamBillingKind = 'sub2api' | 'newapi'
+
+export interface ChannelUpstreamBilling {
+  kind: UpstreamBillingKind
+  /** How many of this site's dollars one upstream dollar is worth. */
+  usd_rate: number
+  upstream_user_id: number
+  access_token_set: boolean
+}
+
+/** An upstream charge in the upstream's dollars and in this site's quota units. */
+export interface UpstreamCostAmount {
+  usd: number
+  quota: number
+}
+
+export interface ChannelUpstreamCost {
+  channel_id: number
+  kind: UpstreamBillingKind
+  /** Why the upstream could not be read; the amounts are then zero. */
+  error: { key: string; params?: Record<string, unknown> } | null
+  fetched_at: number
+  today: UpstreamCostAmount
+  yesterday: UpstreamCostAmount
+  week: UpstreamCostAmount
+}
+
+/** How long an upstream account's balance lasts at its recent spending. */
+export interface ChannelUpstreamAccount {
+  kind: UpstreamBillingKind
+  base_url: string
+  channel_ids: number[]
+  /** Balance and daily spend are in the upstream's dollars. */
+  balance: number
+  daily_spend: number
+  /** Null when nothing was spent recently. */
+  days_left: number | null
+  /** The balance is used up or lasts less than a day. */
+  low: boolean
+}
+
+export interface ChannelUpstreamReport {
+  channels: ChannelUpstreamCost[]
+  accounts: ChannelUpstreamAccount[]
+}
+
+export interface ChannelUpstreamBillingInput {
+  /** Empty goes back to the cost ratio. */
+  kind: UpstreamBillingKind | ''
+  usd_rate: number
+  upstream_user_id: number
+  /** Empty keeps the saved token. */
+  access_token: string
 }
 
 export interface ChannelCostGroup {

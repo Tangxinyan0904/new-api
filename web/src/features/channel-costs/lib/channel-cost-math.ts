@@ -21,7 +21,9 @@ import dayjs from 'dayjs'
 import type {
   ChannelCostChannel,
   ChannelCostFigures,
+  ChannelCostGroup,
   ChannelCostRange,
+  ChannelUpstreamCost,
 } from '../types'
 
 export const CHANNEL_COST_RANGES: ChannelCostRange[] = [
@@ -50,30 +52,99 @@ export function getChannelCostRangeStarts(now: Date): ChannelCostRangeStarts {
   }
 }
 
+/** A channel's upstream cost within one group, in quota units, per range. */
+export type UpstreamCostShare = Record<ChannelCostRange, number>
+
+/** Upstream cost shares keyed by upstreamShareKey(group, channel id). */
+export type UpstreamCostShares = Map<string, UpstreamCostShare>
+
+export function upstreamShareKey(group: string, channelId: number): string {
+  return `${group}\u0000${channelId}`
+}
+
 /**
- * cost = usage at the original price × cost ratio; without a cost ratio the
- * whole usage counts as cost. profit = usage − cost.
+ * Splits what each channel's upstream charged across the groups the channel
+ * served, by each group's share of the channel's usage at the original price
+ * in that range. A channel without usage of its own splits it equally.
+ * Channels whose upstream could not be read are left out.
+ */
+export function allocateUpstreamCosts(
+  groups: ChannelCostGroup[],
+  costs: ChannelUpstreamCost[]
+): UpstreamCostShares {
+  const shares: UpstreamCostShares = new Map()
+  for (const cost of costs) {
+    if (cost.error) continue
+    const members = groups.flatMap((group) =>
+      group.channels
+        .filter((channel) => channel.id === cost.channel_id)
+        .map((channel) => ({ group: group.name, channel }))
+    )
+    if (members.length === 0) continue
+    for (const member of members) {
+      shares.set(upstreamShareKey(member.group, cost.channel_id), {
+        today: 0,
+        yesterday: 0,
+        week: 0,
+      })
+    }
+    for (const range of CHANNEL_COST_RANGES) {
+      const totalBase = members.reduce(
+        (sum, member) => sum + member.channel[range].base_quota,
+        0
+      )
+      for (const member of members) {
+        const share =
+          totalBase > 0
+            ? member.channel[range].base_quota / totalBase
+            : 1 / members.length
+        const entry = shares.get(
+          upstreamShareKey(member.group, cost.channel_id)
+        )
+        if (entry) entry[range] = cost[range].quota * share
+      }
+    }
+  }
+  return shares
+}
+
+/**
+ * cost = the upstream's charge when the channel reads its upstream bill,
+ * otherwise usage at the original price × cost ratio; without a cost ratio
+ * the whole usage counts as cost. profit = usage − cost.
  */
 export function channelCostFigures(
   channel: ChannelCostChannel,
-  range: ChannelCostRange
+  range: ChannelCostRange,
+  upstreamCost?: number
 ): ChannelCostFigures {
   const usage = channel[range]
-  const cost =
-    channel.ratio === null ? usage.quota : usage.base_quota * channel.ratio
+  let cost = upstreamCost
+  if (cost === undefined) {
+    cost =
+      channel.ratio === null ? usage.quota : usage.base_quota * channel.ratio
+  }
   return { used: usage.quota, cost, profit: usage.quota - cost }
 }
 
-export function sumChannelCostFigures(
-  channels: ChannelCostChannel[],
-  range: ChannelCostRange
+/** Totals of every channel in the groups, with upstream shares applied. */
+export function sumGroupCostFigures(
+  groups: ChannelCostGroup[],
+  range: ChannelCostRange,
+  shares: UpstreamCostShares
 ): ChannelCostFigures {
   const total: ChannelCostFigures = { used: 0, cost: 0, profit: 0 }
-  for (const channel of channels) {
-    const figures = channelCostFigures(channel, range)
-    total.used += figures.used
-    total.cost += figures.cost
-    total.profit += figures.profit
+  for (const group of groups) {
+    for (const channel of group.channels) {
+      const figures = channelCostFigures(
+        channel,
+        range,
+        shares.get(upstreamShareKey(group.name, channel.id))?.[range]
+      )
+      total.used += figures.used
+      total.cost += figures.cost
+      total.profit += figures.profit
+    }
   }
   return total
 }

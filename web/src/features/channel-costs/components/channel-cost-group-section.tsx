@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useId } from 'react'
+import { ReceiptText } from 'lucide-react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -24,21 +25,27 @@ import {
   type StaticDataTableColumn,
 } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
+import { Button } from '@/components/ui/button'
 import { formatQuota } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 import {
   CHANNEL_COST_RANGES,
   channelCostFigures,
-  sumChannelCostFigures,
+  sumGroupCostFigures,
+  upstreamShareKey,
+  type UpstreamCostShares,
 } from '../lib/channel-cost-math'
 import type {
   ChannelCostChannel,
   ChannelCostFigures,
   ChannelCostGroup,
   ChannelCostRange,
+  ChannelUpstreamBillingInput,
+  ChannelUpstreamCost,
 } from '../types'
 import { CostRatioInput } from './cost-ratio-input'
+import { UpstreamBillingDialog } from './upstream-billing-dialog'
 
 const RANGE_HEADER: Record<ChannelCostRange, string> = {
   today: 'Today',
@@ -50,6 +57,52 @@ interface ChannelCostGroupSectionProps {
   group: ChannelCostGroup
   canEdit: boolean
   onSaveRatio: (channelId: number, ratio: number | null) => Promise<boolean>
+  /** Each channel's upstream cost within each group, in quota units. */
+  shares: UpstreamCostShares
+  /** What was read from the upstreams, by channel id. */
+  upstreamCosts: Map<number, ChannelUpstreamCost>
+  upstreamLoading: boolean
+  onSaveUpstream: (
+    channelId: number,
+    input: ChannelUpstreamBillingInput
+  ) => Promise<boolean>
+}
+
+/** Says whether a channel's upstream bill is being read or failed. */
+function UpstreamBillState(props: {
+  channel: ChannelCostChannel
+  cost: ChannelUpstreamCost | undefined
+  loading: boolean
+}) {
+  const { t } = useTranslation()
+  const billing = props.channel.upstream_billing
+  if (!billing) return null
+  let state: React.ReactNode = null
+  if (props.cost?.error) {
+    state = (
+      <span className='text-destructive text-xs break-all'>
+        {t(props.cost.error.key, props.cost.error.params)}
+      </span>
+    )
+  } else if (!props.cost && props.loading) {
+    state = (
+      <span className='text-muted-foreground text-xs'>
+        {t('Reading the upstream…')}
+      </span>
+    )
+  }
+  return (
+    <div className='flex flex-col items-start gap-1'>
+      <StatusBadge
+        label={t('Upstream bill · {{kind}}', {
+          kind: billing.kind === 'newapi' ? 'new-api' : billing.kind,
+        })}
+        variant='info'
+        copyable={false}
+      />
+      {state}
+    </div>
+  )
 }
 
 function profitClassName(figures: ChannelCostFigures): string {
@@ -59,9 +112,14 @@ function profitClassName(figures: ChannelCostFigures): string {
 function ChannelCostFiguresCell(props: {
   channel: ChannelCostChannel
   range: ChannelCostRange
+  upstreamCost: number | undefined
 }) {
   const { t } = useTranslation()
-  const figures = channelCostFigures(props.channel, props.range)
+  const figures = channelCostFigures(
+    props.channel,
+    props.range,
+    props.upstreamCost
+  )
   return (
     <div className='flex flex-col gap-0.5 whitespace-nowrap tabular-nums'>
       <span className='font-medium'>{formatQuota(figures.used)}</span>
@@ -79,7 +137,11 @@ function ChannelCostFiguresCell(props: {
 export function ChannelCostGroupSection(props: ChannelCostGroupSectionProps) {
   const { t } = useTranslation()
   const headingId = useId()
-  const week = sumChannelCostFigures(props.group.channels, 'week')
+  const [billingChannel, setBillingChannel] =
+    useState<ChannelCostChannel | null>(null)
+  const week = sumGroupCostFigures([props.group], 'week', props.shares)
+  const shareOf = (channel: ChannelCostChannel) =>
+    props.shares.get(upstreamShareKey(props.group.name, channel.id))
 
   const columns: StaticDataTableColumn<ChannelCostChannel>[] = [
     {
@@ -100,34 +162,69 @@ export function ChannelCostGroupSection(props: ChannelCostGroupSectionProps) {
               copyable={false}
             />
           )}
+          <UpstreamBillState
+            channel={channel}
+            cost={props.upstreamCosts.get(channel.id)}
+            loading={props.upstreamLoading}
+          />
         </div>
       ),
     },
     {
       id: 'ratio',
-      header: t('Cost ratio'),
-      cell: (channel) =>
-        channel.deleted ? (
-          <span className='text-muted-foreground text-sm tabular-nums'>
-            {channel.ratio ?? t('Not set')}
-          </span>
-        ) : (
-          <CostRatioInput
-            value={channel.ratio}
-            label={t('Cost ratio of {{name}}', { name: channel.name })}
-            placeholder={t('Not set')}
-            disabled={!props.canEdit}
-            className='w-28'
-            onSave={(ratio) => props.onSaveRatio(channel.id, ratio)}
-          />
-        ),
+      header: t('Cost source'),
+      cell: (channel) => {
+        if (channel.deleted) {
+          return (
+            <span className='text-muted-foreground text-sm tabular-nums'>
+              {channel.ratio ?? t('Not set')}
+            </span>
+          )
+        }
+        return (
+          <div className='flex flex-col items-start gap-1'>
+            {channel.upstream_billing ? (
+              <span className='text-muted-foreground text-xs whitespace-nowrap tabular-nums'>
+                {t('Upstream $1 = site ${{rate}}', {
+                  rate: channel.upstream_billing.usd_rate,
+                })}
+              </span>
+            ) : (
+              <CostRatioInput
+                value={channel.ratio}
+                label={t('Cost ratio of {{name}}', { name: channel.name })}
+                placeholder={t('Not set')}
+                disabled={!props.canEdit}
+                className='w-28'
+                onSave={(ratio) => props.onSaveRatio(channel.id, ratio)}
+              />
+            )}
+            {props.canEdit && (
+              <Button
+                type='button'
+                variant='ghost'
+                size='xs'
+                className='-ms-2'
+                onClick={() => setBillingChannel(channel)}
+              >
+                <ReceiptText data-icon='inline-start' aria-hidden='true' />
+                {t('Upstream bill')}
+              </Button>
+            )}
+          </div>
+        )
+      },
     },
     ...CHANNEL_COST_RANGES.map(
       (range): StaticDataTableColumn<ChannelCostChannel> => ({
         id: range,
         header: t(RANGE_HEADER[range]),
         cell: (channel) => (
-          <ChannelCostFiguresCell channel={channel} range={range} />
+          <ChannelCostFiguresCell
+            channel={channel}
+            range={range}
+            upstreamCost={shareOf(channel)?.[range]}
+          />
         ),
       })
     ),
@@ -171,6 +268,16 @@ export function ChannelCostGroupSection(props: ChannelCostGroupSectionProps) {
         data={props.group.channels}
         getRowKey={(channel) => channel.id}
       />
+      {billingChannel && (
+        <UpstreamBillingDialog
+          channel={billingChannel}
+          open
+          onOpenChange={(open) => {
+            if (!open) setBillingChannel(null)
+          }}
+          onSave={(input) => props.onSaveUpstream(billingChannel.id, input)}
+        />
+      )}
     </section>
   )
 }

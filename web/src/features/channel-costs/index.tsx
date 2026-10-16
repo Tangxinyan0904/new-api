@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { TriangleAlert } from 'lucide-react'
+import { RefreshCw, TriangleAlert, WalletCards } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
@@ -25,6 +26,7 @@ import { EmptyState } from '@/components/empty-state'
 import { ErrorState } from '@/components/error-state'
 import { SectionPageLayout } from '@/components/layout'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
 import { hasPermission } from '@/lib/admin-permissions'
 import { handleServerError } from '@/lib/handle-server-error'
 import { useAuthStore } from '@/stores/auth-store'
@@ -32,11 +34,18 @@ import { useAuthStore } from '@/stores/auth-store'
 import {
   channelCostQueryKeys,
   getChannelCostStats,
+  getChannelUpstreamCosts,
   updateChannelCostRatio,
+  updateChannelUpstreamBilling,
 } from './api'
 import { ChannelCostGroupSection } from './components/channel-cost-group-section'
 import { ChannelCostSummary } from './components/channel-cost-summary'
-import { getChannelCostRangeStarts } from './lib/channel-cost-math'
+import { UpstreamBalanceSection } from './components/upstream-balance-section'
+import { useUpstreamReport, viewerTimezone } from './hooks/use-upstream-report'
+import {
+  allocateUpstreamCosts,
+  getChannelCostRangeStarts,
+} from './lib/channel-cost-math'
 import type { ApiResponse } from './types'
 
 export function ChannelCosts() {
@@ -50,7 +59,41 @@ export function ChannelCosts() {
     queryFn: () => getChannelCostStats(starts),
   })
   const stats = query.data
-  const channels = stats?.groups.flatMap((group) => group.channels) ?? []
+  const groups = useMemo(() => stats?.groups ?? [], [stats])
+  const hasUpstreamBilling = groups.some((group) =>
+    group.channels.some((channel) => channel.upstream_billing !== null)
+  )
+  const { query: upstreamQuery, queryKey: upstreamKey } =
+    useUpstreamReport(hasUpstreamBilling)
+  const [refreshingUpstream, setRefreshingUpstream] = useState(false)
+  const upstreamCosts = useMemo(
+    () =>
+      new Map(
+        (upstreamQuery.data?.channels ?? []).map((cost) => [
+          cost.channel_id,
+          cost,
+        ])
+      ),
+    [upstreamQuery.data]
+  )
+  const shares = useMemo(
+    () => allocateUpstreamCosts(groups, upstreamQuery.data?.channels ?? []),
+    [groups, upstreamQuery.data]
+  )
+  const accounts = upstreamQuery.data?.accounts ?? []
+  const lowAccounts = accounts.filter((account) => account.low).length
+
+  const refreshUpstream = async () => {
+    setRefreshingUpstream(true)
+    try {
+      const report = await getChannelUpstreamCosts(starts, viewerTimezone, true)
+      queryClient.setQueryData(upstreamKey, report)
+    } catch (error) {
+      handleServerError(error)
+    } finally {
+      setRefreshingUpstream(false)
+    }
+  }
 
   const save = async (request: Promise<ApiResponse>): Promise<boolean> => {
     try {
@@ -73,6 +116,20 @@ export function ChannelCosts() {
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Cost Statistics')}</SectionPageLayout.Title>
+      {hasUpstreamBilling && (
+        <SectionPageLayout.Actions>
+          <Button
+            type='button'
+            size='sm'
+            variant='outline'
+            disabled={refreshingUpstream || upstreamQuery.isFetching}
+            onClick={() => void refreshUpstream()}
+          >
+            <RefreshCw data-icon='inline-start' aria-hidden='true' />
+            {t('Refresh upstream bills')}
+          </Button>
+        </SectionPageLayout.Actions>
+      )}
       <SectionPageLayout.Content>
         {query.isError ? (
           <ErrorState
@@ -91,14 +148,41 @@ export function ChannelCosts() {
                 </AlertDescription>
               </Alert>
             )}
-            <ChannelCostSummary channels={channels} loading={query.isLoading} />
-            {stats?.groups.map((group) => (
+            {lowAccounts > 0 && (
+              <Alert variant='destructive'>
+                <WalletCards aria-hidden='true' />
+                <AlertDescription>
+                  {t(
+                    '{{count}} upstream accounts have less than a day of balance left. Top them up soon.',
+                    { count: lowAccounts }
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+            {accounts.length > 0 && (
+              <UpstreamBalanceSection
+                accounts={accounts}
+                channels={groups.flatMap((group) => group.channels)}
+              />
+            )}
+            <ChannelCostSummary
+              groups={groups}
+              shares={shares}
+              loading={query.isLoading}
+            />
+            {groups.map((group) => (
               <ChannelCostGroupSection
                 key={group.name}
                 group={group}
                 canEdit={canEdit}
                 onSaveRatio={(channelId, ratio) =>
                   save(updateChannelCostRatio(channelId, ratio))
+                }
+                shares={shares}
+                upstreamCosts={upstreamCosts}
+                upstreamLoading={upstreamQuery.isFetching}
+                onSaveUpstream={(channelId, input) =>
+                  save(updateChannelUpstreamBilling(channelId, input))
                 }
               />
             ))}
@@ -108,6 +192,11 @@ export function ChannelCosts() {
             <p className='text-muted-foreground text-xs leading-relaxed'>
               {t(
                 "Cost = usage at the original price × cost ratio. The original price is each request's charge divided by the group ratio it was billed at, including user group special ratios. Profit = usage amount − cost. A channel's cost ratio applies to all its groups; channels without one count their whole usage as cost. Usage is net of refunds, grouped by your local time, and updated every 5 minutes. The last 7 days include today."
+              )}
+            </p>
+            <p className='text-muted-foreground text-xs leading-relaxed'>
+              {t(
+                "Channels that read their upstream bill use what the upstream actually charged, converted with the dollar rate you entered and split across the channel's groups by their share of its usage at the original price. Upstream bills are read again every 5 minutes."
               )}
             </p>
           </div>

@@ -24,9 +24,10 @@ import { formatQuota } from '@/lib/format'
 
 import {
   CHANNEL_COST_RANGES,
-  sumChannelCostFigures,
+  sumGroupCostFigures,
+  type UpstreamCostShares,
 } from '../lib/channel-cost-math'
-import type { ChannelCostChannel, ChannelCostRange } from '../types'
+import type { ChannelCostGroup, ChannelCostRange } from '../types'
 
 const RANGE_CONFIG = {
   today: { labelKey: 'Today', icon: Sun, tone: 'accent-1' },
@@ -35,7 +36,8 @@ const RANGE_CONFIG = {
 } as const satisfies Record<ChannelCostRange, object>
 
 interface ChannelCostSummaryProps {
-  channels: ChannelCostChannel[]
+  groups: ChannelCostGroup[]
+  shares: UpstreamCostShares
   loading: boolean
 }
 
@@ -49,7 +51,7 @@ export function ChannelCostSummary(props: ChannelCostSummaryProps) {
     >
       {CHANNEL_COST_RANGES.map((range) => {
         const config = RANGE_CONFIG[range]
-        const total = sumChannelCostFigures(props.channels, range)
+        const total = sumGroupCostFigures(props.groups, range, props.shares)
         return (
           <div
             key={range}

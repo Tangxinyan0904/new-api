@@ -54,6 +54,8 @@ var auditContentTemplates = map[string]string{
 
 	"rate_limit.distillation_clear": "Cleared distillation penalty for user ${target_user_id}",
 
+	"channel_cost.upstream_billing": "Set the cost source of channel ${id} to ${kind}",
+
 	"channel.create":             "Created channel ${name} (type ${type}, count ${count})",
 	"channel.update":             "Updated channel ${name} (ID: ${id})",
 	"channel.delete":             "Deleted channel ${name} (ID: ${id})",

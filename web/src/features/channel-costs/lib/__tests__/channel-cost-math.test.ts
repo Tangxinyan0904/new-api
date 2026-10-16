@@ -18,30 +18,38 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { describe, expect, it } from 'vitest'
 
-import type { ChannelCostChannel } from '../../types'
+import type {
+  ChannelCostChannel,
+  ChannelCostGroup,
+  ChannelUpstreamCost,
+} from '../../types'
 import {
+  allocateUpstreamCosts,
   channelCostFigures,
   getChannelCostRangeStarts,
   parseCostRatioInput,
-  sumChannelCostFigures,
+  sumGroupCostFigures,
+  upstreamShareKey,
 } from '../channel-cost-math'
 
 /** Usage per range as [charged quota, quota at the original price]. */
 function channel(
   ratio: number | null,
-  usage: Partial<Record<'today' | 'yesterday' | 'week', [number, number]>>
+  usage: Partial<Record<'today' | 'yesterday' | 'week', [number, number]>>,
+  id = 1
 ): ChannelCostChannel {
   const range = (pair?: [number, number]) => ({
     quota: pair?.[0] ?? 0,
     base_quota: pair?.[1] ?? 0,
   })
   return {
-    id: 1,
-    name: 'channel-1',
+    id,
+    name: `channel-${id}`,
     type: 1,
     status: 1,
     deleted: false,
     ratio,
+    upstream_billing: null,
     today: range(usage.today),
     yesterday: range(usage.yesterday),
     week: range(usage.week),
@@ -96,21 +104,103 @@ describe('channelCostFigures', () => {
       channelCostFigures(channel(0.3, { today: [400, 2000] }), 'today').profit
     ).toBe(-200)
   })
+
+  it('uses the upstream charge instead of the cost ratio when one is given', () => {
+    expect(
+      channelCostFigures(channel(0.08, { today: [1000, 10000] }), 'today', 650)
+    ).toEqual({ used: 1000, cost: 650, profit: 350 })
+  })
 })
 
-describe('sumChannelCostFigures', () => {
-  it('adds up every channel with its own cost ratio', () => {
-    const channels = [
-      channel(0.05, { week: [1000, 10000] }),
-      channel(null, { week: [2000, 4000] }),
-    ]
+function upstreamCost(
+  channelId: number,
+  quota: Record<'today' | 'yesterday' | 'week', number>,
+  error: ChannelUpstreamCost['error'] = null
+): ChannelUpstreamCost {
+  const amount = (value: number) => ({ usd: value / 500000, quota: value })
+  return {
+    channel_id: channelId,
+    kind: 'sub2api',
+    error,
+    fetched_at: 0,
+    today: amount(quota.today),
+    yesterday: amount(quota.yesterday),
+    week: amount(quota.week),
+  }
+}
 
-    expect(sumChannelCostFigures(channels, 'week')).toEqual({
+describe('allocateUpstreamCosts', () => {
+  const groups: ChannelCostGroup[] = [
+    {
+      name: 'default',
+      ratio: 1,
+      channels: [
+        channel(null, { today: [300, 300], week: [0, 0] }, 7),
+        channel(null, { today: [50, 50] }, 8),
+      ],
+    },
+    {
+      name: 'vip',
+      ratio: 0.5,
+      channels: [channel(null, { today: [50, 100], week: [0, 0] }, 7)],
+    },
+  ]
+
+  it("splits a channel's charge by each group's share of its original-price usage", () => {
+    const shares = allocateUpstreamCosts(groups, [
+      upstreamCost(7, { today: 800, yesterday: 0, week: 1000 }),
+    ])
+
+    expect(shares.get(upstreamShareKey('default', 7))?.today).toBe(600)
+    expect(shares.get(upstreamShareKey('vip', 7))?.today).toBe(200)
+  })
+
+  it('splits equally when the channel had no usage of its own', () => {
+    const shares = allocateUpstreamCosts(groups, [
+      upstreamCost(7, { today: 0, yesterday: 0, week: 1000 }),
+    ])
+
+    expect(shares.get(upstreamShareKey('default', 7))?.week).toBe(500)
+    expect(shares.get(upstreamShareKey('vip', 7))?.week).toBe(500)
+  })
+
+  it('leaves out channels whose upstream could not be read', () => {
+    const shares = allocateUpstreamCosts(groups, [
+      upstreamCost(
+        7,
+        { today: 800, yesterday: 0, week: 0 },
+        {
+          key: 'Upstream unreachable: {{error}}',
+        }
+      ),
+    ])
+
+    expect(shares.size).toBe(0)
+  })
+})
+
+describe('sumGroupCostFigures', () => {
+  it('adds up every channel, using upstream shares where there are any', () => {
+    const groups: ChannelCostGroup[] = [
+      {
+        name: 'default',
+        ratio: 1,
+        channels: [
+          channel(0.05, { week: [1000, 10000] }, 1),
+          channel(null, { week: [2000, 4000] }, 2),
+        ],
+      },
+    ]
+    const shares = new Map([
+      [upstreamShareKey('default', 2), { today: 0, yesterday: 0, week: 700 }],
+    ])
+
+    expect(sumGroupCostFigures(groups, 'week', shares)).toEqual({
       used: 3000,
-      cost: 2500,
-      profit: 500,
+      cost: 1200,
+      profit: 1800,
     })
-    expect(sumChannelCostFigures([], 'today')).toEqual({
+    expect(sumGroupCostFigures([], 'today', new Map())).toEqual({
       used: 0,
       cost: 0,
       profit: 0,

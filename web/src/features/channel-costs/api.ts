@@ -20,7 +20,12 @@ import { api } from '@/lib/api'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
 import type { ChannelCostRangeStarts } from './lib/channel-cost-math'
-import type { ApiResponse, ChannelCostStats } from './types'
+import type {
+  ApiResponse,
+  ChannelCostStats,
+  ChannelUpstreamBillingInput,
+  ChannelUpstreamReport,
+} from './types'
 
 const mutationConfig = { skipBusinessError: true, skipErrorHandler: true }
 
@@ -28,6 +33,8 @@ export const channelCostQueryKeys = {
   all: ['channel-costs'] as const,
   stats: (starts: ChannelCostRangeStarts) =>
     ['channel-costs', 'stats', starts] as const,
+  upstream: (starts: ChannelCostRangeStarts, timezone: string) =>
+    ['channel-costs', 'upstream', starts, timezone] as const,
 }
 
 export async function getChannelCostStats(
@@ -46,6 +53,41 @@ export async function updateChannelCostRatio(
   const res = await api.put(
     `/api/channel-cost/channels/${channelId}/ratio`,
     { ratio },
+    mutationConfig
+  )
+  return res.data
+}
+
+/**
+ * What each channel with upstream billing was charged by its upstream, and
+ * how long each upstream account's balance lasts. The server caches answers
+ * for five minutes; refresh asks the upstreams again.
+ */
+export async function getChannelUpstreamCosts(
+  starts: ChannelCostRangeStarts,
+  timezone: string,
+  refresh = false
+): Promise<ChannelUpstreamReport> {
+  const res = await api.get('/api/channel-cost/upstream', {
+    params: { ...starts, timezone, refresh: refresh || undefined },
+  })
+  const body = requireServerSuccess(
+    res.data as ApiResponse<ChannelUpstreamReport>
+  )
+  return {
+    channels: body.data?.channels ?? [],
+    accounts: body.data?.accounts ?? [],
+  }
+}
+
+/** The server checks the settings against the upstream before saving. */
+export async function updateChannelUpstreamBilling(
+  channelId: number,
+  input: ChannelUpstreamBillingInput
+): Promise<ApiResponse> {
+  const res = await api.put(
+    `/api/channel-cost/channels/${channelId}/upstream`,
+    input,
     mutationConfig
   )
   return res.data
