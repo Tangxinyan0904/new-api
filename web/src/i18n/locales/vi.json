@@ -7779,6 +7779,8 @@
     "Upstream": "Phía trên",
     "Upstream balances": "Số dư phía trên",
     "Used up": "Đã dùng hết",
-    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} tài khoản phía trên còn số dư dưới 1 ngày. Hãy nạp thêm sớm."
+    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} tài khoản phía trên còn số dư dưới 1 ngày. Hãy nạp thêm sớm.",
+    "Channels on the same upstream address share one user ID and access token.": "Các kênh có cùng địa chỉ phía trên dùng chung một ID người dùng và mã truy cập.",
+    "Shared with {{channels}} on the same upstream address. Saving here updates it everywhere.": "Dùng chung với {{channels}} trên cùng địa chỉ phía trên. Lưu ở đây sẽ cập nhật ở mọi nơi."
   }
 }

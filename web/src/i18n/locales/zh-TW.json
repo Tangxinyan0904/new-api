@@ -7779,6 +7779,8 @@
     "Upstream": "上游",
     "Upstream balances": "上游餘額",
     "Used up": "已用完",
-    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} 個上游帳戶餘額不足 1 天，請盡快儲值。"
+    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} 個上游帳戶餘額不足 1 天，請盡快儲值。",
+    "Channels on the same upstream address share one user ID and access token.": "同一上游位址的渠道共用一組使用者 ID 和存取權杖。",
+    "Shared with {{channels}} on the same upstream address. Saving here updates it everywhere.": "與同一上游位址的 {{channels}} 共用，在這裡儲存會一併更新。"
   }
 }

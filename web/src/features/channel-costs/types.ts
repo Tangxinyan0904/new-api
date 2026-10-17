@@ -32,6 +32,8 @@ export interface ChannelCostChannel {
   ratio: number | null
   /** Set when the cost is read from the upstream's bill instead. */
   upstream_billing: ChannelUpstreamBilling | null
+  /** Set when a new-api login is saved for the channel's upstream address. */
+  newapi_login: ChannelNewAPILogin | null
   today: ChannelCostUsage
   yesterday: ChannelCostUsage
   week: ChannelCostUsage
@@ -43,8 +45,16 @@ export interface ChannelUpstreamBilling {
   kind: UpstreamBillingKind
   /** How many of this site's dollars one upstream dollar is worth. */
   usd_rate: number
+}
+
+/**
+ * The new-api login saved for an upstream address, shared by every new-api
+ * channel on it. The access token is never sent back.
+ */
+export interface ChannelNewAPILogin {
   upstream_user_id: number
-  access_token_set: boolean
+  /** The other channels on the address that read their bill with it. */
+  shared_with: { id: number; name: string }[]
 }
 
 /** An upstream charge in the upstream's dollars and in this site's quota units. */
@@ -88,7 +98,7 @@ export interface ChannelUpstreamBillingInput {
   kind: UpstreamBillingKind | ''
   usd_rate: number
   upstream_user_id: number
-  /** Empty keeps the saved token. */
+  /** Empty uses the token saved for the channel's upstream address. */
   access_token: string
 }
 

@@ -7779,6 +7779,8 @@
     "Upstream": "Поставщик",
     "Upstream balances": "Балансы у поставщиков",
     "Used up": "Исчерпан",
-    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "Баланса меньше чем на день у аккаунтов поставщиков: {{count}}. Пополните их как можно скорее."
+    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "Баланса меньше чем на день у аккаунтов поставщиков: {{count}}. Пополните их как можно скорее.",
+    "Channels on the same upstream address share one user ID and access token.": "Каналы с одним адресом поставщика используют общие ID пользователя и токен доступа.",
+    "Shared with {{channels}} on the same upstream address. Saving here updates it everywhere.": "Общие с {{channels}} на том же адресе поставщика. Сохранение здесь обновит их везде."
   }
 }
