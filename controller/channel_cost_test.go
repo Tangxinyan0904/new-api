@@ -329,9 +329,9 @@ func TestChannelUpstreamBillingReadsSub2APISpend(t *testing.T) {
 
 	cleared := callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", idParams, `{"kind":""}`)
 	require.True(t, cleared.Success)
-	billing, err := model.GetChannelUpstreamBilling(7)
+	billings, err := model.GetChannelUpstreamBillings()
 	require.NoError(t, err)
-	assert.Nil(t, billing)
+	assert.NotContains(t, billings, 7)
 }
 
 func TestChannelUpstreamBillingReadsNewAPIAccountStats(t *testing.T) {
@@ -399,7 +399,7 @@ func TestChannelUpstreamBillingReadsNewAPIAccountStats(t *testing.T) {
 		"&week_start=" + strconv.FormatInt(todayStart-6*86400, 10)
 	stats := callChannelCost(t, GetChannelCostStats, http.MethodGet, target, nil, "")
 	require.True(t, stats.Success)
-	assert.Contains(t, string(stats.Data), `"upstream_billing":{"kind":"newapi","usd_rate":2,"upstream_user_id":42,"access_token_set":true}`)
+	assert.Contains(t, string(stats.Data), `"upstream_billing":{"kind":"newapi","usd_rate":2},"newapi_login":{"upstream_user_id":42,"shared_with":[]}`)
 	assert.NotContains(t, string(stats.Data), "account-token")
 
 	item := getUpstreamCosts(t, todayStart)
@@ -424,4 +424,85 @@ func TestChannelUpstreamBillingReadsNewAPIAccountStats(t *testing.T) {
 	require.NotNil(t, moved.Error)
 	assert.Equal(t, "The channel address changed. Enter the access token again.", moved.Error.Key)
 	assert.Equal(t, "Enter the system access token of your upstream account", save(`{"kind":"newapi","usd_rate":2,"upstream_user_id":42}`).MessageKey)
+}
+
+func TestChannelUpstreamBillingSharesNewAPILoginByAddress(t *testing.T) {
+	db := setupChannelCostTestDB(t)
+	validToken := "account-token"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/status":
+			_, _ = w.Write([]byte(`{"success":true,"data":{"quota_per_unit":1000}}`))
+		case "/api/usage/token/":
+			name := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer sk-")
+			_, _ = w.Write([]byte(`{"code":true,"data":{"name":"key ` + name + `"}}`))
+		case "/api/user/self", "/api/log/self/stat":
+			if r.Header.Get("Authorization") != "Bearer "+validToken || r.Header.Get("New-Api-User") != "42" {
+				w.WriteHeader(http.StatusUnauthorized)
+				_, _ = w.Write([]byte(`{"success":false,"message":"access token is invalid"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{"success":true,"data":{"quota":1000}}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer upstream.Close()
+	sameWithSlash := upstream.URL + "/"
+	elsewhere := "https://elsewhere.example"
+	require.NoError(t, db.Create(&[]model.Channel{
+		{Id: 7, Name: "relay-a", Type: 1, Key: "sk-a", BaseURL: &upstream.URL, Group: "default", Status: 1},
+		{Id: 8, Name: "relay-b", Type: 1, Key: "sk-b", BaseURL: &sameWithSlash, Group: "default", Status: 1},
+		{Id: 9, Name: "other", Type: 1, Key: "sk-c", BaseURL: &elsewhere, Group: "default", Status: 1},
+	}).Error)
+	save := func(id, body string) channelCostResponse {
+		return callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", gin.Params{{Key: "id", Value: id}}, body)
+	}
+	todayStart := common.GetTimestamp() - 3600
+	logins := func() map[int]*channelNewAPILoginView {
+		target := "/?today_start=" + strconv.FormatInt(todayStart, 10) + "&yesterday_start=" + strconv.FormatInt(todayStart-86400, 10) +
+			"&week_start=" + strconv.FormatInt(todayStart-6*86400, 10)
+		response := callChannelCost(t, GetChannelCostStats, http.MethodGet, target, nil, "")
+		require.True(t, response.Success)
+		var stats channelCostStats
+		require.NoError(t, common.Unmarshal(response.Data, &stats))
+		byChannel := map[int]*channelNewAPILoginView{}
+		for _, channel := range stats.Groups[0].Channels {
+			byChannel[channel.Id] = channel.NewAPILogin
+		}
+		return byChannel
+	}
+
+	saved := save("7", `{"kind":"newapi","usd_rate":1,"upstream_user_id":42,"access_token":"account-token"}`)
+	require.True(t, saved.Success, saved.MessageKey)
+	offered := logins()
+	assert.Equal(t, &channelNewAPILoginView{UpstreamUserId: 42, SharedWith: []channelCostChannelRef{{Id: 7, Name: "relay-a"}}}, offered[8],
+		"a channel on the same address is offered the saved login")
+	assert.Nil(t, offered[9], "a channel on another address is not")
+
+	reused := save("8", `{"kind":"newapi","usd_rate":1,"upstream_user_id":42}`)
+	require.True(t, reused.Success, reused.MessageKey)
+	assert.Equal(t, "Enter the system access token of your upstream account",
+		save("9", `{"kind":"newapi","usd_rate":1,"upstream_user_id":42}`).MessageKey, "a token is never reused on another address")
+
+	validToken = "rotated-token"
+	rotated := save("8", `{"kind":"newapi","usd_rate":1,"upstream_user_id":42,"access_token":"rotated-token"}`)
+	require.True(t, rotated.Success, rotated.MessageKey)
+	assert.Equal(t, []channelCostChannelRef{{Id: 8, Name: "relay-b"}}, logins()[7].SharedWith)
+
+	target := "/?refresh=true&timezone=Asia/Shanghai&today_start=" + strconv.FormatInt(todayStart, 10) +
+		"&yesterday_start=" + strconv.FormatInt(todayStart-86400, 10) + "&week_start=" + strconv.FormatInt(todayStart-6*86400, 10)
+	response := callChannelCost(t, GetChannelUpstreamCosts, http.MethodGet, target, nil, "")
+	require.True(t, response.Success)
+	var report struct {
+		Channels []upstreamCostTestItem    `json:"channels"`
+		Accounts []upstreamAccountTestItem `json:"accounts"`
+	}
+	require.NoError(t, common.Unmarshal(response.Data, &report))
+	require.Len(t, report.Channels, 2)
+	for _, item := range report.Channels {
+		assert.Nil(t, item.Error, "the rotated token reaches both channels")
+	}
+	require.Len(t, report.Accounts, 1)
+	assert.Equal(t, []int{7, 8}, report.Accounts[0].ChannelIds)
 }

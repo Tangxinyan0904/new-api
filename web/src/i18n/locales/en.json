@@ -7779,6 +7779,8 @@
     "Upstream": "Upstream",
     "Upstream balances": "Upstream balances",
     "Used up": "Used up",
-    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} upstream accounts have less than a day of balance left. Top them up soon."
+    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} upstream accounts have less than a day of balance left. Top them up soon.",
+    "Channels on the same upstream address share one user ID and access token.": "Channels on the same upstream address share one user ID and access token.",
+    "Shared with {{channels}} on the same upstream address. Saving here updates it everywhere.": "Shared with {{channels}} on the same upstream address. Saving here updates it everywhere."
   }
 }

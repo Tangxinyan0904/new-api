@@ -50,6 +50,7 @@ function channel(
     deleted: false,
     ratio,
     upstream_billing: null,
+    newapi_login: null,
     today: range(usage.today),
     yesterday: range(usage.yesterday),
     week: range(usage.week),

@@ -7779,6 +7779,8 @@
     "Upstream": "Amont",
     "Upstream balances": "Soldes amont",
     "Used up": "Épuisé",
-    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} comptes amont ont moins d'un jour de solde. Rechargez-les rapidement."
+    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} comptes amont ont moins d'un jour de solde. Rechargez-les rapidement.",
+    "Channels on the same upstream address share one user ID and access token.": "Les canaux ayant la même adresse amont partagent un même ID utilisateur et un même jeton d'accès.",
+    "Shared with {{channels}} on the same upstream address. Saving here updates it everywhere.": "Partagé avec {{channels}} à la même adresse amont. L'enregistrer ici le met à jour partout."
   }
 }

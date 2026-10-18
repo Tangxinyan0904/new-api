@@ -318,7 +318,7 @@ func newAPIUsedQuota(ctx context.Context, channel *model.Channel, billing model.
 // newAPICost reads the spend of the channel's keys from the new-api account
 // the access token belongs to.
 func newAPICost(ctx context.Context, channel *model.Channel, billing model.ChannelUpstreamBilling, ranges UpstreamCostRanges) (UpstreamCost, error) {
-	if billing.BaseURL != channel.GetBaseURL() {
+	if model.UpstreamAddress(billing.BaseURL) != model.UpstreamAddress(channel.GetBaseURL()) {
 		return UpstreamCost{}, ErrUpstreamBaseURLChanged
 	}
 	keys := channelUpstreamKeys(channel)
@@ -481,7 +481,8 @@ func ForecastUpstreamAccounts(channels []*model.Channel, billings map[int]model.
 		if !ok || result.Err != nil || result.Cost.Balance == nil {
 			continue
 		}
-		key := billing.Kind + "|" + channel.GetBaseURL()
+		address := model.UpstreamAddress(channel.GetBaseURL())
+		key := billing.Kind + "|" + address
 		if billing.Kind == model.UpstreamBillingNewAPI {
 			key += "|" + strconv.Itoa(billing.UpstreamUserId)
 		}
@@ -491,7 +492,7 @@ func ForecastUpstreamAccounts(channels []*model.Channel, billings map[int]model.
 			index[key] = position
 			forecasts = append(forecasts, UpstreamAccountForecast{
 				Kind:       billing.Kind,
-				BaseURL:    channel.GetBaseURL(),
+				BaseURL:    address,
 				ChannelIds: []int{},
 				Balance:    *result.Cost.Balance,
 			})

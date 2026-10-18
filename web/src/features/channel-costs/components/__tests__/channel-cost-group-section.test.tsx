@@ -51,6 +51,7 @@ function channel(
     deleted,
     ratio,
     upstream_billing: upstreamBilling,
+    newapi_login: null,
     today: none,
     yesterday: none,
     week: { quota: week[0], base_quota: week[1] },
@@ -89,8 +90,6 @@ function renderSection(
 const sub2apiBilling: ChannelUpstreamBilling = {
   kind: 'sub2api',
   usd_rate: 0.5,
-  upstream_user_id: 0,
-  access_token_set: false,
 }
 
 describe('ChannelCostGroupSection', () => {
@@ -268,5 +267,44 @@ describe('ChannelCostGroupSection', () => {
       screen.getByText('Enter the system access token of your upstream account')
     ).toBeInTheDocument()
     expect(onSaveUpstream).not.toHaveBeenCalled()
+  })
+
+  it('reuses the new-api login saved for the same upstream address', async () => {
+    const user = userEvent.setup()
+    const { onSaveUpstream } = renderSection({
+      name: 'vip',
+      ratio: 0.5,
+      channels: [
+        {
+          ...channel(8, 'relay-b', null, [10, 10]),
+          newapi_login: {
+            upstream_user_id: 42,
+            shared_with: [{ id: 7, name: 'relay-a' }],
+          },
+        },
+      ],
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Upstream bill' }))
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByRole('option', { name: 'new-api' }))
+
+    expect(screen.getByLabelText('Your user ID on the upstream')).toHaveValue(
+      42
+    )
+    expect(
+      screen.getByText(
+        'Shared with relay-a on the same upstream address. Saving here updates it everywhere.'
+      )
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(onSaveUpstream).toHaveBeenCalledWith(8, {
+        kind: 'newapi',
+        usd_rate: 1,
+        upstream_user_id: 42,
+        access_token: '',
+      })
+    )
   })
 })

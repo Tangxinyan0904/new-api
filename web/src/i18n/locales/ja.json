@@ -7779,6 +7779,8 @@
     "Upstream": "上流",
     "Upstream balances": "上流の残高",
     "Used up": "使い切り",
-    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} 件の上流アカウントの残高が 1 日分を切っています。早めにチャージしてください。"
+    "{{count}} upstream accounts have less than a day of balance left. Top them up soon.": "{{count}} 件の上流アカウントの残高が 1 日分を切っています。早めにチャージしてください。",
+    "Channels on the same upstream address share one user ID and access token.": "同じ上流アドレスのチャネルは、ユーザー ID とアクセストークンを共有します。",
+    "Shared with {{channels}} on the same upstream address. Saving here updates it everywhere.": "同じ上流アドレスの {{channels}} と共有しています。ここで保存するとまとめて更新されます。"
   }
 }

@@ -39,18 +39,31 @@ type channelCostChannel struct {
 	Ratio *float64 `json:"ratio"`
 	// UpstreamBilling is set when the cost is read from the upstream's bill.
 	UpstreamBilling *channelUpstreamBillingView `json:"upstream_billing"`
-	Today           model.ChannelCostUsage      `json:"today"`
-	Yesterday       model.ChannelCostUsage      `json:"yesterday"`
-	Week            model.ChannelCostUsage      `json:"week"`
+	// NewAPILogin is set when a new-api login is saved for the channel's
+	// upstream address.
+	NewAPILogin *channelNewAPILoginView `json:"newapi_login"`
+	Today       model.ChannelCostUsage  `json:"today"`
+	Yesterday   model.ChannelCostUsage  `json:"yesterday"`
+	Week        model.ChannelCostUsage  `json:"week"`
 }
 
-// channelUpstreamBillingView is a channel's upstream billing without the
-// access token.
 type channelUpstreamBillingView struct {
-	Kind           string  `json:"kind"`
-	UsdRate        float64 `json:"usd_rate"`
-	UpstreamUserId int     `json:"upstream_user_id"`
-	AccessTokenSet bool    `json:"access_token_set"`
+	Kind    string  `json:"kind"`
+	UsdRate float64 `json:"usd_rate"`
+}
+
+// channelNewAPILoginView is the new-api login of an upstream address without
+// the access token.
+type channelNewAPILoginView struct {
+	UpstreamUserId int `json:"upstream_user_id"`
+	// SharedWith are the other channels on the address that read their bill
+	// with this login.
+	SharedWith []channelCostChannelRef `json:"shared_with"`
+}
+
+type channelCostChannelRef struct {
+	Id   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 type channelCostGroup struct {
@@ -102,7 +115,7 @@ func GetChannelCostStats(c *gin.Context) {
 		return
 	}
 	var channels []model.Channel
-	if err := model.DB.Select("id", "name", "type", "status", "group").Order("id").Find(&channels).Error; err != nil {
+	if err := model.DB.Select("id", "name", "type", "status", "group", "base_url").Order("id").Find(&channels).Error; err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -122,6 +135,31 @@ func GetChannelCostStats(c *gin.Context) {
 				members[model.ChannelCostKey{Group: group, ChannelId: channel.Id}] = true
 			}
 		}
+	}
+	// New-api channels on one upstream address share a login; the dialog of
+	// any channel there offers it.
+	newAPIChannels := make(map[string][]channelCostChannelRef)
+	for _, channel := range channels {
+		billing, ok := billings[channel.Id]
+		address := model.UpstreamAddress(channel.GetBaseURL())
+		if ok && billing.Kind == model.UpstreamBillingNewAPI && model.UpstreamAddress(billing.BaseURL) == address {
+			newAPIChannels[address] = append(newAPIChannels[address], channelCostChannelRef{Id: channel.Id, Name: channel.Name})
+		}
+	}
+	newAPILogins := make(map[int]*channelNewAPILoginView)
+	for _, channel := range channels {
+		address := model.UpstreamAddress(channel.GetBaseURL())
+		login := model.NewAPIUpstreamLogin(billings, address)
+		if address == "" || login == nil {
+			continue
+		}
+		view := &channelNewAPILoginView{UpstreamUserId: login.UpstreamUserId, SharedWith: []channelCostChannelRef{}}
+		for _, other := range newAPIChannels[address] {
+			if other.Id != channel.Id {
+				view.SharedWith = append(view.SharedWith, other)
+			}
+		}
+		newAPILogins[channel.Id] = view
 	}
 	// Usage counts even if the channel has left the group or was deleted.
 	for key := range totals {
@@ -147,13 +185,9 @@ func GetChannelCostStats(c *gin.Context) {
 			item.Ratio = &ratio
 		}
 		if billing, ok := billings[key.ChannelId]; ok {
-			item.UpstreamBilling = &channelUpstreamBillingView{
-				Kind:           billing.Kind,
-				UsdRate:        billing.UsdRate,
-				UpstreamUserId: billing.UpstreamUserId,
-				AccessTokenSet: billing.AccessToken != "",
-			}
+			item.UpstreamBilling = &channelUpstreamBillingView{Kind: billing.Kind, UsdRate: billing.UsdRate}
 		}
+		item.NewAPILogin = newAPILogins[key.ChannelId]
 		if total := totals[key]; total != nil {
 			item.Today, item.Yesterday, item.Week = total.Today, total.Yesterday, total.Week
 		}
@@ -330,8 +364,10 @@ type channelUpstreamBillingRequest struct {
 }
 
 // UpdateChannelUpstreamBilling sets where a channel's cost is read from. An
-// empty kind goes back to the cost ratio. A new-api access token left empty
-// keeps the saved one. The settings are checked against the upstream first.
+// empty kind goes back to the cost ratio. A new-api login is shared by the
+// channels on the same upstream address: an access token left empty uses the
+// one saved for the address, and a saved login applies to all of them. The
+// settings are checked against the upstream first.
 func UpdateChannelUpstreamBilling(c *gin.Context) {
 	channelId, err := strconv.Atoi(c.Param("id"))
 	if err != nil || channelId <= 0 {
@@ -384,17 +420,18 @@ func UpdateChannelUpstreamBilling(c *gin.Context) {
 		billing.BaseURL = channel.GetBaseURL()
 		billing.AccessToken = strings.TrimSpace(request.AccessToken)
 		if billing.AccessToken == "" {
-			// Keep the saved token, but only for the address it was entered for.
-			saved, err := model.GetChannelUpstreamBilling(channelId)
+			// Use the token saved for this address, never one entered for another.
+			billings, err := model.GetChannelUpstreamBillings()
 			if err != nil {
 				common.ApiError(c, err)
 				return
 			}
-			if saved == nil || saved.AccessToken == "" || saved.BaseURL != billing.BaseURL {
+			login := model.NewAPIUpstreamLogin(billings, model.UpstreamAddress(billing.BaseURL))
+			if login == nil {
 				common.ApiErrorT(c, "Enter the system access token of your upstream account")
 				return
 			}
-			billing.AccessToken = saved.AccessToken
+			billing.AccessToken = login.AccessToken
 		}
 	}
 	if err := service.CheckChannelUpstreamBilling(c.Request.Context(), channel, billing); err != nil {

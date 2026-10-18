@@ -42,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { toIntlLocale } from '@/i18n/languages'
 
 import {
   upstreamBillingFormSchema,
@@ -54,9 +55,9 @@ function formValues(channel: ChannelCostChannel): UpstreamBillingFormValues {
   return {
     kind: billing?.kind ?? 'none',
     usd_rate: billing?.usd_rate ?? 1,
-    upstream_user_id: billing?.upstream_user_id ?? 0,
+    upstream_user_id: channel.newapi_login?.upstream_user_id ?? 0,
     access_token: '',
-    access_token_set: billing?.access_token_set ?? false,
+    access_token_set: channel.newapi_login !== null,
   }
 }
 
@@ -72,7 +73,7 @@ export function UpstreamBillingDialog(props: {
   /** Resolves true when the server checked and saved the settings. */
   onSave: (input: ChannelUpstreamBillingInput) => Promise<boolean>
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const formId = useId()
   const [saving, setSaving] = useState(false)
   const form = useForm<UpstreamBillingFormValues>({
@@ -85,6 +86,10 @@ export function UpstreamBillingDialog(props: {
     { value: 'sub2api', label: 'sub2api' },
     { value: 'newapi', label: 'new-api' },
   ]
+  const sharedWith = props.channel.newapi_login?.shared_with ?? []
+  const sharedNames = new Intl.ListFormat(
+    toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  ).format(sharedWith.map((channel) => channel.name))
 
   useEffect(() => {
     if (props.open) form.reset(formValues(props.channel))
@@ -238,6 +243,16 @@ export function UpstreamBillingDialog(props: {
                         }
                       />
                     </FormControl>
+                    <FormDescription>
+                      {sharedWith.length > 0
+                        ? t(
+                            'Shared with {{channels}} on the same upstream address. Saving here updates it everywhere.',
+                            { channels: sharedNames }
+                          )
+                        : t(
+                            'Channels on the same upstream address share one user ID and access token.'
+                          )}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
