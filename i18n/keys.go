@@ -54,16 +54,31 @@ const (
 const (
 	MsgUserDefaultTokenName = "user.default_token_name"
 
-	MsgEmailVerificationSubject  = "email.verification.subject"
-	MsgEmailVerificationGreeting = "email.verification.greeting"
-	MsgEmailVerificationCode     = "email.verification.code"
-	MsgEmailVerificationValidity = "email.verification.validity"
+	MsgEmailFooter       = "email.footer"
+	MsgEmailCodePreview  = "email.code_preview"
+	MsgEmailCodeValidity = "email.code_validity"
+	MsgEmailCodeHint     = "email.code_hint"
+
+	MsgEmailVerificationSubject = "email.verification.subject"
+	MsgEmailVerificationTitle   = "email.verification.title"
+	MsgEmailVerificationIntro   = "email.verification.intro"
+	MsgEmailVerificationNotice  = "email.verification.notice"
 
 	MsgEmailPasswordResetSubject      = "email.password_reset.subject"
-	MsgEmailPasswordResetGreeting     = "email.password_reset.greeting"
-	MsgEmailPasswordResetLink         = "email.password_reset.link"
+	MsgEmailPasswordResetTitle        = "email.password_reset.title"
+	MsgEmailPasswordResetIntro        = "email.password_reset.intro"
+	MsgEmailPasswordResetButton       = "email.password_reset.button"
 	MsgEmailPasswordResetLinkFallback = "email.password_reset.link_fallback"
 	MsgEmailPasswordResetValidity     = "email.password_reset.validity"
+	MsgEmailPasswordResetNotice       = "email.password_reset.notice"
+
+	MsgEmailBindingSubject   = "email.binding.subject"
+	MsgEmailBindingNewTitle  = "email.binding.new_title"
+	MsgEmailBindingNewIntro  = "email.binding.new_intro"
+	MsgEmailBindingNewNotice = "email.binding.new_notice"
+	MsgEmailBindingOldTitle  = "email.binding.old_title"
+	MsgEmailBindingOldIntro  = "email.binding.old_intro"
+	MsgEmailBindingOldNotice = "email.binding.old_notice"
 )
 
 // Low-quota notices, in the recipient's saved language
