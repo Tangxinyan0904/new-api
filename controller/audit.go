@@ -56,6 +56,8 @@ var auditContentTemplates = map[string]string{
 
 	"channel_cost.upstream_billing": "Set the cost source of channel ${id} to ${kind}",
 
+	"canvas.update": "Started updating the infinite canvas",
+
 	"channel.create":             "Created channel ${name} (type ${type}, count ${count})",
 	"channel.update":             "Updated channel ${name} (ID: ${id})",
 	"channel.delete":             "Deleted channel ${name} (ID: ${id})",

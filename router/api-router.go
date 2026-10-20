@@ -387,6 +387,12 @@ func SetApiRouter(router *gin.Engine) {
 			systemTaskRoute.GET("/current", controller.GetCurrentSystemTask)
 			systemTaskRoute.GET("/:task_id", controller.GetSystemTask)
 		}
+		canvasRoute := apiRouter.Group("/canvas")
+		canvasRoute.Use(middleware.RootAuth())
+		{
+			canvasRoute.GET("/status", controller.GetCanvasStatus)
+			canvasRoute.POST("/update", controller.StartCanvasUpdate)
+		}
 		systemInfoRoute := apiRouter.Group("/system-info")
 		systemInfoRoute.Use(middleware.RootAuth())
 		{

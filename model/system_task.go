@@ -22,6 +22,7 @@ const (
 	SystemTaskTypeMidjourneyPoll  = "midjourney_poll"
 	SystemTaskTypeAsyncTaskPoll   = "async_task_poll"
 	SystemTaskTypeTicketAutoClose = "ticket_auto_close"
+	SystemTaskTypeCanvasUpdate    = "canvas_update"
 )
 
 var ErrSystemTaskLockLost = errors.New("system task lock lost")
