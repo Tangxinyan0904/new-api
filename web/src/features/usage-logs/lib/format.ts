@@ -514,6 +514,7 @@ const AUDIT_TEMPLATES: Record<string, string> = {
     'Cleared distillation penalty for user {{target_user_id}}',
   'channel_cost.upstream_billing':
     'Set the cost source of channel {{id}} to {{kind}}',
+  'canvas.update': 'Started updating the infinite canvas',
   // Custom OAuth
   'custom_oauth.create': 'Created a custom OAuth provider',
   'custom_oauth.update': 'Updated a custom OAuth provider',

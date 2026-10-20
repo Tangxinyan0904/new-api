@@ -211,6 +211,10 @@ var accessTokenRouteRules = map[string]accessTokenRouteRule{
 	"DELETE /api/system-info/stale-instances":      accessTokenScopeRule("ops:write"),
 	"DELETE /api/system-info/instances/:node_name": accessTokenScopeRule("ops:write"),
 
+	// router/api-router.go: /api/canvas
+	"GET /api/canvas/status":  accessTokenScopeRule("ops:read"),
+	"POST /api/canvas/update": accessTokenScopeRule("ops:write"),
+
 	// router/api-router.go: /api/plugin/task
 	"GET /api/plugin/task":                           accessTokenScopeRule("plugin:read"),
 	"POST /api/plugin/task":                          accessTokenScopeRule("plugin:write"),

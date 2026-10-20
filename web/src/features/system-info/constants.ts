@@ -25,4 +25,5 @@ export const SYSTEM_TASK_TYPE_LABEL: Record<string, string> = {
   midjourney_poll: 'Drawing task polling',
   async_task_poll: 'Async task polling',
   ticket_auto_close: 'Ticket auto close',
+  canvas_update: 'Infinite canvas update',
 }
