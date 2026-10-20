@@ -55,12 +55,21 @@ export function CanvasUpdateAction(props: CanvasUpdateActionProps) {
     )
   }
 
-  const version = canvas.status.current_version || t('Unknown version')
-  const showUpdate = canvas.status.update_available && !canvas.updating
+  let version = canvas.status.current_version || t('Unknown version')
   let description = t('Infinite canvas, current version: {{version}}', {
     version,
   })
+  if (canvas.updating) {
+    version = t('Updating...')
+    description = t('Updating the canvas. This usually takes a minute or two.')
+  }
+  const showUpdate = canvas.status.update_available && !canvas.updating
   if (showUpdate) description = `${description}\n${t('Update available')}`
+  // The accessible name starts with the visible label.
+  const label = t('Canvas {{version}}', { version })
+  const accessibleName = showUpdate
+    ? `${label} ${t('Update available')}`
+    : label
 
   const icon = canvas.updating ? (
     <Spinner data-icon='inline-start' aria-hidden='true' />
@@ -82,7 +91,7 @@ export function CanvasUpdateAction(props: CanvasUpdateActionProps) {
         <Button
           type='button'
           variant={versionPresentation ? 'ghost' : 'outline'}
-          aria-label={description}
+          aria-label={accessibleName}
           title={description}
           aria-busy={canvas.updating}
           className={cn(
@@ -98,7 +107,7 @@ export function CanvasUpdateAction(props: CanvasUpdateActionProps) {
               versionPresentation && 'hidden @min-[22rem]/system-brand:inline'
             )}
           >
-            {t('Canvas {{version}}', { version })}
+            {label}
           </span>
           {showUpdate && (
             <Badge

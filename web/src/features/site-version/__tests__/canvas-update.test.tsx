@@ -107,8 +107,12 @@ describe('canvas update entry', () => {
     render(<CanvasUpdateAction presentation='version' />, { wrapper: Wrapper })
 
     const button = await screen.findByRole('button', {
-      name: /Infinite canvas, current version: v0\.15\.1/,
+      name: 'Canvas v0.15.1 Update available',
     })
+    expect(button).toHaveAttribute(
+      'title',
+      expect.stringContaining('Infinite canvas, current version: v0.15.1')
+    )
     expect(within(button).getByText('Canvas v0.15.1')).toHaveClass(
       'hidden',
       '@min-[22rem]/system-brand:inline'
@@ -155,7 +159,7 @@ describe('canvas update entry', () => {
     render(<CanvasUpdateAction presentation='action' />, { wrapper: Wrapper })
 
     await user.click(
-      await screen.findByRole('button', { name: /current version: v0\.15\.1/ })
+      await screen.findByRole('button', { name: /^Canvas v0\.15\.1/ })
     )
     const dialog = await screen.findByRole('dialog', {
       name: 'Infinite canvas updates',
@@ -190,6 +194,63 @@ describe('canvas update entry', () => {
     expect(
       within(dialog).getByRole('button', { name: 'Updating...' })
     ).toBeDisabled()
+    // The dialog hides its trigger from the accessibility tree while open.
+    expect(screen.getByText('Canvas Updating...')).toBeInTheDocument()
+  })
+
+  test('follows the update another root started when the server answers 409', async () => {
+    const user = userEvent.setup()
+    signIn(ROLE.SUPER_ADMIN)
+    const runningTask = {
+      task_id: 'task-2',
+      status: 'running' as const,
+      result: null,
+      error: '',
+      created_at: 1_760_000_100,
+      updated_at: 1_760_000_100,
+    }
+    serveCanvasStatus(
+      canvasStatus(),
+      canvasStatus({
+        current_version: '',
+        update_available: false,
+        task: runningTask,
+      })
+    )
+    vi.spyOn(api, 'post').mockRejectedValue({
+      isAxiosError: true,
+      response: {
+        status: 409,
+        data: {
+          success: false,
+          message: 'A canvas update is already running',
+          message_key: 'A canvas update is already running',
+          data: runningTask,
+        },
+      },
+    })
+    render(<CanvasUpdateAction presentation='action' />, { wrapper: Wrapper })
+
+    await user.click(
+      await screen.findByRole('button', { name: /^Canvas v0\.15\.1/ })
+    )
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Infinite canvas updates',
+    })
+    await user.click(within(dialog).getByRole('button', { name: 'Update now' }))
+    const confirm = await screen.findByRole('alertdialog')
+    await user.click(
+      within(confirm).getByRole('button', { name: 'Update now' })
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    )
+    expect(
+      await within(dialog).findByText(
+        'Updating the canvas. This usually takes a minute or two.'
+      )
+    ).toBeInTheDocument()
   })
 
   test('explains a failed update with the server message', async () => {
@@ -216,7 +277,7 @@ describe('canvas update entry', () => {
     )
     render(<CanvasUpdateAction presentation='action' />, { wrapper: Wrapper })
     await user.click(
-      await screen.findByRole('button', { name: /current version: v0\.15\.1/ })
+      await screen.findByRole('button', { name: /^Canvas v0\.15\.1/ })
     )
     const dialog = await screen.findByRole('dialog')
     expect(

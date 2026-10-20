@@ -109,7 +109,8 @@ type canvasCheck struct {
 }
 
 // checkCanvas asks the updater which version the canvas container runs and
-// whether the registry has a newer image. Nothing is pulled.
+// whether the registry has a newer image. Nothing is pulled. When the registry
+// cannot be asked, the running version is still returned with the error.
 func checkCanvas(ctx context.Context) (canvasCheck, error) {
 	ctx, cancel := context.WithTimeout(ctx, canvasCheckTimeout)
 	defer cancel()
@@ -129,10 +130,11 @@ func checkCanvas(ctx context.Context) (canvasCheck, error) {
 		if strings.TrimPrefix(container.Name, "/") != CanvasContainerName {
 			continue
 		}
+		check := canvasCheck{CurrentVersion: container.CurrentImageVersion, UpdateAvailable: container.UpdateAvailable}
 		if container.Error != "" {
-			return canvasCheck{}, common.NewMessage("The canvas update check failed: {{error}}", map[string]any{"error": truncateUpstreamMessage(container.Error)})
+			return check, common.NewMessage("The canvas update check failed: {{error}}", map[string]any{"error": truncateUpstreamMessage(container.Error)})
 		}
-		return canvasCheck{CurrentVersion: container.CurrentImageVersion, UpdateAvailable: container.UpdateAvailable}, nil
+		return check, nil
 	}
 	return canvasCheck{}, ErrCanvasContainerNotManaged
 }
@@ -282,6 +284,9 @@ func GetCanvasStatus(ctx context.Context, refresh bool) (CanvasStatus, error) {
 		response := task.ToResponse()
 		status.Task = &response
 	}
+	// The answers are shared through the cache, so a reader leaving the page
+	// must not cancel them; each call has its own timeout.
+	ctx = context.WithoutCancel(ctx)
 	release, releaseErr := latestCanvasRelease(ctx)
 	status.Release, status.ReleaseError = release, canvasMessage(releaseErr)
 	if task != nil && (task.Status == model.SystemTaskStatusPending || task.Status == model.SystemTaskStatusRunning) {
@@ -310,14 +315,12 @@ func (canvasUpdateHandler) Type() string { return model.SystemTaskTypeCanvasUpda
 // container with its current settings, then records the versions before and
 // after.
 func (canvasUpdateHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
-	ctx, cancel := context.WithTimeout(ctx, canvasUpdateTimeout+time.Minute)
-	defer cancel()
 	defer forgetCanvasCheck()
 	result := CanvasUpdateResult{}
-	if before, err := checkCanvas(ctx); err == nil {
-		result.FromVersion = before.CurrentVersion
-	}
-	err := runCanvasUpdate(ctx, &result)
+	before, beforeErr := checkCanvas(ctx)
+	result.FromVersion = before.CurrentVersion
+	managed := !errors.Is(beforeErr, ErrCanvasContainerNotManaged)
+	err := runCanvasUpdate(ctx, &result, managed)
 	status := model.SystemTaskStatusSucceeded
 	errorText := ""
 	if err != nil {
@@ -330,30 +333,38 @@ func (canvasUpdateHandler) Run(ctx context.Context, task *model.SystemTask, runn
 	}
 }
 
-func runCanvasUpdate(ctx context.Context, result *CanvasUpdateResult) error {
+// runCanvasUpdate asks the updater to replace the container. managed says
+// whether the check before found the container.
+func runCanvasUpdate(ctx context.Context, result *CanvasUpdateResult, managed bool) error {
 	var response struct {
 		Summary struct {
 			Scanned int `json:"scanned"`
 			Updated int `json:"updated"`
 			Failed  int `json:"failed"`
+			// Skipped counts containers whose image check or pull failed.
+			Skipped int `json:"skipped"`
 		} `json:"summary"`
 	}
+	updateCtx, cancel := context.WithTimeout(ctx, canvasUpdateTimeout+time.Minute)
+	defer cancel()
 	path := "/v1/update?container=" + url.QueryEscape(CanvasContainerName) + "&timeout=" + canvasUpdateTimeout.String()
-	if err := callCanvasUpdater(ctx, path, &response); err != nil {
+	if err := callCanvasUpdater(updateCtx, path, &response); err != nil {
 		return err
 	}
-	result.Updated = response.Summary.Updated
-	if response.Summary.Scanned == 0 {
+	summary := response.Summary
+	result.Updated = summary.Updated
+	if summary.Scanned == 0 && summary.Skipped == 0 && !managed {
 		return ErrCanvasContainerNotManaged
 	}
-	if response.Summary.Failed > 0 {
+	if summary.Scanned == 0 || summary.Failed > 0 {
 		return ErrCanvasUpdateFailed
 	}
+	// The container is replaced; the check after only reports the new version.
 	after, err := checkCanvas(ctx)
-	if err != nil {
-		return err
-	}
 	result.ToVersion = after.CurrentVersion
+	if err != nil {
+		common.SysLog(common.LogText("canvas update finished but the version check failed: %v", err))
+	}
 	return nil
 }
 

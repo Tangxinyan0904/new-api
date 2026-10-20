@@ -25,8 +25,10 @@ export const canvasStatusQueryKey = ['canvas-update', 'status'] as const
 
 /** refresh asks the updater again instead of using its last minute's answer. */
 export async function getCanvasStatus(refresh = false): Promise<CanvasStatus> {
+  // Never reuse a read that started before an update was queued.
   const res = await api.get('/api/canvas/status', {
     params: { refresh: refresh || undefined },
+    disableDuplicate: true,
   })
   return requireServerSuccess(res.data as ApiResponse<CanvasStatus>)
     .data as CanvasStatus

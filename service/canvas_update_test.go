@@ -22,8 +22,13 @@ type fakeCanvasUpdater struct {
 	version   string
 	latest    string
 	failCount int
-	checks    int
-	updates   int
+	// pullFails makes the update skip the container, as when the image pull
+	// from the registry fails.
+	pullFails bool
+	// registryDown makes checks after an update report a registry error.
+	registryDown bool
+	checks       int
+	updates      int
 }
 
 func (f *fakeCanvasUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -44,9 +49,17 @@ func (f *fakeCanvasUpdater) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if f.version != f.latest {
 			available = "true"
 		}
-		_, _ = w.Write([]byte(`{"containers":[{"name":"infinite-canvas","update_available":` + available + `,"current_image_version":"` + f.version + `"}],"count":1}`))
+		checkError := ""
+		if f.registryDown && f.updates > 0 {
+			checkError = `,"error":"registry unreachable"`
+		}
+		_, _ = w.Write([]byte(`{"containers":[{"name":"infinite-canvas","update_available":` + available + `,"current_image_version":"` + f.version + `"` + checkError + `}],"count":1}`))
 	case "/v1/update":
 		f.updates++
+		if f.pullFails {
+			_, _ = w.Write([]byte(`{"summary":{"scanned":0,"updated":0,"failed":0,"skipped":1}}`))
+			return
+		}
 		if f.failCount > 0 {
 			_, _ = w.Write([]byte(`{"summary":{"scanned":1,"updated":0,"failed":1}}`))
 			return
@@ -173,4 +186,36 @@ func TestCanvasUpdateReportsUpdaterFailures(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, status.CheckError)
 	assert.Equal(t, ErrCanvasUpdaterToken.Key, status.CheckError.Key)
+}
+
+func TestCanvasUpdateTellsAFailedPullFromAMissingContainer(t *testing.T) {
+	updater := &fakeCanvasUpdater{version: "v0.15.1", latest: "v0.20.0", pullFails: true}
+	setupCanvasUpdater(t, updater)
+
+	task, _, err := StartCanvasUpdate()
+	require.NoError(t, err)
+	finished := runCanvasUpdateTask(t, task)
+	assert.Equal(t, model.SystemTaskStatusFailed, finished.Status)
+	var result CanvasUpdateResult
+	require.NoError(t, common.UnmarshalJsonStr(finished.Result, &result))
+	require.NotNil(t, result.Error)
+	assert.Equal(t, ErrCanvasUpdateFailed.Key, result.Error.Key, "a skipped container is a failed update, not a missing one")
+}
+
+func TestCanvasUpdateSucceedsWhenOnlyTheCheckAfterItFails(t *testing.T) {
+	updater := &fakeCanvasUpdater{version: "v0.15.1", latest: "v0.20.0", registryDown: true}
+	setupCanvasUpdater(t, updater)
+
+	task, _, err := StartCanvasUpdate()
+	require.NoError(t, err)
+	finished := runCanvasUpdateTask(t, task)
+	assert.Equal(t, model.SystemTaskStatusSucceeded, finished.Status)
+	var result CanvasUpdateResult
+	require.NoError(t, common.UnmarshalJsonStr(finished.Result, &result))
+	assert.Equal(t, CanvasUpdateResult{FromVersion: "v0.15.1", ToVersion: "v0.20.0", Updated: 1}, result)
+
+	status, err := GetCanvasStatus(context.Background(), true)
+	require.NoError(t, err)
+	require.NotNil(t, status.CheckError)
+	assert.Equal(t, "v0.20.0", status.CurrentVersion, "the running version is shown next to the registry error")
 }

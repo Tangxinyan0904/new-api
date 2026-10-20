@@ -101,7 +101,8 @@ export function CanvasUpdateDialog(props: CanvasUpdateDialogProps) {
   const canUpdate =
     Boolean(status?.update_available) &&
     !status?.check_error &&
-    !canvas.updating
+    !canvas.updating &&
+    !canvas.checking
 
   return (
     <>
@@ -216,11 +217,9 @@ export function CanvasUpdateDialog(props: CanvasUpdateDialogProps) {
           'The canvas container is recreated with the newest image. People using the canvas need to reload the page. A new version may change how canvases saved in the browser are stored, so read the release notes first.'
         )}
         confirmText={t('Update now')}
-        isLoading={canvas.updating}
+        isLoading={canvas.starting}
         handleConfirm={() => {
-          void canvas.startUpdate().then((queued) => {
-            if (queued) setConfirming(false)
-          })
+          void canvas.startUpdate().finally(() => setConfirming(false))
         }}
       />
     </>

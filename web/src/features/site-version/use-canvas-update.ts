@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
 import { useState } from 'react'
 
 import { handleServerError } from '@/lib/handle-server-error'
@@ -24,7 +25,7 @@ import { ROLE } from '@/lib/roles'
 import { useAuthStore } from '@/stores/auth-store'
 
 import { canvasStatusQueryKey, getCanvasStatus, startCanvasUpdate } from './api'
-import type { CanvasUpdateTask } from './types'
+import type { CanvasStatus, CanvasUpdateTask } from './types'
 
 /** How often the canvas versions are read again while nothing is running. */
 export const CANVAS_STATUS_INTERVAL = 30 * 60 * 1000
@@ -58,13 +59,36 @@ export function useCanvasUpdate() {
   })
   const status = query.data
 
+  /** Shows a queued or running task at once, before the next status read. */
+  const followTask = (task: CanvasUpdateTask) => {
+    queryClient.setQueryData<CanvasStatus>(
+      canvasStatusQueryKey,
+      (old) =>
+        old && {
+          ...old,
+          task,
+          current_version: '',
+          update_available: false,
+          check_error: null,
+        }
+    )
+  }
+
   const checkNow = async () => {
     setChecking(true)
     try {
-      queryClient.setQueryData(
-        canvasStatusQueryKey,
-        await getCanvasStatus(true)
-      )
+      const fresh = await getCanvasStatus(true)
+      const current =
+        queryClient.getQueryData<CanvasStatus>(canvasStatusQueryKey)
+      // An answer read before an update was queued must not hide it.
+      if (
+        isCanvasTaskActive(current?.task) &&
+        !isCanvasTaskActive(fresh.task)
+      ) {
+        await queryClient.invalidateQueries({ queryKey: canvasStatusQueryKey })
+      } else {
+        queryClient.setQueryData(canvasStatusQueryKey, fresh)
+      }
     } catch (error) {
       handleServerError(error)
     } finally {
@@ -77,17 +101,25 @@ export function useCanvasUpdate() {
     setStarting(true)
     try {
       const result = await startCanvasUpdate()
-      if (!result.success) {
+      if (!result.success || !result.data) {
         handleServerError(result)
         return false
       }
+      followTask(result.data)
       return true
     } catch (error) {
+      // 409: another update is already running; follow that one.
+      const running: unknown = isAxiosError(error)
+        ? error.response?.data?.data
+        : undefined
+      if (running && typeof running === 'object' && 'task_id' in running) {
+        followTask(running as CanvasUpdateTask)
+      }
       handleServerError(error)
       return false
     } finally {
-      setStarting(false)
       await queryClient.invalidateQueries({ queryKey: canvasStatusQueryKey })
+      setStarting(false)
     }
   }
 
@@ -96,6 +128,7 @@ export function useCanvasUpdate() {
     status,
     loading: query.isLoading,
     checking,
+    starting,
     updating: starting || isCanvasTaskActive(status?.task),
     checkNow,
     startUpdate,
