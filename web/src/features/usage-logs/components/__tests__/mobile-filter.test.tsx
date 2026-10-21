@@ -44,6 +44,7 @@ import { api } from '@/lib/api'
 import { CommonLogsFilterBar } from '../common-logs-filter-bar'
 import { CompactDateTimeRangePicker } from '../compact-date-time-range-picker'
 import { LogsFilterToolbar } from '../logs-filter-toolbar'
+import { TaskLogsFilterBar } from '../task-logs-filter-bar'
 import { UsageLogsProvider } from '../usage-logs-provider'
 
 const captureDescriptor = Object.getOwnPropertyDescriptor(
@@ -319,4 +320,52 @@ it('shows the seconds of the selected range on the trigger', () => {
       name: '2026-09-07 09:30:15 ~ 2026-09-08 17:45:59',
     })
   ).toBeVisible()
+})
+
+function TaskFixture() {
+  const table = useReactTable({
+    data: [],
+    columns: [],
+    getCoreRowModel: getCoreRowModel(),
+  })
+  return (
+    <UsageLogsProvider>
+      <TaskLogsFilterBar table={table} logCategory='task' />
+    </UsageLogsProvider>
+  )
+}
+
+it('wraps the task tab actions on phones so Filter and Search stay on screen', async () => {
+  const original = window.matchMedia
+  vi.spyOn(window, 'matchMedia').mockImplementation((query) => ({
+    ...original(query),
+    matches: query === '(max-width: 640px)',
+  }))
+  const root = createRootRoute()
+  const auth = createRoute({ getParentRoute: () => root, id: '_authenticated' })
+  const logs = createRoute({
+    getParentRoute: () => auth,
+    path: '/usage-logs/$section',
+    component: TaskFixture,
+    validateSearch: (search: Record<string, unknown>) => search,
+  })
+  const router = createRouter({
+    routeTree: root.addChildren([auth.addChildren([logs])]),
+    history: createMemoryHistory({ initialEntries: ['/usage-logs/task'] }),
+  })
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <RouterProvider router={router} />
+    </QueryClientProvider>
+  )
+
+  const actions = await screen.findByRole('group', { name: 'Actions' })
+  expect(actions).toHaveClass('min-w-0', 'flex-wrap')
+  for (const name of ['Filter', 'Search', 'Refresh', 'Auto refresh']) {
+    expect(within(actions).getByRole('button', { name })).toBeVisible()
+  }
 })

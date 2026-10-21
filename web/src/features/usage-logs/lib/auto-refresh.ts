@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { LogsViewAccess } from '../components/usage-logs-provider'
 import type { LogCategory } from '../types'
 
 export const AUTO_REFRESH_SECONDS = 30
@@ -131,20 +132,28 @@ export function reduceAutoRefreshState(
   }
 }
 
+/**
+ * Prefixes of the queries a refresh reloads. They must match the keys of the
+ * list query in usage-logs-table.tsx (keyed by view access) and of the stats
+ * query in common-logs-stats.tsx (keyed by whether it is an admin view).
+ */
 export function getUsageLogRefreshQueryKeys(
   category: LogCategory,
-  isAdmin: boolean
+  viewAccess: LogsViewAccess
 ): ReadonlyArray<readonly unknown[]> {
-  const logsQueryKey = ['logs', category, isAdmin] as const
+  const logsQueryKey = ['logs', category, viewAccess] as const
   if (category !== 'common') return [logsQueryKey] as const
 
-  return [logsQueryKey, ['usage-logs-stats', isAdmin] as const] as const
+  return [
+    logsQueryKey,
+    ['usage-logs-stats', viewAccess !== 'self'] as const,
+  ] as const
 }
 
 export function getUsageLogRefreshScopeKey(
   category: LogCategory,
-  isAdmin: boolean,
+  viewAccess: LogsViewAccess,
   scopeKey: string
 ): string {
-  return JSON.stringify([category, isAdmin, scopeKey])
+  return JSON.stringify([category, viewAccess, scopeKey])
 }

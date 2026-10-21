@@ -70,13 +70,16 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const searchParams = route.useSearch()
-  const { isAdminView: isAdmin } = useLogsViewScope()
+  const { isAdminView: isAdmin, viewAccess } = useLogsViewScope()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
 
   const [filters, setFilters] = useState<TaskLogsFilters>(() => {
     const { start, end } = getDefaultTimeRange()
     return { startTime: start, endTime: end }
   })
+  // An unchosen time range stays out of the URL so every request, refreshes
+  // included, covers today until an hour from now.
+  const [timePinned, setTimePinned] = useState(false)
 
   useEffect(() => {
     const { start, end } = getDefaultTimeRange()
@@ -101,6 +104,7 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
           }
 
     setFilters(next)
+    setTimePinned(Boolean(searchParams.startTime || searchParams.endTime))
   }, [
     props.logCategory,
     searchParams.startTime,
@@ -112,12 +116,17 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   const handleChange = useCallback(
     (field: keyof TaskLogsFilters, value: Date | string | undefined) => {
       setFilters((prev) => ({ ...prev, [field]: value }))
+      if (field === 'startTime' || field === 'endTime') setTimePinned(true)
     },
     []
   )
 
   const handleApply = useCallback(() => {
     const filterParams = buildSearchParams(filters, props.logCategory)
+    if (!timePinned) {
+      delete filterParams.startTime
+      delete filterParams.endTime
+    }
     navigate({
       to: '/usage-logs/$section',
       params: { section: props.logCategory },
@@ -127,21 +136,18 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
       },
     })
     queryClient.invalidateQueries({ queryKey: ['logs'] })
-  }, [filters, navigate, props.logCategory, queryClient])
+  }, [filters, navigate, props.logCategory, queryClient, timePinned])
 
   const handleReset = useCallback(() => {
     const { start, end } = getDefaultTimeRange()
     const resetFilters: TaskLogsFilters = { startTime: start, endTime: end }
     setFilters(resetFilters)
+    setTimePinned(false)
 
     navigate({
       to: '/usage-logs/$section',
       params: { section: props.logCategory },
-      search: {
-        page: 1,
-        startTime: start.getTime(),
-        endTime: end.getTime(),
-      },
+      search: { page: 1 },
     })
     queryClient.invalidateQueries({ queryKey: ['logs'] })
   }, [navigate, props.logCategory, queryClient])
@@ -203,6 +209,7 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   return (
     <LogsFilterToolbar
       table={props.table}
+      compactMobile
       primaryFilters={
         <>
           {dateRangeFilter}
@@ -218,11 +225,11 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
         </>
       }
       mobileFilterCount={[filterValue, filters.channel].filter(Boolean).length}
-      hasActiveFilters={hasAdditionalFilters}
+      hasActiveFilters={hasAdditionalFilters || timePinned}
       refreshActions={
         <LogRefreshActions
           logCategory={props.logCategory}
-          isAdminView={isAdmin}
+          viewAccess={viewAccess}
           scopeKey={JSON.stringify(searchParams)}
         />
       }
