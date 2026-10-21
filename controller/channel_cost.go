@@ -29,11 +29,10 @@ const (
 var channelCostSettingMu sync.Mutex
 
 type channelCostChannel struct {
-	Id      int    `json:"id"`
-	Name    string `json:"name"`
-	Type    int    `json:"type"`
-	Status  int    `json:"status"`
-	Deleted bool   `json:"deleted"`
+	Id     int    `json:"id"`
+	Name   string `json:"name"`
+	Type   int    `json:"type"`
+	Status int    `json:"status"`
 	// Ratio is the channel's cost ratio, shared by all its groups; nil means
 	// none was entered.
 	Ratio *float64 `json:"ratio"`
@@ -161,9 +160,12 @@ func GetChannelCostStats(c *gin.Context) {
 		}
 		newAPILogins[channel.Id] = view
 	}
-	// Usage counts even if the channel has left the group or was deleted.
+	// Usage counts even if the channel has left the group. Deleted channels
+	// are left out.
 	for key := range totals {
-		members[key] = true
+		if _, ok := channelsById[key.ChannelId]; ok {
+			members[key] = true
+		}
 	}
 
 	groupRatios := ratio_setting.GetGroupRatioCopy()
@@ -177,10 +179,8 @@ func GetChannelCostStats(c *gin.Context) {
 			}
 			groupsByName[key.Group] = group
 		}
-		item := channelCostChannel{Id: key.ChannelId, Deleted: true}
-		if channel, ok := channelsById[key.ChannelId]; ok {
-			item = channelCostChannel{Id: channel.Id, Name: channel.Name, Type: channel.Type, Status: channel.Status}
-		}
+		channel := channelsById[key.ChannelId]
+		item := channelCostChannel{Id: channel.Id, Name: channel.Name, Type: channel.Type, Status: channel.Status}
 		if ratio, ok := channelRatios[key.ChannelId]; ok {
 			item.Ratio = &ratio
 		}
@@ -330,8 +330,7 @@ func GetChannelUpstreamCosts(c *gin.Context) {
 		item := channelUpstreamCostItem{ChannelId: id, Kind: billing.Kind}
 		result, found := results[id]
 		if !found {
-			item.Error = common.NewMessage("Channel not found")
-			items = append(items, item)
+			// The channel was deleted; the cost statistics leave it out.
 			continue
 		}
 		item.FetchedAt = result.FetchedAt

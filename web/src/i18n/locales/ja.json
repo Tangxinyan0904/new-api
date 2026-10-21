@@ -7639,7 +7639,6 @@
     "Cost ratio must be between 0 and {{max}}": "コスト倍率は 0〜{{max}} の範囲で入力してください",
     "Cost ratio of {{name}}": "{{name}} のコスト倍率",
     "Cost summary": "コスト概要",
-    "Deleted channel": "削除済みチャネル",
     "Failed to load cost statistics": "コスト統計を読み込めませんでした",
     "No channels yet": "チャネルはまだありません",
     "Profit": "利益",

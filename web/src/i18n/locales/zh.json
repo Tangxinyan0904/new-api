@@ -7639,7 +7639,6 @@
     "Cost ratio must be between 0 and {{max}}": "成本倍率必须在 0 到 {{max}} 之间",
     "Cost ratio of {{name}}": "{{name}} 的成本倍率",
     "Cost summary": "成本汇总",
-    "Deleted channel": "已删除渠道",
     "Failed to load cost statistics": "加载成本统计失败",
     "No channels yet": "还没有渠道",
     "Profit": "利润",

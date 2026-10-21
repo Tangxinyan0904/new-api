@@ -35,7 +35,6 @@ const groups: ChannelCostGroup[] = [
         name: 'relay',
         type: 1,
         status: 1,
-        deleted: false,
         ratio: 0.1,
         upstream_billing: null,
         newapi_login: null,
