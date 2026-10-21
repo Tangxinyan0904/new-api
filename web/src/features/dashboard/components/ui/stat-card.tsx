@@ -325,7 +325,10 @@ export function StatCard(props: StatCardProps) {
 
       {valueContent}
 
-      <div className='hidden sm:block'>{visualization}</div>
+      {/* Sparklines are dropped on phones; text details are the figures themselves. */}
+      <div className={cn(!props.details?.length && 'hidden sm:block')}>
+        {visualization}
+      </div>
     </div>
   )
 }
