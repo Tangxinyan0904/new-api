@@ -39,7 +39,6 @@ function channel(
   name: string,
   ratio: number | null,
   week: [number, number],
-  deleted = false,
   upstreamBilling: ChannelUpstreamBilling | null = null
 ): ChannelCostChannel {
   const none = { quota: 0, base_quota: 0 }
@@ -48,7 +47,6 @@ function channel(
     name,
     type: 1,
     status: 1,
-    deleted,
     ratio,
     upstream_billing: upstreamBilling,
     newapi_login: null,
@@ -145,26 +143,12 @@ describe('ChannelCostGroupSection', () => {
     expect(onSaveRatio).toHaveBeenCalledWith(7, 0.08)
   })
 
-  it('shows the ratio of a deleted channel as text instead of an input', () => {
-    renderSection({
-      name: 'vip',
-      ratio: 0.5,
-      channels: [channel(9, '', 0.1, [70, 140], true)],
-    })
-
-    expect(screen.getByText('Deleted channel')).toBeInTheDocument()
-    expect(screen.getByText('0.1')).toBeInTheDocument()
-    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument()
-  })
-
   it('uses the upstream bill instead of the ratio for a channel that reads it', () => {
     const { section } = renderSection(
       {
         name: 'vip',
         ratio: 0.5,
-        channels: [
-          channel(7, 'relay', 0.08, [1000, 5000], false, sub2apiBilling),
-        ],
+        channels: [channel(7, 'relay', 0.08, [1000, 5000], sub2apiBilling)],
       },
       undefined,
       {
@@ -193,7 +177,7 @@ describe('ChannelCostGroupSection', () => {
       {
         name: 'vip',
         ratio: 0.5,
-        channels: [channel(7, 'relay', null, [10, 10], false, sub2apiBilling)],
+        channels: [channel(7, 'relay', null, [10, 10], sub2apiBilling)],
       },
       undefined,
       {

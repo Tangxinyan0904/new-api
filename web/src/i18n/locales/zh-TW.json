@@ -7639,7 +7639,6 @@
     "Cost ratio must be between 0 and {{max}}": "成本倍率必須介於 0 到 {{max}} 之間",
     "Cost ratio of {{name}}": "{{name}} 的成本倍率",
     "Cost summary": "成本彙總",
-    "Deleted channel": "已刪除管道",
     "Failed to load cost statistics": "載入成本統計失敗",
     "No channels yet": "還沒有管道",
     "Profit": "利潤",

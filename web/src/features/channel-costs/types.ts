@@ -27,7 +27,6 @@ export interface ChannelCostChannel {
   name: string
   type: number
   status: number
-  deleted: boolean
   /** Cost ratio shared by all the channel's groups; null when none was entered. */
   ratio: number | null
   /** Set when the cost is read from the upstream's bill instead. */

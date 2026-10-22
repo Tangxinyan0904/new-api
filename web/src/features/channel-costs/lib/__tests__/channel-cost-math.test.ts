@@ -47,7 +47,6 @@ function channel(
     name: `channel-${id}`,
     type: 1,
     status: 1,
-    deleted: false,
     ratio,
     upstream_billing: null,
     newapi_login: null,

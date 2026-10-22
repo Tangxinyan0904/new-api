@@ -119,7 +119,9 @@ func TestGetChannelCostStatsListsChannelsUnderEachGroup(t *testing.T) {
 		{BucketStart: today + 3600, Group: "default", ChannelId: 1, Quota: 20, BaseQuota: 20},
 		// Channel 2 has since left "default"; its usage there still counts.
 		{BucketStart: week, Group: "default", ChannelId: 2, Quota: 5, BaseQuota: 5},
+		// Channel 9 was deleted; its usage is left out, so "legacy" is not listed.
 		{BucketStart: today, Group: "legacy", ChannelId: 9, Quota: 7, BaseQuota: 7},
+		{BucketStart: today, Group: "vip", ChannelId: 9, Quota: 70, BaseQuota: 70},
 	}).Error)
 	require.NoError(t, model.UpdateOptionsBulk(map[string]string{channelCostChannelRatiosOption: `{"1":0.4}`}))
 
@@ -156,13 +158,6 @@ func TestGetChannelCostStatsListsChannelsUnderEachGroup(t *testing.T) {
 				Week: model.ChannelCostUsage{Quota: 5, BaseQuota: 5},
 			},
 			{Id: 3, Name: "idle", Type: 1, Status: 1},
-		}},
-		{Name: "legacy", Channels: []channelCostChannel{
-			{
-				Id: 9, Deleted: true,
-				Today: model.ChannelCostUsage{Quota: 7, BaseQuota: 7},
-				Week:  model.ChannelCostUsage{Quota: 7, BaseQuota: 7},
-			},
 		}},
 	}, stats.Groups)
 }
@@ -326,6 +321,13 @@ func TestChannelUpstreamBillingReadsSub2APISpend(t *testing.T) {
 	require.NotNil(t, failed.Error)
 	assert.Equal(t, "Upstream answered {{status}}: {{error}}", failed.Error.Key)
 	assert.Equal(t, "Invalid API key", failed.Error.Params["error"])
+
+	// A deleted channel is left out of the upstream bills too.
+	require.NoError(t, db.Delete(&model.Channel{}, 7).Error)
+	report := callChannelCost(t, GetChannelUpstreamCosts, http.MethodGet, "/?refresh=true&timezone=Asia/Shanghai&today_start="+strconv.FormatInt(todayStart, 10)+
+		"&yesterday_start="+strconv.FormatInt(todayStart-86400, 10)+"&week_start="+strconv.FormatInt(todayStart-6*86400, 10), nil, "")
+	require.True(t, report.Success)
+	assert.Contains(t, string(report.Data), `"channels":[]`)
 
 	cleared := callChannelCost(t, UpdateChannelUpstreamBilling, http.MethodPut, "/", idParams, `{"kind":""}`)
 	require.True(t, cleared.Success)

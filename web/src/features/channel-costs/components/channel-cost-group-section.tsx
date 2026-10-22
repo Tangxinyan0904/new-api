@@ -150,12 +150,12 @@ export function ChannelCostGroupSection(props: ChannelCostGroupSectionProps) {
       cell: (channel) => (
         <div className='flex min-w-40 flex-col gap-1'>
           <span className='font-medium break-all'>
-            {channel.deleted ? t('Deleted channel') : channel.name}
+            {channel.name}
             <span className='text-muted-foreground ms-1 text-xs tabular-nums'>
               #{channel.id}
             </span>
           </span>
-          {!channel.deleted && channel.status !== 1 && (
+          {channel.status !== 1 && (
             <StatusBadge
               label={t('Disabled')}
               variant='neutral'
@@ -174,13 +174,6 @@ export function ChannelCostGroupSection(props: ChannelCostGroupSectionProps) {
       id: 'ratio',
       header: t('Cost source'),
       cell: (channel) => {
-        if (channel.deleted) {
-          return (
-            <span className='text-muted-foreground text-sm tabular-nums'>
-              {channel.ratio ?? t('Not set')}
-            </span>
-          )
-        }
         return (
           <div className='flex flex-col items-start gap-1'>
             {channel.upstream_billing ? (

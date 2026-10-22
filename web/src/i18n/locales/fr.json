@@ -7639,7 +7639,6 @@
     "Cost ratio must be between 0 and {{max}}": "Le ratio de coût doit être compris entre 0 et {{max}}",
     "Cost ratio of {{name}}": "Ratio de coût de {{name}}",
     "Cost summary": "Résumé des coûts",
-    "Deleted channel": "Canal supprimé",
     "Failed to load cost statistics": "Échec du chargement des statistiques de coûts",
     "No channels yet": "Aucun canal pour l'instant",
     "Profit": "Bénéfice",
