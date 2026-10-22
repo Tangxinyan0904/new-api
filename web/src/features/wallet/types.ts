@@ -306,7 +306,7 @@ export interface UserWalletData {
 /**
  * Topup record status
  */
-export type TopupStatus = 'success' | 'pending' | 'expired'
+export type TopupStatus = 'success' | 'pending' | 'failed' | 'expired'
 
 /**
  * Topup billing record
@@ -316,6 +316,8 @@ export interface TopupRecord {
   id: number
   /** User ID */
   user_id: number
+  /** Owner's username (admin list only) */
+  username?: string
   /** Topup amount (quota) */
   amount: number
   /** Payment amount (actual money paid) */
@@ -338,6 +340,17 @@ export interface TopupRecord {
 export interface BillingHistoryResponse {
   items: TopupRecord[]
   total: number
+}
+
+/**
+ * Admin billing history filters; empty values do not filter
+ */
+export interface BillingHistoryFilters {
+  /** Order number, exact unless it holds % */
+  keyword?: string
+  status?: TopupStatus
+  /** User ID or exact username */
+  user?: string
 }
 
 /**

@@ -7809,6 +7809,9 @@
     "The canvas update check failed: {{error}}": "Kiểm tra cập nhật canvas thất bại: {{error}}",
     "GitHub could not be reached: {{error}}": "Không kết nối được GitHub: {{error}}",
     "GitHub answered {{status}}": "GitHub trả về {{status}}",
-    "A canvas update is already running": "Đã có một lần cập nhật canvas đang chạy"
+    "A canvas update is already running": "Đã có một lần cập nhật canvas đang chạy",
+    "Order No.": "Mã đơn hàng",
+    "Show only this user's orders": "Chỉ xem đơn hàng của người dùng này",
+    "Check that the payment arrived on the payment platform before completing it.": "Hãy kiểm tra trên nền tảng thanh toán rằng tiền đã về trước khi hoàn tất đơn."
   }
 }

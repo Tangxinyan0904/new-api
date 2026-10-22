@@ -1460,6 +1460,22 @@ func updateUserQuotaUsedQuotaAndRequestCount(id int, quota int, usedQuota int, r
 	}
 }
 
+// GetUsernamesByIds maps user IDs to usernames, deleted users included.
+func GetUsernamesByIds(ids []int) (map[int]string, error) {
+	usernames := make(map[int]string, len(ids))
+	if len(ids) == 0 {
+		return usernames, nil
+	}
+	var users []User
+	if err := DB.Unscoped().Select("id", "username").Where("id IN ?", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	for _, user := range users {
+		usernames[user.Id] = user.Username
+	}
+	return usernames, nil
+}
+
 // GetUsernameById gets username from Redis first, falls back to DB if needed
 func GetUsernameById(id int, fromDB bool) (username string, err error) {
 	defer func() {

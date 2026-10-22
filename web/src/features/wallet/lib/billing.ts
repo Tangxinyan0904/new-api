@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { StatusBadgeProps } from '@/components/status-badge'
+import { formatCurrencyFromUSD } from '@/lib/currency'
 import { formatTimestampToDate } from '@/lib/format'
 
 import type { TopupStatus } from '../types'
@@ -41,6 +42,10 @@ export const STATUS_CONFIG: Record<TopupStatus, StatusConfig> = {
   pending: {
     variant: 'warning',
     label: 'Pending',
+  },
+  failed: {
+    variant: 'danger',
+    label: 'Failed',
   },
   expired: {
     variant: 'danger',
@@ -74,6 +79,17 @@ export function getPaymentMethodName(
 ): string {
   const name = PAYMENT_METHOD_NAMES[method] || method
   return t ? t(name) : name
+}
+
+/**
+ * Format a top-up's credited amount for the billing list
+ */
+export function formatTopupAmount(amount: number): string {
+  return formatCurrencyFromUSD(amount, {
+    digitsLarge: 2,
+    digitsSmall: 2,
+    abbreviate: false,
+  })
 }
 
 /**
