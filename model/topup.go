@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -406,8 +407,17 @@ func SearchUserTopUps(userId int, keyword string, pageInfo *common.PageInfo) (to
 	return topups, total, nil
 }
 
-// SearchAllTopUps 按订单号搜索全平台充值记录（管理员使用，不限制时间窗口）
-func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
+// TopUpFilter narrows the admin top-up list. Empty fields do not filter.
+type TopUpFilter struct {
+	// Keyword matches trade_no exactly, or as a LIKE pattern when it holds %.
+	Keyword string
+	Status  string
+	// User is a user ID or an exact username.
+	User string
+}
+
+// SearchAllTopUps 按订单号、状态和用户搜索全平台充值记录（管理员使用，不限制时间窗口）
+func SearchAllTopUps(filter TopUpFilter, pageInfo *common.PageInfo) (topups []*TopUp, total int64, err error) {
 	tx := DB.Begin()
 	if tx.Error != nil {
 		return nil, 0, tx.Error
@@ -419,13 +429,25 @@ func SearchAllTopUps(keyword string, pageInfo *common.PageInfo) (topups []*TopUp
 	}()
 
 	query := tx.Model(&TopUp{})
-	if keyword != "" {
-		pattern, perr := sanitizeLikePattern(keyword)
+	if filter.Keyword != "" {
+		pattern, perr := sanitizeLikePattern(filter.Keyword)
 		if perr != nil {
 			tx.Rollback()
 			return nil, 0, perr
 		}
 		query = query.Where("trade_no LIKE ? ESCAPE '!'", pattern)
+	}
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+	if filter.User != "" {
+		// Deleted users still own their orders, so their usernames match too.
+		usernameIds := DB.Unscoped().Model(&User{}).Select("id").Where("username = ?", filter.User)
+		if userId, convErr := strconv.Atoi(filter.User); convErr == nil {
+			query = query.Where("user_id = ? OR user_id IN (?)", userId, usernameIds)
+		} else {
+			query = query.Where("user_id IN (?)", usernameIds)
+		}
 	}
 
 	if err = query.Limit(searchTopUpCountHardLimit).Count(&total).Error; err != nil {

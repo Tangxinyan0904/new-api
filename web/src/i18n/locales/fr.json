@@ -7809,6 +7809,9 @@
     "The canvas update check failed: {{error}}": "La vérification des mises à jour du canevas a échoué : {{error}}",
     "GitHub could not be reached: {{error}}": "GitHub est injoignable : {{error}}",
     "GitHub answered {{status}}": "GitHub a répondu {{status}}",
-    "A canvas update is already running": "Une mise à jour du canevas est déjà en cours"
+    "A canvas update is already running": "Une mise à jour du canevas est déjà en cours",
+    "Order No.": "N° de commande",
+    "Show only this user's orders": "Afficher uniquement les commandes de cet utilisateur",
+    "Check that the payment arrived on the payment platform before completing it.": "Vérifiez sur la plateforme de paiement que le paiement est bien arrivé avant de compléter la commande."
   }
 }

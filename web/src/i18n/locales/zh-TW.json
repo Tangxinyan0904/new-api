@@ -7809,6 +7809,9 @@
     "The canvas update check failed: {{error}}": "畫布更新檢查失敗：{{error}}",
     "GitHub could not be reached: {{error}}": "無法連線 GitHub：{{error}}",
     "GitHub answered {{status}}": "GitHub 回傳 {{status}}",
-    "A canvas update is already running": "已有畫布更新正在進行"
+    "A canvas update is already running": "已有畫布更新正在進行",
+    "Order No.": "訂單號",
+    "Show only this user's orders": "只看該使用者的訂單",
+    "Check that the payment arrived on the payment platform before completing it.": "補單前請先在支付平台確認已收到這筆款項。"
   }
 }

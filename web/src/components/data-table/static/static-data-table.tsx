@@ -51,6 +51,7 @@ type StaticDataTableDataProps<TData = unknown> = StaticDataTableBaseProps & {
   emptyContent?: React.ReactNode
   emptyClassName?: string
   headerRowClassName?: string
+  tableBodyClassName?: string
 }
 
 type StaticDataTableChildrenProps = StaticDataTableBaseProps & {
@@ -102,6 +103,7 @@ function StaticDataTableWithColumns<TData>({
   emptyContent,
   emptyClassName,
   headerRowClassName,
+  tableBodyClassName,
 }: StaticDataTableDataProps<TData>) {
   const isEmpty = empty ?? (data !== undefined && data.length === 0)
   const bodyRows = data.map((row, index) => (
@@ -126,7 +128,7 @@ function StaticDataTableWithColumns<TData>({
           ))}
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody className={tableBodyClassName}>
         {isEmpty ? (
           <StaticDataTableEmptyRow
             colSpan={columns.length}

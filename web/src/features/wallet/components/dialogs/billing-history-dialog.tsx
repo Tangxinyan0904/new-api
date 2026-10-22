@@ -16,25 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useState } from 'react'
+import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
-import { StatusBadge } from '@/components/status-badge'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
@@ -44,311 +34,271 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { formatCurrencyFromUSD } from '@/lib/currency'
+import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
 import { useBillingHistory } from '../../hooks/use-billing-history'
-import {
-  getStatusConfig,
-  getPaymentMethodName,
-  formatTimestamp,
-} from '../../lib/billing'
+import { STATUS_CONFIG, formatTopupAmount } from '../../lib/billing'
+import type { TopupRecord, TopupStatus } from '../../types'
+import { BillingHistoryRecords } from '../billing-history-records'
 
 interface BillingHistoryDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-export function BillingHistoryDialog({
-  open,
-  onOpenChange,
-}: BillingHistoryDialogProps) {
-  const { t } = useTranslation()
-  const {
-    records,
-    total,
-    page,
-    pageSize,
-    keyword,
-    loading,
-    completing,
-    isAdmin,
-    handlePageChange,
-    handlePageSizeChange,
-    handleSearch,
-    handleCompleteOrder,
-  } = useBillingHistory()
+const ALL_STATUSES = 'all'
 
-  const [confirmTradeNo, setConfirmTradeNo] = useState<string | null>(null)
-  const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
+export function BillingHistoryDialog(props: BillingHistoryDialogProps) {
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+  const billing = useBillingHistory()
+  const [confirmRecord, setConfirmRecord] = useState<TopupRecord | null>(null)
 
-  const totalPages = Math.ceil(total / pageSize)
+  const totalPages = Math.max(1, Math.ceil(billing.total / billing.pageSize))
+  const hasFilters =
+    billing.keyword !== '' || billing.user !== '' || billing.status !== null
+  const statusItems = [
+    { value: ALL_STATUSES, label: t('All Status') },
+    ...Object.entries(STATUS_CONFIG).map(([value, config]) => ({
+      value,
+      label: t(config.label),
+    })),
+  ]
+  const pageSizeItems = [
+    { value: '10', label: t('10 / page') },
+    { value: '20', label: t('20 / page') },
+    { value: '50', label: t('50 / page') },
+    { value: '100', label: t('100 / page') },
+  ]
 
   const handleConfirmComplete = async () => {
-    if (confirmTradeNo) {
-      const success = await handleCompleteOrder(confirmTradeNo)
-      if (success) {
-        setConfirmTradeNo(null)
-      }
+    if (!confirmRecord) return
+    const success = await billing.handleCompleteOrder(confirmRecord.trade_no)
+    if (success) {
+      setConfirmRecord(null)
     }
+  }
+
+  let content: ReactNode
+  if (billing.loading) {
+    content = (
+      <div className='space-y-2 p-3'>
+        {['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'].map((placeholder) => (
+          <Skeleton key={placeholder} className='h-8 w-full' />
+        ))}
+      </div>
+    )
+  } else if (billing.records.length === 0) {
+    content = (
+      <EmptyState
+        title={t('No billing records found')}
+        description={
+          hasFilters
+            ? t('Try adjusting your search')
+            : t('Your transaction history will appear here')
+        }
+        className='h-full min-h-40'
+      />
+    )
+  } else {
+    content = (
+      <BillingHistoryRecords
+        records={billing.records}
+        isAdmin={billing.isAdmin}
+        completing={billing.completing}
+        onComplete={setConfirmRecord}
+        onFilterUser={(userId) => billing.handleUserChange(String(userId))}
+      />
+    )
   }
 
   return (
     <>
       <Dialog
-        open={open}
-        onOpenChange={onOpenChange}
+        open={props.open}
+        onOpenChange={props.onOpenChange}
         title={t('Billing History')}
         description={t(
           'View your topup transaction records and payment history'
         )}
-        contentClassName='flex max-h-(--dialog-available-height) flex-col max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-4xl'
-        contentHeight='auto'
-        bodyClassName='space-y-3'
+        contentClassName='max-h-(--dialog-available-height) max-sm:w-screen max-sm:max-w-none max-sm:rounded-none max-sm:p-4 sm:max-w-6xl'
+        contentHeight='min(80dvh, 880px)'
+        bodyClassName='flex h-full flex-col gap-3'
       >
-        <div className='min-h-0 space-y-3'>
-          {/* Search and Filter Bar */}
-          <div className='flex items-center gap-2'>
-            <div className='relative flex-1'>
-              <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+        {/* Filters */}
+        <div className='flex shrink-0 flex-wrap items-center gap-2'>
+          <div className='relative basis-full sm:min-w-48 sm:flex-1 sm:basis-0'>
+            <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
+            <Input
+              placeholder={t('Search by order number...')}
+              aria-label={t('Search by order number...')}
+              value={billing.keyword}
+              onChange={(e) => billing.handleSearch(e.target.value)}
+              className='h-9 pl-10'
+            />
+          </div>
+          {billing.isAdmin && (
+            <>
               <Input
-                placeholder={t('Search by order number...')}
-                value={keyword}
-                onChange={(e) => handleSearch(e.target.value)}
-                className='h-9 pl-10'
+                placeholder={t('Search by username or user ID')}
+                aria-label={t('Search by username or user ID')}
+                value={billing.user}
+                onChange={(e) => billing.handleUserChange(e.target.value)}
+                className='h-9 min-w-0 flex-1 sm:max-w-56'
               />
-            </div>
-            <Select
-              items={[
-                { value: '10', label: t('10 / page') },
-                { value: '20', label: t('20 / page') },
-                { value: '50', label: t('50 / page') },
-                { value: '100', label: t('100 / page') },
-              ]}
-              value={pageSize.toString()}
-              onValueChange={(value) =>
-                value !== null && handlePageSizeChange(Number.parseInt(value))
-              }
-            >
-              <SelectTrigger className='h-9 w-[92px] sm:w-32'>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false}>
-                <SelectGroup>
-                  <SelectItem value='10'>{t('10 / page')}</SelectItem>
-                  <SelectItem value='20'>{t('20 / page')}</SelectItem>
-                  <SelectItem value='50'>{t('50 / page')}</SelectItem>
-                  <SelectItem value='100'>{t('100 / page')}</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Records List */}
-          <div className='max-h-[min(54vh,520px)] overflow-y-auto pr-1'>
-            {loading && (
-              <div className='space-y-3'>
-                {['first', 'second', 'third', 'fourth', 'fifth'].map(
-                  (placeholder) => (
-                    <div
-                      key={placeholder}
-                      className='rounded-lg border p-3 sm:p-4'
-                    >
-                      <div className='flex items-start justify-between'>
-                        <div className='flex-1 space-y-2'>
-                          <Skeleton className='h-4 w-48' />
-                          <Skeleton className='h-3 w-32' />
-                        </div>
-                        <Skeleton className='h-5 w-16' />
-                      </div>
-                      <div className='mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4'>
-                        <Skeleton className='h-3 w-full' />
-                        <Skeleton className='h-3 w-full' />
-                        <Skeleton className='h-3 w-full' />
-                      </div>
-                    </div>
+              <Select
+                items={statusItems}
+                value={billing.status ?? ALL_STATUSES}
+                onValueChange={(value) =>
+                  value !== null &&
+                  billing.handleStatusChange(
+                    value === ALL_STATUSES ? null : (value as TopupStatus)
                   )
-                )}
-              </div>
-            )}
-            {!loading && records.length === 0 && (
-              <div className='text-muted-foreground flex min-h-40 flex-col items-center justify-center py-10 text-center'>
-                <p className='text-sm font-medium'>
-                  {t('No billing records found')}
-                </p>
-                <p className='mt-1 text-xs'>
-                  {keyword
-                    ? t('Try adjusting your search')
-                    : t('Your transaction history will appear here')}
-                </p>
-              </div>
-            )}
-            {!loading && records.length > 0 && (
-              <div className='space-y-3'>
-                {records.map((record) => {
-                  const statusConfig = getStatusConfig(record.status)
-                  return (
-                    <div
-                      key={record.id}
-                      className='rounded-lg border p-3 sm:p-4'
-                    >
-                      {/* Header Row */}
-                      <div className='flex items-start justify-between gap-2'>
-                        <div className='flex-1 space-y-1'>
-                          <div className='flex min-w-0 items-center gap-2'>
-                            <code className='text-foreground truncate font-mono text-sm'>
-                              {record.trade_no}
-                            </code>
-                            <Button
-                              variant='ghost'
-                              size='sm'
-                              className='h-5 w-5 p-0'
-                              onClick={() => copyToClipboard(record.trade_no)}
-                            >
-                              {copiedText === record.trade_no ? (
-                                <Check className='h-3 w-3' />
-                              ) : (
-                                <Copy className='h-3 w-3' />
-                              )}
-                            </Button>
-                            {isAdmin && record.user_id != null && (
-                              <StatusBadge
-                                label={`${t('User ID')}: ${record.user_id}`}
-                                variant='neutral'
-                                size='sm'
-                                copyText={String(record.user_id)}
-                              />
-                            )}
-                          </div>
-                          <div className='text-muted-foreground text-xs'>
-                            {formatTimestamp(record.create_time)}
-                          </div>
-                        </div>
-                        <StatusBadge
-                          label={t(statusConfig.label)}
-                          variant={statusConfig.variant}
-                          showDot
-                          copyable={false}
-                        />
-                      </div>
-
-                      {/* Details Grid */}
-                      <div className='mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:grid-cols-3 sm:gap-4'>
-                        <div className='space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
-                            {t('Payment Method')}
-                          </Label>
-                          <div className='text-sm font-medium'>
-                            {getPaymentMethodName(record.payment_method, t)}
-                          </div>
-                        </div>
-                        <div className='space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
-                            {t('Amount')}
-                          </Label>
-                          <div className='text-sm font-semibold'>
-                            {formatCurrencyFromUSD(record.amount, {
-                              digitsLarge: 2,
-                              digitsSmall: 2,
-                              abbreviate: false,
-                            })}
-                          </div>
-                        </div>
-                        <div className='space-y-1'>
-                          <Label className='text-muted-foreground text-xs'>
-                            {t('Payment')}
-                          </Label>
-                          <div className='text-sm font-semibold text-red-600'>
-                            {formatNumber(record.money)}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Admin Actions */}
-                      {isAdmin && record.status === 'pending' && (
-                        <div className='mt-4 flex justify-end'>
-                          <Button
-                            size='sm'
-                            variant='outline'
-                            onClick={() => setConfirmTradeNo(record.trade_no)}
-                            disabled={completing}
-                          >
-                            {t('Complete Order')}
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Pagination */}
-          {!loading && records.length > 0 && (
-            <div className='flex flex-col items-center gap-3 border-t pt-4 sm:flex-row sm:items-center sm:justify-between'>
-              <div className='text-muted-foreground text-xs sm:text-sm'>
-                {t('Showing')} {(page - 1) * pageSize + 1}-
-                {Math.min(page * pageSize, total)} {t('of')} {total}
-              </div>
-              <div className='flex items-center gap-2'>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page <= 1}
-                  className='h-8 w-8 p-0'
+                }
+              >
+                <SelectTrigger
+                  className='h-9 w-28 sm:w-32'
+                  aria-label={t('Status')}
                 >
-                  <ChevronLeft className='h-4 w-4' />
-                </Button>
-                <div className='text-muted-foreground flex items-center gap-1 text-sm'>
-                  <span className='font-medium'>{page}</span>
-                  <span>/</span>
-                  <span>{totalPages}</span>
-                </div>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages}
-                  className='h-8 w-8 p-0'
-                >
-                  <ChevronRight className='h-4 w-4' />
-                </Button>
-              </div>
-            </div>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {statusItems.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </>
           )}
+          <Select
+            items={pageSizeItems}
+            value={billing.pageSize.toString()}
+            onValueChange={(value) =>
+              value !== null &&
+              billing.handlePageSizeChange(Number.parseInt(value))
+            }
+          >
+            <SelectTrigger className='h-9 w-28 max-sm:hidden'>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent alignItemWithTrigger={false}>
+              <SelectGroup>
+                {pageSizeItems.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button
+              variant='ghost'
+              size='sm'
+              className='h-9'
+              onClick={billing.handleClearFilters}
+            >
+              <X className='h-4 w-4' />
+              <span className='max-sm:sr-only'>{t('Clear filters')}</span>
+            </Button>
+          )}
+        </div>
+
+        {/* Records */}
+        <div className='min-h-0 flex-1 overflow-auto rounded-md border'>
+          {content}
+        </div>
+
+        {/* Pagination */}
+        <div className='flex shrink-0 items-center justify-between gap-3'>
+          <div className='text-muted-foreground text-xs sm:text-sm'>
+            {billing.records.length > 0 && (
+              <>
+                {t('Showing')} {(billing.page - 1) * billing.pageSize + 1}-
+                {Math.min(billing.page * billing.pageSize, billing.total)}{' '}
+                {t('of')} {formatNumber(billing.total, locale)}
+              </>
+            )}
+          </div>
+          <div className='flex items-center gap-2'>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => billing.handlePageChange(billing.page - 1)}
+              disabled={billing.page <= 1 || billing.loading}
+              className='h-8 w-8 p-0'
+              aria-label={t('Previous')}
+            >
+              <ChevronLeft className='h-4 w-4' />
+            </Button>
+            <div className='text-muted-foreground flex items-center gap-1 text-sm tabular-nums'>
+              <span className='text-foreground font-medium'>
+                {billing.page}
+              </span>
+              <span>/</span>
+              <span>{totalPages}</span>
+            </div>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => billing.handlePageChange(billing.page + 1)}
+              disabled={billing.page >= totalPages || billing.loading}
+              className='h-8 w-8 p-0'
+              aria-label={t('Next')}
+            >
+              <ChevronRight className='h-4 w-4' />
+            </Button>
+          </div>
         </div>
       </Dialog>
 
-      {/* Confirm Complete Order Dialog */}
-      <AlertDialog
-        open={!!confirmTradeNo}
-        onOpenChange={(open) => !open && setConfirmTradeNo(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t('Complete Order')}</AlertDialogTitle>
-            <AlertDialogDescription>
+      <ConfirmDialog
+        open={confirmRecord !== null}
+        onOpenChange={(open) => !open && setConfirmRecord(null)}
+        title={t('Complete Order')}
+        confirmText={t('Confirm')}
+        isLoading={billing.completing}
+        handleConfirm={handleConfirmComplete}
+        desc={
+          <div className='space-y-3'>
+            <p>
               {t(
                 'Are you sure you want to manually complete this order? The user will be credited with the corresponding quota.'
               )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={completing}>
-              {t('Cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmComplete}
-              disabled={completing}
-            >
-              {completing ? t('Processing...') : t('Confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </p>
+            {confirmRecord && (
+              <dl className='bg-muted/50 text-foreground grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-md p-3 text-sm'>
+                <dt className='text-muted-foreground'>{t('Order No.')}</dt>
+                <dd className='font-mono break-all'>
+                  {confirmRecord.trade_no}
+                </dd>
+                <dt className='text-muted-foreground'>{t('User')}</dt>
+                <dd>
+                  {confirmRecord.username || '-'} #{confirmRecord.user_id}
+                </dd>
+                <dt className='text-muted-foreground'>{t('Topup Amount')}</dt>
+                <dd className='tabular-nums'>
+                  {formatTopupAmount(confirmRecord.amount)}
+                </dd>
+                <dt className='text-muted-foreground'>{t('Actual Amount')}</dt>
+                <dd className='tabular-nums'>
+                  {formatNumber(confirmRecord.money, locale)}
+                </dd>
+              </dl>
+            )}
+            <p className='text-warning'>
+              {t(
+                'Check that the payment arrived on the payment platform before completing it.'
+              )}
+            </p>
+          </div>
+        }
+      />
     </>
   )
 }

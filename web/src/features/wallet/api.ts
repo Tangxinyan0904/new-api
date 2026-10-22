@@ -32,6 +32,7 @@ import type {
   AffiliateRebateSummaryResponse,
   AffiliateTransferRequestResponse,
   AffiliateTransferHistoryResponse,
+  BillingHistoryFilters,
   BillingHistoryResponse,
   CompleteOrderRequest,
   CreemPaymentRequest,
@@ -253,14 +254,20 @@ export async function getUserBillingHistory(
 export async function getAllBillingHistory(
   page: number,
   pageSize: number,
-  keyword?: string
+  filters: BillingHistoryFilters = {}
 ): Promise<ApiResponse<BillingHistoryResponse>> {
   const params = new URLSearchParams({
     p: page.toString(),
     page_size: pageSize.toString(),
   })
-  if (keyword) {
-    params.append('keyword', keyword)
+  if (filters.keyword) {
+    params.append('keyword', filters.keyword)
+  }
+  if (filters.status) {
+    params.append('status', filters.status)
+  }
+  if (filters.user) {
+    params.append('user', filters.user)
   }
   const res = await api.get(`/api/user/topup?${params.toString()}`)
   return res.data

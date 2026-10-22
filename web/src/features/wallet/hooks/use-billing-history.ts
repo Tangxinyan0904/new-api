@@ -30,7 +30,7 @@ import {
   completeOrder,
   isApiSuccess,
 } from '../api'
-import type { TopupRecord } from '../types'
+import type { TopupRecord, TopupStatus } from '../types'
 
 // ============================================================================
 // Billing History Hook
@@ -44,7 +44,7 @@ interface UseBillingHistoryOptions {
 }
 
 export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
-  const { initialPage = 1, initialPageSize = 10 } = options
+  const { initialPage = 1, initialPageSize = 20 } = options
   const isAdmin = useIsAdmin()
 
   const [records, setRecords] = useState<TopupRecord[]>([])
@@ -53,6 +53,10 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   const [pageSize, setPageSize] = useState(initialPageSize)
   const [keyword, setKeyword] = useState('')
   const debouncedKeyword = useDebounce(keyword)
+  // Admin-only filters
+  const [status, setStatus] = useState<TopupStatus | null>(null)
+  const [user, setUser] = useState('')
+  const debouncedUser = useDebounce(user)
   const requestIdRef = useRef(0)
   const [loading, setLoading] = useState(false)
   const [completing, setCompleting] = useState(false)
@@ -65,14 +69,25 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     setLoading(true)
     try {
       const response = isAdmin
-        ? await getAllBillingHistory(page, pageSize, debouncedKeyword)
+        ? await getAllBillingHistory(page, pageSize, {
+            keyword: debouncedKeyword,
+            status: status ?? undefined,
+            user: debouncedUser.trim(),
+          })
         : await getUserBillingHistory(page, pageSize, debouncedKeyword)
 
       if (requestId !== requestIdRef.current) return
 
       if (isApiSuccess(response) && response.data) {
+        const nextTotal = response.data.total || 0
         setRecords(response.data.items || [])
-        setTotal(response.data.total || 0)
+        setTotal(nextTotal)
+        // Completing the last order of a filtered page can leave the page
+        // past the end; step back to the last page that still has orders.
+        const lastPage = Math.max(1, Math.ceil(nextTotal / pageSize))
+        if (page > lastPage) {
+          setPage(lastPage)
+        }
       } else {
         handleServerError(response, i18next.t('Failed to load billing history'))
         setRecords([])
@@ -88,7 +103,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
         setLoading(false)
       }
     }
-  }, [debouncedKeyword, isAdmin, page, pageSize])
+  }, [debouncedKeyword, debouncedUser, isAdmin, page, pageSize, status])
 
   /**
    * Complete a pending order (admin only)
@@ -146,12 +161,48 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     setPage(1) // Reset to first page when searching
   }, [])
 
-  // Fetch data after the search draft has settled.
+  /**
+   * Filter by status (admin only); null shows every status
+   */
+  const handleStatusChange = useCallback(
+    (newStatus: TopupStatus | null) => {
+      // Re-picking the current status starts no request, so the one in
+      // flight must not be dropped.
+      if (newStatus === status) return
+      requestIdRef.current += 1
+      setStatus(newStatus)
+      setPage(1)
+    },
+    [status]
+  )
+
+  /**
+   * Filter by user ID or username (admin only)
+   */
+  const handleUserChange = useCallback(
+    (newUser: string) => {
+      if (newUser === user) return
+      requestIdRef.current += 1
+      setUser(newUser)
+      setPage(1)
+    },
+    [user]
+  )
+
+  const handleClearFilters = useCallback(() => {
+    requestIdRef.current += 1
+    setKeyword('')
+    setStatus(null)
+    setUser('')
+    setPage(1)
+  }, [])
+
+  // Fetch data after the search drafts have settled.
   useEffect(() => {
-    if (keyword !== debouncedKeyword) return
+    if (keyword !== debouncedKeyword || user !== debouncedUser) return
 
     fetchBillingHistory()
-  }, [debouncedKeyword, fetchBillingHistory, keyword])
+  }, [debouncedKeyword, debouncedUser, fetchBillingHistory, keyword, user])
 
   return {
     records,
@@ -159,12 +210,17 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     page,
     pageSize,
     keyword,
+    status,
+    user,
     loading,
     completing,
     isAdmin,
     handlePageChange,
     handlePageSizeChange,
     handleSearch,
+    handleStatusChange,
+    handleUserChange,
+    handleClearFilters,
     handleCompleteOrder,
     refresh: fetchBillingHistory,
   }

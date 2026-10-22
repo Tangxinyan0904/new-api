@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -550,18 +551,34 @@ func GetUserTopUps(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+// adminTopUp is an admin list row: the order plus its owner's username.
+type adminTopUp struct {
+	*model.TopUp
+	Username string `json:"username"`
+}
+
 // GetAllTopUps 管理员获取全平台充值记录
 func GetAllTopUps(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
-	keyword := c.Query("keyword")
+	filter := model.TopUpFilter{
+		Keyword: c.Query("keyword"),
+		Status:  c.Query("status"),
+		User:    strings.TrimSpace(c.Query("user")),
+	}
+	switch filter.Status {
+	case "", common.TopUpStatusPending, common.TopUpStatusSuccess, common.TopUpStatusFailed, common.TopUpStatusExpired:
+	default:
+		common.ApiErrorT(c, "Invalid parameters")
+		return
+	}
 
 	var (
 		topups []*model.TopUp
 		total  int64
 		err    error
 	)
-	if keyword != "" {
-		topups, total, err = model.SearchAllTopUps(keyword, pageInfo)
+	if filter != (model.TopUpFilter{}) {
+		topups, total, err = model.SearchAllTopUps(filter, pageInfo)
 	} else {
 		topups, total, err = model.GetAllTopUps(pageInfo)
 	}
@@ -570,8 +587,22 @@ func GetAllTopUps(c *gin.Context) {
 		return
 	}
 
+	userIds := make([]int, 0, len(topups))
+	for _, topUp := range topups {
+		userIds = append(userIds, topUp.UserId)
+	}
+	usernames, err := model.GetUsernamesByIds(lo.Uniq(userIds))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	items := make([]adminTopUp, 0, len(topups))
+	for _, topUp := range topups {
+		items = append(items, adminTopUp{TopUp: topUp, Username: usernames[topUp.UserId]})
+	}
+
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(topups)
+	pageInfo.SetItems(items)
 	common.ApiSuccess(c, pageInfo)
 }
 
