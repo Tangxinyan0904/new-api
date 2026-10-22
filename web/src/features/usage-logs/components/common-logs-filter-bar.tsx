@@ -69,6 +69,11 @@ type CommonLogDraft = {
   sourceKey: string
   filters: CommonLogFilters
   logType: LogTypeValue
+  /**
+   * Whether a time range was chosen. An unchosen range stays out of the URL so
+   * every request, refreshes included, covers today until an hour from now.
+   */
+  timePinned: boolean
 }
 
 function isLogTypeValue(value: string): value is LogTypeValue {
@@ -124,7 +129,7 @@ export function CommonLogsFilterBar<TData>(
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const searchParams = route.useSearch()
-  const { isAdminView: isAdmin } = useLogsViewScope()
+  const { isAdminView: isAdmin, viewAccess } = useLogsViewScope()
   const { sensitiveVisible, setSensitiveVisible } = useUsageLogsContext()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
   const { data: adminGroups } = useQuery({
@@ -177,6 +182,7 @@ export function CommonLogsFilterBar<TData>(
       sourceKey: buildSearchSourceKey(sourceValues),
       filters,
       logType: getLogTypeValue(searchParams.type),
+      timePinned: Boolean(searchParams.startTime || searchParams.endTime),
     }
   }, [
     searchParams.startTime,
@@ -205,6 +211,8 @@ export function CommonLogsFilterBar<TData>(
           sourceKey: searchState.sourceKey,
           filters: { ...base.filters, [field]: value },
           logType: base.logType,
+          timePinned:
+            base.timePinned || field === 'startTime' || field === 'endTime',
         }
       })
     },
@@ -212,8 +220,15 @@ export function CommonLogsFilterBar<TData>(
   )
 
   const handleApply = useCallback(
-    (nextFilters: CommonLogFilters = filters) => {
+    (
+      nextFilters: CommonLogFilters = filters,
+      timePinned: boolean = activeDraft.timePinned
+    ) => {
       const filterParams = buildSearchParams(nextFilters, 'common')
+      if (!timePinned) {
+        delete filterParams.startTime
+        delete filterParams.endTime
+      }
       navigate({
         to: '/usage-logs/$section',
         params: { section: 'common' },
@@ -226,21 +241,19 @@ export function CommonLogsFilterBar<TData>(
       queryClient.invalidateQueries({ queryKey: ['logs'] })
       queryClient.invalidateQueries({ queryKey: ['usage-logs-stats'] })
     },
-    [filters, logType, navigate, queryClient]
+    [activeDraft.timePinned, filters, logType, navigate, queryClient]
   )
 
   const handleReset = useCallback(() => {
     const { start, end } = getDefaultTimeRange()
     const resetFilters: CommonLogFilters = { startTime: start, endTime: end }
-    const resetSearch = {
-      type: [LOG_TYPE_ALL_VALUE],
-      startTime: start.getTime(),
-      endTime: end.getTime(),
-    }
+    // The default range stays out of the URL so it keeps moving with time.
+    const resetSearch = { type: [LOG_TYPE_ALL_VALUE] }
     setDraft({
       sourceKey: buildSearchSourceKey(resetSearch),
       filters: resetFilters,
       logType: LOG_TYPE_ALL_VALUE,
+      timePinned: false,
     })
 
     navigate({
@@ -328,7 +341,7 @@ export function CommonLogsFilterBar<TData>(
           handleChange('startTime', start)
           handleChange('endTime', end)
           if (isMobile) {
-            handleApply({ ...filters, startTime: start, endTime: end })
+            handleApply({ ...filters, startTime: start, endTime: end }, true)
           }
         }}
       />
@@ -377,6 +390,7 @@ export function CommonLogsFilterBar<TData>(
               sourceKey: searchState.sourceKey,
               filters: base.filters,
               logType: nextLogType,
+              timePinned: base.timePinned,
             }
           })
         }}
@@ -514,11 +528,11 @@ export function CommonLogsFilterBar<TData>(
       }
       hasAdvancedActiveFilters={hasExpandedFilters}
       advancedFilterCount={expandedFilterCount}
-      hasActiveFilters={hasAdditionalFilters}
+      hasActiveFilters={hasAdditionalFilters || activeDraft.timePinned}
       refreshActions={
         <LogRefreshActions
           logCategory='common'
-          isAdminView={isAdmin}
+          viewAccess={viewAccess}
           scopeKey={JSON.stringify(searchParams)}
         />
       }

@@ -35,10 +35,12 @@ import {
   reduceAutoRefreshState,
 } from '../lib/auto-refresh'
 import type { LogCategory } from '../types'
+import type { LogsViewAccess } from './usage-logs-provider'
 
 interface LogRefreshActionsProps {
   logCategory: LogCategory
-  isAdminView: boolean
+  /** The view the list query is keyed by; see usage-logs-table.tsx. */
+  viewAccess: LogsViewAccess
   scopeKey: string
 }
 
@@ -53,10 +55,10 @@ function LogRefreshActionsSession(props: LogRefreshActionsProps) {
   const mountedRef = useRef(true)
 
   const fetchingLogs = useIsFetching({
-    queryKey: ['logs', props.logCategory, props.isAdminView],
+    queryKey: ['logs', props.logCategory, props.viewAccess],
   })
   const fetchingStats = useIsFetching({
-    queryKey: ['usage-logs-stats', props.isAdminView],
+    queryKey: ['usage-logs-stats', props.viewAccess !== 'self'],
     predicate: () => props.logCategory === 'common',
   })
   const relevantFetching = fetchingLogs + fetchingStats
@@ -64,14 +66,14 @@ function LogRefreshActionsSession(props: LogRefreshActionsProps) {
   const runRefresh = useCallback(async (): Promise<void> => {
     const queryKeys = getUsageLogRefreshQueryKeys(
       props.logCategory,
-      props.isAdminView
+      props.viewAccess
     )
     await Promise.allSettled(
       queryKeys.map((queryKey) =>
         queryClient.refetchQueries({ queryKey, type: 'active' })
       )
     )
-  }, [props.isAdminView, props.logCategory, queryClient])
+  }, [props.viewAccess, props.logCategory, queryClient])
 
   useEffect(() => {
     mountedRef.current = true
@@ -183,9 +185,11 @@ function LogRefreshActionsSession(props: LogRefreshActionsProps) {
         variant={automaticActive ? 'secondary' : 'outline'}
         onClick={handleAutoRefresh}
         disabled={autoButtonDisabled}
-        aria-pressed={automaticActive}
+        // The name starts with the action and keeps the visible countdown.
         aria-label={
-          automaticActive ? t('Cancel auto refresh') : t('Auto refresh')
+          automaticActive
+            ? `${t('Cancel auto refresh')} (${autoLabel})`
+            : t('Auto refresh')
         }
         className='min-w-[6.5rem] tabular-nums'
       >
@@ -207,7 +211,7 @@ function LogRefreshActionsSession(props: LogRefreshActionsProps) {
 export function LogRefreshActions(props: LogRefreshActionsProps) {
   const sessionKey = getUsageLogRefreshScopeKey(
     props.logCategory,
-    props.isAdminView,
+    props.viewAccess,
     props.scopeKey
   )
 

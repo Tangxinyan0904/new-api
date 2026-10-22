@@ -346,20 +346,24 @@ describe('usage log automatic refresh state', () => {
 })
 
 describe('getUsageLogRefreshQueryKeys', () => {
-  test('returns the common, drawing, and task query prefixes', () => {
-    assert.deepEqual(getUsageLogRefreshQueryKeys('common', false), [
-      ['logs', 'common', false],
+  test('keys the list by view access and the stats by admin view', () => {
+    assert.deepEqual(getUsageLogRefreshQueryKeys('common', 'self'), [
+      ['logs', 'common', 'self'],
       ['usage-logs-stats', false],
     ])
-    assert.deepEqual(getUsageLogRefreshQueryKeys('common', true), [
-      ['logs', 'common', true],
+    assert.deepEqual(getUsageLogRefreshQueryKeys('common', 'admin'), [
+      ['logs', 'common', 'admin'],
       ['usage-logs-stats', true],
     ])
-    assert.deepEqual(getUsageLogRefreshQueryKeys('drawing', true), [
-      ['logs', 'drawing', true],
+    assert.deepEqual(getUsageLogRefreshQueryKeys('common', 'root'), [
+      ['logs', 'common', 'root'],
+      ['usage-logs-stats', true],
     ])
-    assert.deepEqual(getUsageLogRefreshQueryKeys('task', false), [
-      ['logs', 'task', false],
+    assert.deepEqual(getUsageLogRefreshQueryKeys('drawing', 'admin'), [
+      ['logs', 'drawing', 'admin'],
+    ])
+    assert.deepEqual(getUsageLogRefreshQueryKeys('task', 'self'), [
+      ['logs', 'task', 'self'],
     ])
   })
 })
@@ -368,25 +372,29 @@ describe('getUsageLogRefreshScopeKey', () => {
   test('changes when any applied query identity changes', () => {
     const baseScope = getUsageLogRefreshScopeKey(
       'common',
-      false,
+      'self',
       '{"page":1,"pageSize":20}'
     )
 
     assert.equal(
       baseScope,
-      getUsageLogRefreshScopeKey('common', false, '{"page":1,"pageSize":20}')
+      getUsageLogRefreshScopeKey('common', 'self', '{"page":1,"pageSize":20}')
     )
     assert.notEqual(
       baseScope,
-      getUsageLogRefreshScopeKey('common', true, '{"page":1,"pageSize":20}')
+      getUsageLogRefreshScopeKey('common', 'admin', '{"page":1,"pageSize":20}')
+    )
+    assert.notEqual(
+      getUsageLogRefreshScopeKey('common', 'admin', '{"page":1,"pageSize":20}'),
+      getUsageLogRefreshScopeKey('common', 'root', '{"page":1,"pageSize":20}')
     )
     assert.notEqual(
       baseScope,
-      getUsageLogRefreshScopeKey('common', false, '{"page":2,"pageSize":20}')
+      getUsageLogRefreshScopeKey('common', 'self', '{"page":2,"pageSize":20}')
     )
     assert.notEqual(
       baseScope,
-      getUsageLogRefreshScopeKey('drawing', false, '{"page":1,"pageSize":20}')
+      getUsageLogRefreshScopeKey('drawing', 'self', '{"page":1,"pageSize":20}')
     )
   })
 })
