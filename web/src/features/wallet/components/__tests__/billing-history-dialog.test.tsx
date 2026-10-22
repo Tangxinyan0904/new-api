@@ -174,3 +174,136 @@ it('keeps the admin filters away from ordinary users', async () => {
     /^\/api\/user\/topup\/self\?/
   )
 })
+
+it('finishes loading when the current status is picked again mid-request', async () => {
+  const user = userEvent.setup()
+  const get = mockList([record({})])
+  render(<BillingHistoryDialog open onOpenChange={vi.fn()} />)
+  await screen.findByText('USR7NOabc')
+  let resolvePending: (value: unknown) => void = () => {}
+  get.mockImplementationOnce(
+    () => new Promise((resolve) => (resolvePending = resolve))
+  )
+  await user.click(screen.getByRole('combobox', { name: 'Status' }))
+  await user.click(await screen.findByRole('option', { name: 'Pending' }))
+  await waitFor(() =>
+    expect(requestedParams(get).get('status')).toBe('pending')
+  )
+
+  await user.click(screen.getByRole('combobox', { name: 'Status' }))
+  await user.click(await screen.findByRole('option', { name: 'Pending' }))
+  resolvePending({
+    data: {
+      success: true,
+      data: { items: [record({ trade_no: 'USR7NOpending' })], total: 1 },
+    },
+  })
+
+  expect(await screen.findByText('USR7NOpending')).toBeVisible()
+})
+
+it('steps back to the last page when completing empties the current one', async () => {
+  const user = userEvent.setup()
+  let completed = false
+  vi.spyOn(api, 'get').mockImplementation(async (url: string) => {
+    const page = new URLSearchParams(url.slice(url.indexOf('?') + 1)).get('p')
+    if (page === '2') {
+      const items = completed
+        ? []
+        : [record({ id: 21, trade_no: 'USR7NOlast', status: 'pending' })]
+      return {
+        data: { success: true, data: { items, total: completed ? 20 : 21 } },
+      }
+    }
+    return {
+      data: {
+        success: true,
+        data: {
+          items: [record({ status: 'pending' })],
+          total: completed ? 20 : 21,
+        },
+      },
+    }
+  })
+  vi.spyOn(api, 'post').mockImplementation(async () => {
+    completed = true
+    return { data: { success: true } }
+  })
+  render(<BillingHistoryDialog open onOpenChange={vi.fn()} />)
+  await screen.findByText('USR7NOabc')
+  await user.click(screen.getByRole('button', { name: 'Next' }))
+  await screen.findByText('USR7NOlast')
+
+  await user.click(screen.getByRole('button', { name: 'Complete Order' }))
+  await user.click(
+    within(await screen.findByRole('alertdialog')).getByRole('button', {
+      name: 'Confirm',
+    })
+  )
+
+  expect(await screen.findByText('USR7NOabc')).toBeVisible()
+  expect(screen.queryByText(/21-20/)).toBeNull()
+})
+
+function onPhone() {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: 375,
+  })
+}
+
+afterEach(() => {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    writable: true,
+    value: 1024,
+  })
+})
+
+it('lists orders without a table on a phone', async () => {
+  onPhone()
+  mockList([record({ status: 'pending' })])
+  render(<BillingHistoryDialog open onOpenChange={vi.fn()} />)
+
+  await waitFor(() => expect(screen.queryByRole('table')).toBeNull())
+  expect(screen.getByText('USR7NOabc')).toBeVisible()
+  expect(screen.getByText('Pending')).toBeVisible()
+})
+
+it('filters to a user from the phone list', async () => {
+  onPhone()
+  const user = userEvent.setup()
+  const get = mockList([record({})])
+  render(<BillingHistoryDialog open onOpenChange={vi.fn()} />)
+  await waitFor(() => expect(screen.queryByRole('table')).toBeNull())
+
+  await user.click(screen.getByRole('button', { name: /alice/ }))
+
+  await waitFor(() => expect(requestedParams(get).get('user')).toBe('7'))
+})
+
+it('opens the completion check from the phone list', async () => {
+  onPhone()
+  const user = userEvent.setup()
+  mockList([record({ status: 'pending' })])
+  render(<BillingHistoryDialog open onOpenChange={vi.fn()} />)
+  await waitFor(() => expect(screen.queryByRole('table')).toBeNull())
+
+  await user.click(screen.getByRole('button', { name: 'Complete Order' }))
+
+  const confirm = await screen.findByRole('alertdialog')
+  expect(within(confirm).getByText('USR7NOabc')).toBeVisible()
+})
+
+it('keeps admin actions out of the phone list for ordinary users', async () => {
+  onPhone()
+  signInAs(ROLE.USER)
+  mockList([record({ status: 'pending', username: undefined })])
+  render(<BillingHistoryDialog open onOpenChange={vi.fn()} />)
+  await waitFor(() => expect(screen.queryByRole('table')).toBeNull())
+
+  expect(screen.getByText('USR7NOabc')).toBeVisible()
+  expect(screen.queryByRole('button', { name: /#7/ })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Complete Order' })).toBeNull()
+})

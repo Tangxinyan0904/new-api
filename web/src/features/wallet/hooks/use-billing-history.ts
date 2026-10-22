@@ -79,8 +79,15 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
       if (requestId !== requestIdRef.current) return
 
       if (isApiSuccess(response) && response.data) {
+        const nextTotal = response.data.total || 0
         setRecords(response.data.items || [])
-        setTotal(response.data.total || 0)
+        setTotal(nextTotal)
+        // Completing the last order of a filtered page can leave the page
+        // past the end; step back to the last page that still has orders.
+        const lastPage = Math.max(1, Math.ceil(nextTotal / pageSize))
+        if (page > lastPage) {
+          setPage(lastPage)
+        }
       } else {
         handleServerError(response, i18next.t('Failed to load billing history'))
         setRecords([])
@@ -157,20 +164,30 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   /**
    * Filter by status (admin only); null shows every status
    */
-  const handleStatusChange = useCallback((newStatus: TopupStatus | null) => {
-    requestIdRef.current += 1
-    setStatus(newStatus)
-    setPage(1)
-  }, [])
+  const handleStatusChange = useCallback(
+    (newStatus: TopupStatus | null) => {
+      // Re-picking the current status starts no request, so the one in
+      // flight must not be dropped.
+      if (newStatus === status) return
+      requestIdRef.current += 1
+      setStatus(newStatus)
+      setPage(1)
+    },
+    [status]
+  )
 
   /**
    * Filter by user ID or username (admin only)
    */
-  const handleUserChange = useCallback((newUser: string) => {
-    requestIdRef.current += 1
-    setUser(newUser)
-    setPage(1)
-  }, [])
+  const handleUserChange = useCallback(
+    (newUser: string) => {
+      if (newUser === user) return
+      requestIdRef.current += 1
+      setUser(newUser)
+      setPage(1)
+    },
+    [user]
+  )
 
   const handleClearFilters = useCallback(() => {
     requestIdRef.current += 1

@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Dialog } from '@/components/dialog'
+import { EmptyState } from '@/components/empty-state'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -33,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
 import { useBillingHistory } from '../../hooks/use-billing-history'
@@ -48,7 +50,8 @@ interface BillingHistoryDialogProps {
 const ALL_STATUSES = 'all'
 
 export function BillingHistoryDialog(props: BillingHistoryDialogProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const billing = useBillingHistory()
   const [confirmRecord, setConfirmRecord] = useState<TopupRecord | null>(null)
 
@@ -88,14 +91,15 @@ export function BillingHistoryDialog(props: BillingHistoryDialogProps) {
     )
   } else if (billing.records.length === 0) {
     content = (
-      <div className='text-muted-foreground flex h-full min-h-40 flex-col items-center justify-center py-10 text-center'>
-        <p className='text-sm font-medium'>{t('No billing records found')}</p>
-        <p className='mt-1 text-xs'>
-          {hasFilters
+      <EmptyState
+        title={t('No billing records found')}
+        description={
+          hasFilters
             ? t('Try adjusting your search')
-            : t('Your transaction history will appear here')}
-        </p>
-      </div>
+            : t('Your transaction history will appear here')
+        }
+        className='h-full min-h-40'
+      />
     )
   } else {
     content = (
@@ -213,11 +217,11 @@ export function BillingHistoryDialog(props: BillingHistoryDialogProps) {
         {/* Pagination */}
         <div className='flex shrink-0 items-center justify-between gap-3'>
           <div className='text-muted-foreground text-xs sm:text-sm'>
-            {billing.total > 0 && (
+            {billing.records.length > 0 && (
               <>
                 {t('Showing')} {(billing.page - 1) * billing.pageSize + 1}-
                 {Math.min(billing.page * billing.pageSize, billing.total)}{' '}
-                {t('of')} {formatNumber(billing.total)}
+                {t('of')} {formatNumber(billing.total, locale)}
               </>
             )}
           </div>
@@ -283,7 +287,7 @@ export function BillingHistoryDialog(props: BillingHistoryDialogProps) {
                 </dd>
                 <dt className='text-muted-foreground'>{t('Actual Amount')}</dt>
                 <dd className='tabular-nums'>
-                  {formatNumber(confirmRecord.money)}
+                  {formatNumber(confirmRecord.money, locale)}
                 </dd>
               </dl>
             )}

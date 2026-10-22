@@ -28,6 +28,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { TableId } from '@/components/table-id'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -54,7 +55,8 @@ interface BillingHistoryRecordsProps {
  * Billing records as a dense table on desktop and a compact list on phones.
  */
 export function BillingHistoryRecords(props: BillingHistoryRecordsProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const isMobile = useIsMobile()
 
   const renderStatus = (record: TopupRecord) => {
@@ -146,7 +148,7 @@ export function BillingHistoryRecords(props: BillingHistoryRecordsProps) {
       header: t('Actual Amount'),
       className: staticDataTableClassNames.compactHeaderCellRight,
       cellClassName: cn(ROW_CELL, 'text-right tabular-nums'),
-      cell: (record) => formatNumber(record.money),
+      cell: (record) => formatNumber(record.money, locale),
     },
     {
       id: 'status',
@@ -210,7 +212,7 @@ export function BillingHistoryRecords(props: BillingHistoryRecordsProps) {
             </div>
             <div className='flex shrink-0 items-center gap-2'>
               <span className='text-muted-foreground tabular-nums'>
-                {t('Actual Amount')} {formatNumber(record.money)}
+                {t('Actual Amount')} {formatNumber(record.money, locale)}
               </span>
               {props.isAdmin ? renderCompleteAction(record) : null}
             </div>

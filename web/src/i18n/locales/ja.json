@@ -7812,6 +7812,6 @@
     "A canvas update is already running": "キャンバスの更新はすでに実行中です",
     "Order No.": "注文番号",
     "Show only this user's orders": "このユーザーの注文のみ表示",
-    "Check that the payment arrived on the payment platform before completing it.": "補完する前に、決済プラットフォームで入金を確認してください。"
+    "Check that the payment arrived on the payment platform before completing it.": "手動チャージの前に、決済プラットフォームで入金を確認してください。"
   }
 }
