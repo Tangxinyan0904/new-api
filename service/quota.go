@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
@@ -15,6 +16,8 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
+
+	"github.com/bytedance/gopkg/util/gopool"
 
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
@@ -143,7 +146,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		return fmt.Errorf("token quota is not enough, token remain quota: %s, need quota: %s", logger.FormatQuota(token.RemainQuota), logger.FormatQuota(quota))
 	}
 
-	err = PostConsumeQuota(relayInfo, quota, 0)
+	err = PostConsumeQuota(relayInfo, quota, 0, false)
 	if err != nil {
 		return err
 	}
@@ -427,12 +430,12 @@ type postConsumeQuotaResult struct {
 	TokenApplied   bool
 }
 
-func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) error {
-	_, err := postConsumeQuotaWithResult(relayInfo, quota, preConsumedQuota)
+func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) error {
+	_, err := postConsumeQuotaWithResult(relayInfo, quota, preConsumedQuota, sendEmail)
 	return err
 }
 
-func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) (result postConsumeQuotaResult, err error) {
+func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int, sendEmail bool) (result postConsumeQuotaResult, err error) {
 
 	// 1) Consume from wallet quota OR subscription item
 	if relayInfo != nil && relayInfo.BillingSource == BillingSourceSubscription {
@@ -471,5 +474,92 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 		result.TokenApplied = true
 	}
 
+	if sendEmail {
+		if (quota + preConsumedQuota) != 0 {
+			checkAndSendQuotaNotify(relayInfo, quota, preConsumedQuota)
+		}
+	}
+
 	return result, nil
+}
+
+func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {
+	gopool.Go(func() {
+		userSetting := relayInfo.UserSetting
+		// UserQuota is the balance before this request; quota plus
+		// preConsumedQuota is what the request finally cost.
+		balanceAfter := relayInfo.UserQuota - (quota + preConsumedQuota)
+		if !quotaReminderDue(userSetting, int64(relayInfo.UserQuota), int64(balanceAfter)) {
+			return
+		}
+		lang := userSetting.Language
+		prompt := i18n.Translate(lang, i18n.MsgNotifyQuotaLowTitle)
+		content, values := quotaNotifyContent(lang, userSetting.NotifyType, prompt, logger.FormatQuota(balanceAfter))
+		err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt, content, values))
+		if err != nil {
+			common.SysError(common.LogText("failed to send quota notify to user %d: %s", relayInfo.UserId, err.Error()))
+		}
+	})
+}
+
+func checkAndSendSubscriptionQuotaNotify(relayInfo *relaycommon.RelayInfo) {
+	gopool.Go(func() {
+		if relayInfo == nil {
+			return
+		}
+		if relayInfo.SubscriptionId == 0 || relayInfo.SubscriptionAmountTotal <= 0 {
+			return
+		}
+
+		userSetting := relayInfo.UserSetting
+		usedBefore := relayInfo.SubscriptionAmountUsedAfterPreConsume - relayInfo.SubscriptionPreConsumed
+		usedAfter := relayInfo.SubscriptionAmountUsedAfterPreConsume + relayInfo.SubscriptionPostDelta
+		remaining := relayInfo.SubscriptionAmountTotal - usedAfter
+		if !quotaReminderDue(userSetting, relayInfo.SubscriptionAmountTotal-usedBefore, remaining) {
+			return
+		}
+
+		lang := userSetting.Language
+		prompt := i18n.Translate(lang, i18n.MsgNotifySubscriptionQuotaLowTitle)
+		content, values := quotaNotifyContent(lang, userSetting.NotifyType, prompt, logger.FormatQuota(int(remaining)))
+		if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt, content, values)); err != nil {
+			common.SysError(common.LogText("failed to send subscription quota notify to user %d: %s", relayInfo.UserId, err.Error()))
+		}
+	})
+}
+
+// quotaReminderDue reports whether a charge that moved a balance (wallet or
+// subscription) from before to after earns a low-balance reminder. The site
+// and the user must both have reminders on, and the charge must cross the
+// user's threshold, or the site default when the user set none. A balance
+// already below the threshold earns nothing more until a top-up lifts it back
+// above, so a user gets one reminder per drop.
+func quotaReminderDue(userSetting dto.UserSetting, before int64, after int64) bool {
+	if !common.QuotaRemindEnabled {
+		return false
+	}
+	if userSetting.QuotaWarningEnabled != nil && !*userSetting.QuotaWarningEnabled {
+		return false
+	}
+	threshold := float64(common.QuotaRemindThreshold)
+	if userSetting.QuotaWarningThreshold != 0 {
+		threshold = userSetting.QuotaWarningThreshold
+	}
+	return float64(before) >= threshold && float64(after) < threshold
+}
+
+// quotaNotifyContent renders a low-quota notice in the user's saved language.
+// Bark and Gotify get plain text; email and webhook get HTML with the top-up
+// link. values stay in the notify payload for webhook receivers.
+func quotaNotifyContent(lang string, notifyType string, prompt string, remaining string) (string, []any) {
+	switch notifyType {
+	case dto.NotifyTypeBark:
+		// Bark推送使用简短文本，不支持HTML
+		return i18n.Translate(lang, i18n.MsgNotifyQuotaLowBark, map[string]any{"Prompt": prompt, "Quota": remaining}), []any{prompt, remaining}
+	case dto.NotifyTypeGotify:
+		return i18n.Translate(lang, i18n.MsgNotifyQuotaLowGotify, map[string]any{"Prompt": prompt, "Quota": remaining}), []any{prompt, remaining}
+	default:
+		topUpLink := PaymentReturnURL("/wallet")
+		return i18n.Translate(lang, i18n.MsgNotifyQuotaLowEmail, map[string]any{"Prompt": prompt, "Quota": remaining, "Link": topUpLink}), []any{prompt, remaining, topUpLink, topUpLink}
+	}
 }

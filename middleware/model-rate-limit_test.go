@@ -91,6 +91,19 @@ func TestModelRequestRateLimitUsesUserRuleBeforeGroupRule(t *testing.T) {
 	assert.Equal(t, http.StatusTooManyRequests, performModelRateLimitRequest(router, false).Code)
 }
 
+func TestModelRequestRateLimitCountsUserRuleAcrossGroups(t *testing.T) {
+	setupModelRequestRateLimitTest(
+		t,
+		map[string][2]int{"vip": {3, 3}, "standard": {3, 3}},
+		map[int][2]int{42: {1, 3}},
+	)
+
+	assert.Equal(t, http.StatusOK, performModelRateLimitRequest(newModelRequestRateLimitRouter(42, "vip"), false).Code)
+	assert.Equal(t, http.StatusTooManyRequests, performModelRateLimitRequest(newModelRequestRateLimitRouter(42, "standard"), false).Code)
+	assert.Equal(t, http.StatusOK, performModelRateLimitRequest(newModelRequestRateLimitRouter(7, "vip"), false).Code)
+	assert.Equal(t, http.StatusOK, performModelRateLimitRequest(newModelRequestRateLimitRouter(7, "standard"), false).Code)
+}
+
 func TestModelRequestRateLimitRecordsOnlySuccessfulResponses(t *testing.T) {
 	setupModelRequestRateLimitTest(t, map[string][2]int{}, map[int][2]int{})
 	setting.ModelRequestRateLimitCount = 0

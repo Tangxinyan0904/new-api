@@ -155,7 +155,7 @@ func TestUpdateRateLimitSettingsPersistsCompleteConfiguration(t *testing.T) {
 	assert.Equal(t, `{"42":[20,10]}`, optionValues["ModelRequestRateLimitUser"])
 	assert.Equal(t, "1440", optionValues["ModelRequestRateLimitDistillationObservationMinutes"])
 
-	total, success := setting.ResolveModelRequestRateLimit(42, "vip", 500, 300)
+	total, success, _ := setting.ResolveModelRequestRateLimit(42, "vip", 500, 300)
 	assert.Equal(t, 20, total)
 	assert.Equal(t, 10, success)
 	assert.Equal(t, setting.DistillationRateLimitSettings{

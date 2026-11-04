@@ -118,26 +118,26 @@ func GetUserRateLimit(userID int) (totalCount, successCount int, found bool) {
 	return limits[0], limits[1], true
 }
 
+// ResolveModelRequestRateLimit picks the request limits of a user in a group.
+// A user's own limit is that user's allowance across all groups and is
+// counted per user. Otherwise a group with its own limit is counted per user
+// and group (perGroup), and any other group shares the user's global count.
 func ResolveModelRequestRateLimit(
 	userID int,
 	group string,
 	globalTotal int,
 	globalSuccess int,
-) (totalCount, successCount int) {
+) (totalCount, successCount int, perGroup bool) {
 	ModelRequestRateLimitMutex.RLock()
 	defer ModelRequestRateLimitMutex.RUnlock()
 
-	totalCount = globalTotal
-	successCount = globalSuccess
-	if limits, found := ModelRequestRateLimitGroup[group]; found {
-		totalCount = limits[0]
-		successCount = limits[1]
-	}
 	if limits, found := ModelRequestRateLimitUser[userID]; found {
-		totalCount = limits[0]
-		successCount = limits[1]
+		return limits[0], limits[1], false
 	}
-	return totalCount, successCount
+	if limits, found := ModelRequestRateLimitGroup[group]; found {
+		return limits[0], limits[1], true
+	}
+	return globalTotal, globalSuccess, false
 }
 
 func CheckModelRequestRateLimitGroup(jsonStr string) error {

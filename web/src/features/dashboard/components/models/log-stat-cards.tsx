@@ -53,11 +53,9 @@ export function LogStatCards(props: LogStatCardsProps) {
   const statCardsConfig = useModelStatCardsConfig()
   const user = useAuthStore((state) => state.auth.user)
   const isAdmin = !!(user?.role && user.role >= 10)
-  const [stats, setStats] = useState<{
-    totalQuota: number
-    totalCount: number
-    totalTokens: number
-  } | null>(null)
+  const [stats, setStats] = useState<ReturnType<
+    typeof calculateDashboardStats
+  > | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
@@ -118,6 +116,8 @@ export function LogStatCards(props: LogStatCardsProps) {
     rpm: stats?.totalCount ?? 0,
     quota: stats?.totalQuota ?? 0,
     tpm: stats?.totalTokens ?? 0,
+    cacheRead: stats?.totalCacheReadTokens ?? 0,
+    cacheCreation: stats?.totalCacheCreationTokens ?? 0,
   }
 
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
@@ -164,7 +164,7 @@ export function LogStatCards(props: LogStatCardsProps) {
     <div className='overflow-hidden rounded-lg border'>
       <StatStrip
         items={items}
-        columnsClassName='grid-cols-2 sm:grid-cols-3 2xl:grid-cols-6'
+        columnsClassName='grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8'
       />
     </div>
   )

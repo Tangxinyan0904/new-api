@@ -32,7 +32,7 @@ const data: QuotaDataItem[] = Array.from({ length: 7 }, (_, index) => ({
   created_at: 0,
   model_name: `model-${index + 1}`,
   token_used: (7 - index) * 1000,
-  cache_tokens: index === 6 ? 0 : (7 - index) * 100,
+  cache_read_tokens: index === 6 ? 0 : (7 - index) * 100,
   input_tokens: index === 6 ? 0 : (7 - index) * 400,
 }))
 
