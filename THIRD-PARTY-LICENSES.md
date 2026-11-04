@@ -84,8 +84,8 @@ Transitive dependencies should be audited before a final external release.
 | web      | production  | npm       | `@tanstack/react-router`                              | `1.170.18`                           | MIT                                                |
 | web      | production  | npm       | `@tanstack/react-table`                               | `8.21.3`                             | MIT                                                |
 | web      | production  | npm       | `@tanstack/react-virtual`                             | `3.14.6`                             | MIT                                                |
-| web      | production  | npm       | `@visactor/react-vchart`                              | `2.1.4`                              | MIT                                                |
-| web      | production  | npm       | `@visactor/vchart`                                    | `2.1.4`                              | MIT                                                |
+| web      | production  | npm       | `@visactor/react-vchart`                              | `2.1.7`                              | MIT                                                |
+| web      | production  | npm       | `@visactor/vchart`                                    | `2.1.7`                              | MIT                                                |
 | web      | production  | npm       | `ai`                                                  | `7.0.31`                             | Apache-2.0                                         |
 | web      | production  | npm       | `auto-skeleton-react`                                 | `1.0.5`                              | MIT                                                |
 | web      | production  | npm       | `axios`                                               | `1.18.1`                             | MIT                                                |
@@ -93,11 +93,11 @@ Transitive dependencies should be audited before a final external release.
 | web      | production  | npm       | `clsx`                                                | `2.1.1`                              | MIT                                                |
 | web      | production  | npm       | `cmdk`                                                | `1.1.1`                              | MIT                                                |
 | web      | production  | npm       | `dayjs`                                               | `1.11.21`                            | MIT                                                |
-| web      | production  | npm       | `dompurify`                                           | `3.4.11`                             | Apache-2.0 OR MPL-2.0                              |
+| web      | production  | npm       | `dompurify`                                           | `3.4.17`                             | Apache-2.0 OR MPL-2.0                              |
 | web      | production  | npm       | `i18next`                                             | `26.3.6`                             | MIT                                                |
 | web      | production  | npm       | `i18next-browser-languagedetector`                    | `8.2.1`                              | MIT                                                |
 | web      | production  | npm       | `input-otp`                                           | `1.4.2`                              | MIT                                                |
-| web      | production  | npm       | `katex`                                               | `0.17.0`                             | MIT                                                |
+| web      | production  | npm       | `katex`                                               | `0.18.2`                             | MIT                                                |
 | web      | production  | npm       | `lucide-react`                                        | `1.25.0`                             | ISC                                                |
 | web      | production  | npm       | `marked`                                              | `18.0.6`                             | MIT                                                |
 | web      | production  | npm       | `motion`                                              | `12.42.2`                            | MIT                                                |
