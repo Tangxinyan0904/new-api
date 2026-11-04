@@ -72,6 +72,7 @@ afterEach(() => {
   cleanup()
   vi.unstubAllGlobals()
   useAuthStore.getState().auth.reset()
+  ticketCounts.unread = 0
 })
 
 function sidebarFor(admin?: object, user?: object, canConfigure = true) {

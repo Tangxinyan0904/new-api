@@ -711,9 +711,9 @@ func TestSecurityAccountMailsFollowTheOwnersLanguage(t *testing.T) {
 	require.NoError(t, err)
 	response := securityEnrollmentRequest("POST", "/api/oauth/email/bind", string(request), "", identity, EmailBind)
 	require.Contains(t, response.Body.String(), `"success":true`)
-	assert.Contains(t, mails("new@example.com"), "请确认将此邮箱地址绑定到您的账户。")
+	assert.Contains(t, mails("new@example.com"), "请输入下面的验证码，把这个邮箱绑定到你的 New API 账号。")
 	assert.Contains(t, mails("new@example.com"), "您的账户安全设置有变动：邮箱地址已确认。")
-	assert.Contains(t, mails("previous@example.com"), "您的账户正在申请更换邮箱地址，请确认替换当前邮箱。")
+	assert.Contains(t, mails("previous@example.com"), "你的 New API 账号申请更换邮箱，请输入下面的验证码，确认替换当前这个邮箱。")
 	assert.Contains(t, mails("previous@example.com"), "您的账户安全设置有变动：邮箱地址已更换。")
 
 	for _, tc := range []struct {
