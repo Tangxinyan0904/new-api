@@ -392,6 +392,9 @@ func migrateDB() error {
 	if err != nil {
 		return err
 	}
+	if err := migrateQuotaDataCacheTokens(); err != nil {
+		return fmt.Errorf("migrate quota_data cache tokens: %w", err)
+	}
 	if err := InitializeUserAuthVersions(); err != nil {
 		return err
 	}

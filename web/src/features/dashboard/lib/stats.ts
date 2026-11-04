@@ -38,12 +38,28 @@ export function safeDivide(
  */
 export function calculateDashboardStats(data: QuotaDataItem[]) {
   return data.reduce(
-    (acc, item) => ({
-      totalQuota: acc.totalQuota + (Number(item.quota) || 0),
-      totalCount: acc.totalCount + (Number(item.count) || 0),
-      totalTokens: acc.totalTokens + (Number(item.token_used) || 0),
-    }),
-    { totalQuota: 0, totalCount: 0, totalTokens: 0 }
+    (acc, item) => {
+      const cacheRead = item.cache_read_tokens ?? 0
+      const cacheCreation = item.cache_creation_tokens ?? 0
+      return {
+        totalQuota: acc.totalQuota + (Number(item.quota) || 0),
+        totalCount: acc.totalCount + (Number(item.count) || 0),
+        totalTokens: acc.totalTokens + (Number(item.token_used) || 0),
+        totalCacheReadTokens:
+          acc.totalCacheReadTokens +
+          (Number.isFinite(cacheRead) ? Math.max(0, cacheRead) : 0),
+        totalCacheCreationTokens:
+          acc.totalCacheCreationTokens +
+          (Number.isFinite(cacheCreation) ? Math.max(0, cacheCreation) : 0),
+      }
+    },
+    {
+      totalQuota: 0,
+      totalCount: 0,
+      totalTokens: 0,
+      totalCacheReadTokens: 0,
+      totalCacheCreationTokens: 0,
+    }
   )
 }
 
@@ -82,7 +98,7 @@ export function aggregateModelTokenUsage(
       inputTokens: 0,
     }
     usage.tokens += Number(item.token_used) || 0
-    usage.cacheTokens += Number(item.cache_tokens) || 0
+    usage.cacheTokens += Number(item.cache_read_tokens) || 0
     usage.inputTokens += Number(item.input_tokens) || 0
     byModel.set(model, usage)
   }

@@ -28,10 +28,10 @@ export interface QuotaDataItem {
   username?: string
   model_name?: string
   created_at: number
+  cache_read_tokens?: number
+  cache_creation_tokens?: number
   token_used?: number
-  /** Cached prompt tokens; recorded only since the field was added. */
-  cache_tokens?: number
-  /** Total input tokens, cached included; recorded like cache_tokens. */
+  /** Total input tokens, cache reads and writes included; recorded only since the field was added. */
   input_tokens?: number
   count?: number
   quota?: number

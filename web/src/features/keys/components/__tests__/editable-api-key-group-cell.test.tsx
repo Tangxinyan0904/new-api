@@ -70,6 +70,7 @@ const apiKey: ApiKey = {
   model_limits_enabled: true,
   model_limits: 'gpt-test',
   allow_ips: '127.0.0.1',
+  allow_user_quota_query: false,
 }
 
 afterAll(() => {

@@ -133,12 +133,12 @@ func TestConsumeLogsAddCachedAndInputTokensToDashboardData(t *testing.T) {
 	target := "/api/data/self?start_timestamp=" + strconv.FormatInt(now-3600, 10) + "&end_timestamp=" + strconv.FormatInt(now, 10)
 	var rows []model.QuotaData
 	require.NoError(t, common.Unmarshal(callUsageActivity(t, GetUserQuotaDates, 1, target), &rows))
-	got := map[string][4]int{}
+	got := map[string][5]int{}
 	for _, row := range rows {
-		got[row.ModelName] = [4]int{row.Count, row.TokenUsed, row.CacheTokens, row.InputTokens}
+		got[row.ModelName] = [5]int{row.Count, row.TokenUsed, int(row.CacheReadTokens), int(row.CacheCreationTokens), row.InputTokens}
 	}
-	assert.Equal(t, map[string][4]int{
-		"gpt-4o":        {3, 1830, 1000, 1800},
-		"claude-sonnet": {2, 320, 600, 1150},
-	}, got, "count, tokens, cached tokens, input tokens")
+	assert.Equal(t, map[string][5]int{
+		"gpt-4o":        {3, 1830, 1000, 0, 1800},
+		"claude-sonnet": {2, 320, 600, 200, 1150},
+	}, got, "count, tokens, cache reads, cache writes, input tokens")
 }

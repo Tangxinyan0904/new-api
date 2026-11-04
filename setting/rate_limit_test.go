@@ -42,17 +42,20 @@ func TestResolveModelRequestRateLimitPrefersUserThenGroup(t *testing.T) {
 		map[int][2]int{42: {20, 10}},
 	)
 
-	total, success := ResolveModelRequestRateLimit(42, "vip", 500, 300)
+	total, success, perGroup := ResolveModelRequestRateLimit(42, "vip", 500, 300)
 	assert.Equal(t, 20, total)
 	assert.Equal(t, 10, success)
+	assert.False(t, perGroup, "a user's own limit is counted across groups")
 
-	total, success = ResolveModelRequestRateLimit(7, "vip", 500, 300)
+	total, success, perGroup = ResolveModelRequestRateLimit(7, "vip", 500, 300)
 	assert.Equal(t, 200, total)
 	assert.Equal(t, 100, success)
+	assert.True(t, perGroup)
 
-	total, success = ResolveModelRequestRateLimit(7, "standard", 500, 300)
+	total, success, perGroup = ResolveModelRequestRateLimit(7, "standard", 500, 300)
 	assert.Equal(t, 500, total)
 	assert.Equal(t, 300, success)
+	assert.False(t, perGroup)
 }
 
 func TestRateLimitMapUpdateReplacesOnlyAfterValidation(t *testing.T) {

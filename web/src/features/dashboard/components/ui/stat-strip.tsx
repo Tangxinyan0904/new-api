@@ -119,6 +119,9 @@ export function StatStrip(props: StatStripProps) {
         return (
           <div
             key={item.key}
+            role='group'
+            aria-label={item.title}
+            aria-busy={item.loading}
             className={cn(
               'min-w-0 px-2.5 py-1.5 sm:px-5 sm:py-4',
               idx === props.items.length - 1 &&
