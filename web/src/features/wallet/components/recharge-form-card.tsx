@@ -153,15 +153,15 @@ export function RechargeFormCard({
           <Skeleton className='h-6 w-32' />
           <Skeleton className='mt-2 h-4 w-48' />
         </CardHeader>
-        <CardContent className='space-y-4 p-3 sm:space-y-6 sm:p-5'>
+        <CardContent className='@container space-y-4 p-3 sm:space-y-6 sm:p-5'>
           <div className='space-y-4 sm:space-y-6'>
             {/* Preset Amounts Skeleton */}
             <div className='space-y-3'>
               <Skeleton className='h-3 w-16' />
-              <div className='grid grid-cols-2 gap-3 sm:grid-cols-4'>
-                {Array.from({ length: 8 }, (_, index) => `preset-${index}`).map(
+              <div className='grid grid-cols-2 gap-x-2 gap-y-3 @xs:grid-cols-3 @2xl:grid-cols-6'>
+                {Array.from({ length: 6 }, (_, index) => `preset-${index}`).map(
                   (key) => (
-                    <Skeleton key={key} className='h-[72px] rounded-lg' />
+                    <Skeleton key={key} className='h-16 rounded-2xl' />
                   )
                 )}
               </div>
@@ -218,7 +218,7 @@ export function RechargeFormCard({
           </Button>
         ) : null
       }
-      contentClassName='space-y-4 sm:space-y-6'
+      contentClassName='@container space-y-4 sm:space-y-6'
     >
       {/* Online Topup Section */}
       {hasAnyTopup ? (
@@ -230,7 +230,9 @@ export function RechargeFormCard({
                   <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
                     {t('Amount')}
                   </Label>
-                  <div className='grid grid-cols-2 gap-1.5 sm:gap-3 md:grid-cols-4'>
+                  {/* Columns follow the card's own width, which is narrow
+                      when the wallet shows its side panels. */}
+                  <div className='grid grid-cols-2 gap-x-2 gap-y-3 pt-1 @xs:grid-cols-3 @2xl:grid-cols-6'>
                     {presetAmounts.map((preset) => {
                       const discount =
                         preset.discount ||
@@ -247,47 +249,58 @@ export function RechargeFormCard({
                         discount,
                         usdExchangeRate
                       )
+                      const selected = selectedPreset === preset.value
+                      // The price line would only repeat the amount unless a
+                      // discount or a different payment currency changes it.
+                      const showPrice =
+                        hasDiscount || actualPrice !== displayValue
                       return (
                         <Button
                           key={preset.value}
-                          variant='outline'
+                          variant='ghost'
+                          aria-pressed={selected}
                           className={cn(
-                            'flex min-h-16 flex-col items-start rounded-lg px-3 py-2.5 text-left whitespace-normal sm:min-h-[72px] sm:p-4',
-                            selectedPreset === preset.value
-                              ? 'border-foreground bg-foreground/5 dark:border-foreground dark:bg-foreground/10'
-                              : 'border-muted'
+                            'relative h-auto min-h-16 flex-col items-stretch justify-center gap-1 rounded-2xl border-2 px-2.5 py-2.5 text-left whitespace-normal',
+                            selected
+                              ? 'border-outline-action bg-outline-action-surface text-outline-action hover:bg-outline-action-surface hover:text-outline-action'
+                              : 'border-border bg-background hover:border-outline-action/50'
                           )}
                           onClick={() => onSelectPreset(preset)}
                         >
-                          <div className='flex w-full items-center justify-between'>
-                            <div className='text-base font-semibold sm:text-lg'>
-                              {formatNumber(displayValue)}
+                          <div className='text-lg leading-tight font-bold tabular-nums'>
+                            {formatNumber(displayValue)}
+                          </div>
+                          {/* Sits on the top border so it never competes
+                              with the amount for width in narrow tiles; it
+                              stays after the amount so it is read second. */}
+                          {hasDiscount && (
+                            <div className='bg-success text-success-foreground absolute -top-2.5 right-2 rounded-full px-1.5 py-0.5 text-[10px] leading-none font-semibold'>
+                              {getDiscountLabel(discount, t)}
                             </div>
-                            {hasDiscount && (
-                              <div className='text-xs font-medium text-green-600'>
-                                {getDiscountLabel(discount, t)}
-                              </div>
-                            )}
-                          </div>
-                          <div className='text-muted-foreground mt-1.5 w-full text-xs sm:mt-2'>
-                            {hasDiscount && savedAmount > 0 ? (
-                              <Trans
-                                t={t}
-                                i18nKey='Pay {{amount}} <savings>• Save {{saved}}</savings>'
-                                values={{
+                          )}
+                          {showPrice && (
+                            <div className='text-muted-foreground w-full text-xs leading-snug font-medium'>
+                              {hasDiscount && savedAmount > 0 ? (
+                                <Trans
+                                  t={t}
+                                  i18nKey='Pay {{amount}} <savings>• Save {{saved}}</savings>'
+                                  values={{
+                                    amount: formatCurrency(actualPrice),
+                                    saved: formatCurrency(savedAmount),
+                                  }}
+                                  components={{
+                                    savings: (
+                                      <span className='text-success block' />
+                                    ),
+                                  }}
+                                />
+                              ) : (
+                                t('Pay {{amount}}', {
                                   amount: formatCurrency(actualPrice),
-                                  saved: formatCurrency(savedAmount),
-                                }}
-                                components={{
-                                  savings: <span className='text-green-600' />,
-                                }}
-                              />
-                            ) : (
-                              t('Pay {{amount}}', {
-                                amount: formatCurrency(actualPrice),
-                              })
-                            )}
-                          </div>
+                                })
+                              )}
+                            </div>
+                          )}
                         </Button>
                       )
                     })}
@@ -302,7 +315,9 @@ export function RechargeFormCard({
                 >
                   {t('Custom Amount')}
                 </Label>
-                <div className='grid grid-cols-[minmax(0,1fr)_minmax(110px,0.55fr)] gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center'>
+                {/* The total box takes the width its label needs, so the
+                    label is never cut off on narrow cards. */}
+                <div className='grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2'>
                   <Input
                     id='topup-amount'
                     type='number'
@@ -312,8 +327,8 @@ export function RechargeFormCard({
                     placeholder={t('Minimum {{amount}}', { amount: minTopup })}
                     className='h-9 text-base sm:h-10 sm:text-lg'
                   />
-                  <div className='bg-muted/30 flex min-h-9 items-center justify-between gap-2 rounded-md border px-3 lg:min-w-52'>
-                    <span className='text-muted-foreground truncate text-xs'>
+                  <div className='bg-muted/30 flex min-h-9 min-w-36 items-center justify-between gap-2 rounded-md border px-3 sm:min-h-10 @md:min-w-52'>
+                    <span className='text-muted-foreground text-xs whitespace-nowrap'>
                       {t('Amount to pay:')}
                     </span>
                     {calculating ? (
