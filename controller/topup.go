@@ -318,7 +318,7 @@ func RequestEpay(c *gin.Context) {
 	notifyUrl, _ := url.Parse(callBackAddress + "/api/user/epay/notify")
 	tradeNo := fmt.Sprintf("%s%d", common.GetRandomString(6), time.Now().Unix())
 	tradeNo = fmt.Sprintf("USR%dNO%s", id, tradeNo)
-	client := GetEpayClient()
+	client := epayClientForGateway(operation_setting.EpayGatewayOf(req.PaymentMethod))
 	if client == nil {
 		paymentError(c, common.NewMessage("Payment information has not been configured by administrator"))
 		return
@@ -439,25 +439,12 @@ func EpayNotify(c *gin.Context) {
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
 	}
-	client := GetEpayClient()
-	if client == nil {
-		logger.LogError(c.Request.Context(), common.LogText("Epay client is not initialized path=%q client_ip=%s", c.Request.RequestURI, c.ClientIP()))
-		_, err := c.Writer.Write([]byte("fail"))
-		if err != nil {
-			logger.LogError(c.Request.Context(), common.LogText("Epay webhook failed to write response path=%q client_ip=%s error=%q", c.Request.RequestURI, c.ClientIP(), err.Error()))
-		}
-		return
-	}
-	verifyInfo, err := client.Verify(params)
-	if err != nil || !verifyInfo.VerifyStatus {
+	verifyInfo, signedBy := verifyEpayCallback(params)
+	if len(signedBy) == 0 {
 		if _, writeErr := c.Writer.Write([]byte("fail")); writeErr != nil {
 			logger.LogError(c.Request.Context(), common.LogText("Epay webhook failed to write response path=%q client_ip=%s error=%q", c.Request.RequestURI, c.ClientIP(), writeErr.Error()))
 		}
-		if err != nil {
-			logger.LogWarn(c.Request.Context(), common.LogText("Epay webhook signature verification failed path=%q client_ip=%s verify_error=%q", c.Request.RequestURI, c.ClientIP(), err.Error()))
-		} else {
-			logger.LogWarn(c.Request.Context(), common.LogText("Epay webhook signature verification failed path=%q client_ip=%s verify_status=false", c.Request.RequestURI, c.ClientIP()))
-		}
+		logger.LogWarn(c.Request.Context(), common.LogText("Epay webhook signature verification failed path=%q client_ip=%s verify_status=false", c.Request.RequestURI, c.ClientIP()))
 		return
 	}
 	logger.LogInfo(c.Request.Context(), common.LogText("Epay webhook signature verified trade_no=%s callback_type=%s trade_status=%s client_ip=%s verify_info=%q", verifyInfo.ServiceTradeNo, verifyInfo.Type, verifyInfo.TradeStatus, c.ClientIP(), common.GetJsonString(verifyInfo)))
@@ -467,6 +454,20 @@ func EpayNotify(c *gin.Context) {
 		// 数据库行锁 + 事务内状态校验保证（多实例部署下同样安全）。
 		LockOrder(verifyInfo.ServiceTradeNo)
 		defer UnlockOrder(verifyInfo.ServiceTradeNo)
+		// Settle only when the gateway that signed the callback serves the
+		// order; a missing order fails closed.
+		topUp := model.GetTopUpByTradeNo(verifyInfo.ServiceTradeNo)
+		if topUp == nil || !epayCallbackFromOrderGateway(topUp.PaymentMethod, signedBy) {
+			if topUp == nil {
+				logger.LogWarn(c.Request.Context(), common.LogText("Epay callback order not found trade_no=%s callback_type=%s client_ip=%s verify_info=%q", verifyInfo.ServiceTradeNo, verifyInfo.Type, c.ClientIP(), common.GetJsonString(verifyInfo)))
+			} else {
+				logger.LogWarn(c.Request.Context(), common.LogText("Epay callback signed by another gateway trade_no=%s payment_method=%s client_ip=%s", verifyInfo.ServiceTradeNo, topUp.PaymentMethod, c.ClientIP()))
+			}
+			if _, writeErr := c.Writer.Write([]byte("fail")); writeErr != nil {
+				logger.LogError(c.Request.Context(), common.LogText("Epay webhook failed to write response trade_no=%s client_ip=%s error=%q", verifyInfo.ServiceTradeNo, c.ClientIP(), writeErr.Error()))
+			}
+			return
+		}
 		alreadyDone, err := model.RechargeEpay(verifyInfo.ServiceTradeNo, verifyInfo.Type, c.ClientIP())
 		if err != nil {
 			switch {

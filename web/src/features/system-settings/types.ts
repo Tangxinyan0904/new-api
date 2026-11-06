@@ -318,6 +318,9 @@ export type BillingSettings = {
   PayAddress: string
   EpayId: string
   EpayKey: string
+  'payment_setting.secondary_epay_address': string
+  'payment_setting.secondary_epay_id': string
+  'payment_setting.secondary_epay_key': string
   Price: number
   MinTopUp: number
   CustomCallbackAddress: string

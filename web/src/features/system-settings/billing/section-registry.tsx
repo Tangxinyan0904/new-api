@@ -158,6 +158,10 @@ const BILLING_SECTIONS = [
           PayAddress: settings.PayAddress,
           EpayId: settings.EpayId,
           EpayKey: settings.EpayKey,
+          SecondaryEpayAddress:
+            settings['payment_setting.secondary_epay_address'],
+          SecondaryEpayId: settings['payment_setting.secondary_epay_id'],
+          SecondaryEpayKey: settings['payment_setting.secondary_epay_key'],
           Price: settings.Price,
           MinTopUp: settings.MinTopUp,
           CustomCallbackAddress: settings.CustomCallbackAddress,

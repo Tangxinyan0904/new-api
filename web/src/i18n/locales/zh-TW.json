@@ -7934,6 +7934,16 @@
     "Show only this user's orders": "只看該使用者的訂單",
     "Check that the payment arrived on the payment platform before completing it.": "補單前請先在支付平台確認已收到這筆款項。",
     "Ticket notifications": "工單通知",
-    "When a user opens a support ticket or replies to one": "使用者提交工單或回覆工單時"
+    "When a user opens a support ticket or replies to one": "使用者提交工單或回覆工單時",
+    "Gateway": "閘道",
+    "Primary Epay gateway": "主易支付閘道",
+    "Secondary Epay gateway": "第二易支付閘道",
+    "Secondary Epay endpoint": "第二易支付位址",
+    "Secondary Epay merchant ID": "第二易支付商戶 ID",
+    "Secondary Epay secret key": "第二易支付金鑰",
+    "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "另一個相容易支付協定的閘道，例如加密貨幣收款閘道。只有設定為使用第二閘道的支付方式會發到這裡；上面的回呼位址兩者共用。",
+    "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "這個支付方式的訂單發往哪個易支付閘道，例如 USDT 選第二閘道。Stripe 等內建類型不受影響。",
+    "Payment methods must be a JSON array": "支付方式必須是 JSON 陣列",
+    "Payment method gateway must be empty or secondary": "支付方式的閘道只能為空或 secondary"
   }
 }

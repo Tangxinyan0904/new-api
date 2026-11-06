@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Calcium-Ion/go-epay/epay"
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -15,6 +17,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func confirmPaymentComplianceForTest(t *testing.T) {
@@ -175,6 +178,169 @@ func TestEpayWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
 
 	operation_setting.PayMethods = nil
 	require.False(t, isEpayWebhookEnabled())
+
+	// The secondary gateway alone is enough to take Epay payments.
+	paymentSetting := operation_setting.GetPaymentSetting()
+	originalSecondary := [3]string{paymentSetting.SecondaryEpayAddress, paymentSetting.SecondaryEpayId, paymentSetting.SecondaryEpayKey}
+	t.Cleanup(func() {
+		paymentSetting.SecondaryEpayAddress, paymentSetting.SecondaryEpayId, paymentSetting.SecondaryEpayKey = originalSecondary[0], originalSecondary[1], originalSecondary[2]
+	})
+	operation_setting.PayAddress = ""
+	operation_setting.PayMethods = []map[string]string{{"type": "usdt.trc20", "gateway": operation_setting.EpayGatewaySecondary}}
+	paymentSetting.SecondaryEpayAddress = "https://usdt.example.com"
+	paymentSetting.SecondaryEpayId = "1000"
+	paymentSetting.SecondaryEpayKey = ""
+	require.False(t, isEpayWebhookEnabled())
+
+	paymentSetting.SecondaryEpayKey = "secondary-key"
+	require.True(t, isEpayWebhookEnabled())
+}
+
+// setupTwoEpayGatewaysForTest configures Alipay on the primary gateway and
+// USDT on the secondary one, with a user and pending orders on both.
+func setupTwoEpayGatewaysForTest(t *testing.T) {
+	t.Helper()
+	confirmPaymentComplianceForTest(t)
+	paymentSetting := operation_setting.GetPaymentSetting()
+	original := struct {
+		payAddress, epayID, epayKey, serverAddress string
+		secondary                                  [3]string
+		payMethods                                 []map[string]string
+		quotaPerUnit, price                        float64
+		minTopUp                                   int
+		db, logDB                                  *gorm.DB
+	}{
+		operation_setting.PayAddress, operation_setting.EpayId, operation_setting.EpayKey, system_setting.ServerAddress,
+		[3]string{paymentSetting.SecondaryEpayAddress, paymentSetting.SecondaryEpayId, paymentSetting.SecondaryEpayKey},
+		operation_setting.PayMethods, common.QuotaPerUnit, operation_setting.Price, operation_setting.MinTopUp, model.DB, model.LOG_DB,
+	}
+	t.Cleanup(func() {
+		operation_setting.PayAddress, operation_setting.EpayId, operation_setting.EpayKey = original.payAddress, original.epayID, original.epayKey
+		system_setting.ServerAddress = original.serverAddress
+		paymentSetting.SecondaryEpayAddress, paymentSetting.SecondaryEpayId, paymentSetting.SecondaryEpayKey = original.secondary[0], original.secondary[1], original.secondary[2]
+		operation_setting.PayMethods = original.payMethods
+		common.QuotaPerUnit, operation_setting.Price, operation_setting.MinTopUp = original.quotaPerUnit, original.price, original.minTopUp
+		model.DB, model.LOG_DB = original.db, original.logDB
+	})
+	operation_setting.PayAddress, operation_setting.EpayId, operation_setting.EpayKey = "https://pay.example.com", "primary_id", "primary-key"
+	paymentSetting.SecondaryEpayAddress, paymentSetting.SecondaryEpayId, paymentSetting.SecondaryEpayKey = "https://usdt.example.com", "1000", "secondary-key"
+	operation_setting.PayMethods = []map[string]string{
+		{"name": "Alipay", "type": "alipay"},
+		{"name": "USDT", "type": "usdt.trc20", "gateway": operation_setting.EpayGatewaySecondary},
+	}
+	system_setting.ServerAddress = "https://dashboard.example.com"
+	common.QuotaPerUnit, operation_setting.Price, operation_setting.MinTopUp = 500000, 7.3, 1
+
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.TopUp{}, &model.Log{}, &model.SubscriptionPlan{}, &model.SubscriptionOrder{}, &model.UserSubscription{}))
+	require.NoError(t, db.Create(&model.User{Id: 1, Username: "payer", AffCode: "p1", Group: "default"}).Error)
+	require.NoError(t, db.Create(&model.SubscriptionPlan{Id: 1, Title: "Monthly", PriceAmount: 9.9, Currency: "USD", DurationUnit: "month", DurationValue: 1, Enabled: true}).Error)
+	require.NoError(t, db.Create(&[]model.TopUp{
+		{UserId: 1, Amount: 1, Money: 7.3, TradeNo: "ALI1", PaymentMethod: "alipay", PaymentProvider: model.PaymentProviderEpay, Status: common.TopUpStatusPending},
+		{UserId: 1, Amount: 2, Money: 14.6, TradeNo: "USDT1", PaymentMethod: "usdt.trc20", PaymentProvider: model.PaymentProviderEpay, Status: common.TopUpStatusPending},
+	}).Error)
+	require.NoError(t, db.Create(&[]model.SubscriptionOrder{
+		{UserId: 1, PlanId: 1, Money: 9.9, TradeNo: "SUBALI1", PaymentMethod: "alipay", PaymentProvider: model.PaymentProviderEpay, Status: common.TopUpStatusPending},
+		{UserId: 1, PlanId: 1, Money: 9.9, TradeNo: "SUBUSDT1", PaymentMethod: "usdt.trc20", PaymentProvider: model.PaymentProviderEpay, Status: common.TopUpStatusPending},
+	}).Error)
+}
+
+func TestEpayPaymentsStartAtThePayMethodGateway(t *testing.T) {
+	setupTwoEpayGatewaysForTest(t)
+	cases := []struct {
+		method, wantURL, wantPID string
+	}{
+		{"alipay", "https://pay.example.com/submit.php", "primary_id"},
+		{"usdt.trc20", "https://usdt.example.com/submit.php", "1000"},
+	}
+	for _, tc := range cases {
+		for _, endpoint := range []struct {
+			name    string
+			body    string
+			handler gin.HandlerFunc
+		}{
+			{"topup", fmt.Sprintf(`{"amount":1,"payment_method":%q}`, tc.method), RequestEpay},
+			{"subscription", fmt.Sprintf(`{"plan_id":1,"payment_method":%q}`, tc.method), SubscriptionRequestEpay},
+		} {
+			t.Run(endpoint.name+"/"+tc.method, func(t *testing.T) {
+				recorder := httptest.NewRecorder()
+				ctx, _ := gin.CreateTestContext(recorder)
+				ctx.Request = httptest.NewRequest(http.MethodPost, "/pay", strings.NewReader(endpoint.body))
+				ctx.Request.Header.Set("Content-Type", "application/json")
+				ctx.Set("id", 1)
+
+				endpoint.handler(ctx)
+
+				var response struct {
+					Message string            `json:"message"`
+					URL     string            `json:"url"`
+					Data    map[string]string `json:"data"`
+				}
+				require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response), recorder.Body.String())
+				require.Equal(t, "success", response.Message, recorder.Body.String())
+				assert.Equal(t, tc.wantURL, response.URL)
+				assert.Equal(t, tc.wantPID, response.Data["pid"])
+				assert.Equal(t, tc.method, response.Data["type"])
+			})
+		}
+	}
+}
+
+func TestEpayCallbacksSettleOnlyThroughTheOrderGateway(t *testing.T) {
+	setupTwoEpayGatewaysForTest(t)
+	signedCallback := func(tradeNo, method, pid, key string) url.Values {
+		params := url.Values{
+			"money": {"1.00"}, "name": {"item"}, "out_trade_no": {tradeNo}, "pid": {pid},
+			"trade_no": {"GW" + tradeNo}, "trade_status": {epay.StatusTradeSuccess}, "type": {method},
+		}
+		params.Set("sign", epay.MD5String(fmt.Sprintf("money=1.00&name=item&out_trade_no=%s&pid=%s&trade_no=GW%s&trade_status=%s&type=%s",
+			tradeNo, pid, tradeNo, epay.StatusTradeSuccess, method), key))
+		params.Set("sign_type", "MD5")
+		return params
+	}
+	router := gin.New()
+	router.GET("/api/user/epay/notify", EpayNotify)
+	router.GET("/api/subscription/epay/notify", SubscriptionEpayNotify)
+	call := func(path string, params url.Values) string {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, path+"?"+params.Encode(), nil))
+		return recorder.Body.String()
+	}
+	quota := func() int {
+		user, err := model.GetUserById(1, true)
+		require.NoError(t, err)
+		return user.Quota
+	}
+
+	// A key of one gateway cannot settle the other gateway's orders.
+	assert.Equal(t, "fail", call("/api/user/epay/notify", signedCallback("USDT1", "usdt.trc20", "primary_id", "primary-key")))
+	assert.Equal(t, "fail", call("/api/user/epay/notify", signedCallback("ALI1", "alipay", "1000", "secondary-key")))
+	assert.Equal(t, "fail", call("/api/subscription/epay/notify", signedCallback("SUBUSDT1", "usdt.trc20", "primary_id", "primary-key")))
+	assert.Equal(t, "fail", call("/api/subscription/epay/notify", signedCallback("SUBALI1", "alipay", "1000", "secondary-key")))
+	assert.Equal(t, common.TopUpStatusPending, model.GetTopUpByTradeNo("USDT1").Status)
+	assert.Equal(t, common.TopUpStatusPending, model.GetTopUpByTradeNo("ALI1").Status)
+	assert.Equal(t, common.TopUpStatusPending, model.GetSubscriptionOrderByTradeNo("SUBUSDT1").Status)
+	assert.Equal(t, common.TopUpStatusPending, model.GetSubscriptionOrderByTradeNo("SUBALI1").Status)
+	assert.Zero(t, quota())
+
+	// Each gateway settles its own orders.
+	assert.Equal(t, "success", call("/api/user/epay/notify", signedCallback("USDT1", "usdt.trc20", "1000", "secondary-key")))
+	assert.Equal(t, 2*500000, quota())
+	assert.Equal(t, "success", call("/api/user/epay/notify", signedCallback("ALI1", "alipay", "primary_id", "primary-key")))
+	assert.Equal(t, 3*500000, quota())
+	assert.Equal(t, "success", call("/api/subscription/epay/notify", signedCallback("SUBUSDT1", "usdt.trc20", "1000", "secondary-key")))
+	assert.Equal(t, common.TopUpStatusSuccess, model.GetSubscriptionOrderByTradeNo("SUBUSDT1").Status)
+	assert.Equal(t, "success", call("/api/subscription/epay/notify", signedCallback("SUBALI1", "alipay", "primary_id", "primary-key")))
+	assert.Equal(t, common.TopUpStatusSuccess, model.GetSubscriptionOrderByTradeNo("SUBALI1").Status)
+
+	// A signed callback for an unknown order fails closed.
+	assert.Equal(t, "fail", call("/api/user/epay/notify", signedCallback("MISSING", "usdt.trc20", "1000", "secondary-key")))
+}
+
+func TestPayMethodsRejectUnknownGateway(t *testing.T) {
+	assert.NoError(t, operation_setting.ValidatePayMethodsJSON(`[{"type":"alipay"},{"type":"usdt.trc20","gateway":"secondary"}]`))
+	assert.Error(t, operation_setting.ValidatePayMethodsJSON(`[{"type":"usdt.trc20","gateway":"Secondary"}]`))
+	assert.Error(t, operation_setting.ValidatePayMethodsJSON(`{"type":"alipay"}`))
 }
 
 func TestEpayCallbacksVerifyBeforeSettlement(t *testing.T) {

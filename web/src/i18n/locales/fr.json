@@ -7934,6 +7934,16 @@
     "Show only this user's orders": "Afficher uniquement les commandes de cet utilisateur",
     "Check that the payment arrived on the payment platform before completing it.": "Vérifiez sur la plateforme de paiement que le paiement est bien arrivé avant de compléter la commande.",
     "Ticket notifications": "Notifications de tickets",
-    "When a user opens a support ticket or replies to one": "Quand un utilisateur ouvre un ticket ou y répond"
+    "When a user opens a support ticket or replies to one": "Quand un utilisateur ouvre un ticket ou y répond",
+    "Gateway": "Passerelle",
+    "Primary Epay gateway": "Passerelle Epay principale",
+    "Secondary Epay gateway": "Passerelle Epay secondaire",
+    "Secondary Epay endpoint": "Point de terminaison Epay secondaire",
+    "Secondary Epay merchant ID": "ID marchand Epay secondaire",
+    "Secondary Epay secret key": "Clé secrète Epay secondaire",
+    "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Une seconde passerelle compatible Epay, par exemple une passerelle crypto. Seuls les moyens de paiement configurés pour la passerelle secondaire y sont envoyés ; l'adresse de rappel ci-dessus est partagée.",
+    "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Passerelle Epay qui reçoit les commandes de ce moyen de paiement, par exemple la passerelle secondaire pour USDT. Les autres types intégrés l’ignorent.",
+    "Payment methods must be a JSON array": "Les moyens de paiement doivent être un tableau JSON",
+    "Payment method gateway must be empty or secondary": "La passerelle d’un moyen de paiement doit être vide ou secondary"
   }
 }

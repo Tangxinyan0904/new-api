@@ -104,6 +104,13 @@ const paymentSchema = z.object({
   }, 'Provide a valid callback URL starting with http:// or https://'),
   EpayId: z.string(),
   EpayKey: z.string(),
+  SecondaryEpayAddress: z.string().refine((value) => {
+    const trimmed = value.trim()
+    if (!trimmed) return true
+    return /^https?:\/\//.test(trimmed)
+  }, 'Provide a valid callback URL starting with http:// or https://'),
+  SecondaryEpayId: z.string(),
+  SecondaryEpayKey: z.string(),
   Price: z.coerce.number().min(0),
   MinTopUp: z.coerce.number().min(0),
   CustomCallbackAddress: z
@@ -423,6 +430,9 @@ export function PaymentSettingsSection({
       PayAddress: removeTrailingSlash(values.PayAddress),
       EpayId: values.EpayId.trim(),
       EpayKey: values.EpayKey.trim(),
+      SecondaryEpayAddress: removeTrailingSlash(values.SecondaryEpayAddress),
+      SecondaryEpayId: values.SecondaryEpayId.trim(),
+      SecondaryEpayKey: values.SecondaryEpayKey.trim(),
       Price: values.Price,
       MinTopUp: values.MinTopUp,
       CustomCallbackAddress: removeTrailingSlash(values.CustomCallbackAddress),
@@ -465,6 +475,11 @@ export function PaymentSettingsSection({
       PayAddress: removeTrailingSlash(initialRef.current.PayAddress),
       EpayId: initialRef.current.EpayId.trim(),
       EpayKey: initialRef.current.EpayKey.trim(),
+      SecondaryEpayAddress: removeTrailingSlash(
+        initialRef.current.SecondaryEpayAddress
+      ),
+      SecondaryEpayId: initialRef.current.SecondaryEpayId.trim(),
+      SecondaryEpayKey: initialRef.current.SecondaryEpayKey.trim(),
       Price: initialRef.current.Price,
       MinTopUp: initialRef.current.MinTopUp,
       CustomCallbackAddress: removeTrailingSlash(
@@ -520,6 +535,32 @@ export function PaymentSettingsSection({
 
     if (sanitized.EpayKey && sanitized.EpayKey !== initial.EpayKey) {
       updates.push({ key: 'EpayKey', value: sanitized.EpayKey })
+    }
+
+    if (sanitized.SecondaryEpayAddress !== initial.SecondaryEpayAddress) {
+      updates.push({
+        key: 'payment_setting.secondary_epay_address',
+        value: sanitized.SecondaryEpayAddress,
+      })
+    }
+
+    if (sanitized.SecondaryEpayId !== initial.SecondaryEpayId) {
+      updates.push({
+        key: 'payment_setting.secondary_epay_id',
+        value: sanitized.SecondaryEpayId,
+      })
+    }
+
+    // Like the primary key, the stored key is never sent back; a blank field
+    // keeps it.
+    if (
+      sanitized.SecondaryEpayKey &&
+      sanitized.SecondaryEpayKey !== initial.SecondaryEpayKey
+    ) {
+      updates.push({
+        key: 'payment_setting.secondary_epay_key',
+        value: sanitized.SecondaryEpayKey,
+      })
     }
 
     if (sanitized.Price !== initial.Price) {
@@ -1254,6 +1295,91 @@ export function PaymentSettingsSection({
                       </FormItem>
                     )}
                   />
+                </div>
+
+                <div className='space-y-4 border-t pt-4'>
+                  <div>
+                    <h4 className='font-medium'>
+                      {t('Secondary Epay gateway')}
+                    </h4>
+                    <p className='text-muted-foreground text-sm'>
+                      {t(
+                        'A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.'
+                      )}
+                    </p>
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name='SecondaryEpayAddress'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Secondary Epay endpoint')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t('https://pay.example.com')}
+                            {...field}
+                            onChange={(event) =>
+                              field.onChange(event.target.value)
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className='grid gap-6 md:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='SecondaryEpayId'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            {t('Secondary Epay merchant ID')}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder='1000'
+                              autoComplete='off'
+                              {...field}
+                              onChange={(event) =>
+                                field.onChange(event.target.value)
+                              }
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name='SecondaryEpayKey'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>
+                            {t('Secondary Epay secret key')}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type='password'
+                              placeholder={t('Enter new key to update')}
+                              autoComplete='new-password'
+                              {...field}
+                              onChange={(event) =>
+                                field.onChange(event.target.value)
+                              }
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t('Leave blank unless rotating the secret')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
             </TabsContent>
