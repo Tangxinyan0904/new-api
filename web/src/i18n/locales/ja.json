@@ -7934,6 +7934,16 @@
     "Show only this user's orders": "このユーザーの注文のみ表示",
     "Check that the payment arrived on the payment platform before completing it.": "手動チャージの前に、決済プラットフォームで入金を確認してください。",
     "Ticket notifications": "チケット通知",
-    "When a user opens a support ticket or replies to one": "ユーザーがチケットを作成または返信したとき"
+    "When a user opens a support ticket or replies to one": "ユーザーがチケットを作成または返信したとき",
+    "Gateway": "ゲートウェイ",
+    "Primary Epay gateway": "メインEpayゲートウェイ",
+    "Secondary Epay gateway": "セカンダリEpayゲートウェイ",
+    "Secondary Epay endpoint": "セカンダリEpayエンドポイント",
+    "Secondary Epay merchant ID": "セカンダリEpay加盟店ID",
+    "Secondary Epay secret key": "セカンダリEpayシークレットキー",
+    "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Epay互換の2つ目のゲートウェイ（暗号資産ゲートウェイなど）。セカンダリゲートウェイを使うよう設定した支払い方法だけがここに送られます。上のコールバックアドレスは共通です。",
+    "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "この支払い方法の注文を受け取るEpayゲートウェイです（例：USDTはセカンダリ）。他の組み込みタイプには影響しません。",
+    "Payment methods must be a JSON array": "支払い方法はJSON配列である必要があります",
+    "Payment method gateway must be empty or secondary": "支払い方法のゲートウェイは空またはsecondaryである必要があります"
   }
 }

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/QuantumNous/new-api/setting"
@@ -100,9 +101,7 @@ func isEpayTopUpEnabled() bool {
 }
 
 func isEpayWebhookConfigured() bool {
-	return strings.TrimSpace(operation_setting.PayAddress) != "" &&
-		strings.TrimSpace(operation_setting.EpayId) != "" &&
-		strings.TrimSpace(operation_setting.EpayKey) != ""
+	return slices.ContainsFunc(epayGateways, isEpayGatewayConfigured)
 }
 
 func isEpayWebhookEnabled() bool {

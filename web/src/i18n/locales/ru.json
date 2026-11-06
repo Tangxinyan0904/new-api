@@ -7934,6 +7934,16 @@
     "Show only this user's orders": "Показать только заказы этого пользователя",
     "Check that the payment arrived on the payment platform before completing it.": "Перед завершением заказа убедитесь на платёжной платформе, что оплата поступила.",
     "Ticket notifications": "Уведомления о тикетах",
-    "When a user opens a support ticket or replies to one": "Когда пользователь создаёт тикет или отвечает в нём"
+    "When a user opens a support ticket or replies to one": "Когда пользователь создаёт тикет или отвечает в нём",
+    "Gateway": "Шлюз",
+    "Primary Epay gateway": "Основной шлюз Epay",
+    "Secondary Epay gateway": "Дополнительный шлюз Epay",
+    "Secondary Epay endpoint": "Адрес дополнительного шлюза Epay",
+    "Secondary Epay merchant ID": "ID продавца дополнительного шлюза Epay",
+    "Secondary Epay secret key": "Секретный ключ дополнительного шлюза Epay",
+    "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Второй шлюз, совместимый с Epay, например криптовалютный. Сюда отправляются только способы оплаты, настроенные на дополнительный шлюз; адрес обратного вызова выше общий.",
+    "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Какой шлюз Epay получает заказы этого способа оплаты, например дополнительный шлюз для USDT. Другие встроенные типы это не учитывают.",
+    "Payment methods must be a JSON array": "Способы оплаты должны быть массивом JSON",
+    "Payment method gateway must be empty or secondary": "Шлюз способа оплаты должен быть пустым или secondary"
   }
 }

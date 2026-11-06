@@ -7934,6 +7934,16 @@
     "Show only this user's orders": "Show only this user's orders",
     "Check that the payment arrived on the payment platform before completing it.": "Check that the payment arrived on the payment platform before completing it.",
     "Ticket notifications": "Ticket notifications",
-    "When a user opens a support ticket or replies to one": "When a user opens a support ticket or replies to one"
+    "When a user opens a support ticket or replies to one": "When a user opens a support ticket or replies to one",
+    "Gateway": "Gateway",
+    "Primary Epay gateway": "Primary Epay gateway",
+    "Secondary Epay gateway": "Secondary Epay gateway",
+    "Secondary Epay endpoint": "Secondary Epay endpoint",
+    "Secondary Epay merchant ID": "Secondary Epay merchant ID",
+    "Secondary Epay secret key": "Secondary Epay secret key",
+    "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.",
+    "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.",
+    "Payment methods must be a JSON array": "Payment methods must be a JSON array",
+    "Payment method gateway must be empty or secondary": "Payment method gateway must be empty or secondary"
   }
 }

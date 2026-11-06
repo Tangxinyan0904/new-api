@@ -7934,6 +7934,16 @@
     "Show only this user's orders": "Chỉ xem đơn hàng của người dùng này",
     "Check that the payment arrived on the payment platform before completing it.": "Hãy kiểm tra trên nền tảng thanh toán rằng tiền đã về trước khi hoàn tất đơn.",
     "Ticket notifications": "Thông báo phiếu hỗ trợ",
-    "When a user opens a support ticket or replies to one": "Khi người dùng tạo phiếu hỗ trợ hoặc trả lời phiếu"
+    "When a user opens a support ticket or replies to one": "Khi người dùng tạo phiếu hỗ trợ hoặc trả lời phiếu",
+    "Gateway": "Cổng",
+    "Primary Epay gateway": "Cổng Epay chính",
+    "Secondary Epay gateway": "Cổng Epay phụ",
+    "Secondary Epay endpoint": "Địa chỉ Epay phụ",
+    "Secondary Epay merchant ID": "Mã người bán Epay phụ",
+    "Secondary Epay secret key": "Khóa bí mật Epay phụ",
+    "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Cổng thứ hai tương thích Epay, ví dụ cổng tiền mã hóa. Chỉ các phương thức thanh toán được đặt dùng cổng phụ mới gửi đến đây; địa chỉ callback ở trên dùng chung.",
+    "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Cổng Epay nhận đơn của phương thức này, ví dụ cổng phụ cho USDT. Các loại tích hợp sẵn khác bỏ qua tùy chọn này.",
+    "Payment methods must be a JSON array": "Phương thức thanh toán phải là mảng JSON",
+    "Payment method gateway must be empty or secondary": "Cổng của phương thức thanh toán phải để trống hoặc là secondary"
   }
 }

@@ -129,7 +129,8 @@ export function PaymentMethodsVisualEditor({
         typeof item.type === 'string' &&
         (!('icon' in item) || typeof item.icon === 'string') &&
         (!('min_topup' in item) || typeof item.min_topup === 'string') &&
-        (!('color' in item) || typeof item.color === 'string')
+        (!('color' in item) || typeof item.color === 'string') &&
+        (!('gateway' in item) || typeof item.gateway === 'string')
     )
   }, [value])
 
@@ -326,6 +327,20 @@ export function PaymentMethodsVisualEditor({
                 ),
               },
               {
+                id: 'gateway',
+                header: t('Gateway'),
+                cell: (method) =>
+                  method.gateway === 'secondary' ? (
+                    <span className='text-sm font-medium'>
+                      {t('Secondary Epay gateway')}
+                    </span>
+                  ) : (
+                    <span className='text-muted-foreground text-sm'>
+                      {t('Primary Epay gateway')}
+                    </span>
+                  ),
+              },
+              {
                 id: 'icon',
                 header: t('Icon'),
                 cell: (method) => {
@@ -387,6 +402,7 @@ export function PaymentMethodsVisualEditor({
                 method.icon,
                 method.min_topup,
                 method.color,
+                method.gateway,
               ]
                 .filter(Boolean)
                 .join('-')
@@ -447,6 +463,14 @@ export function PaymentMethodsVisualEditor({
                         <span className='text-muted-foreground text-xs'>—</span>
                       )}
                     </div>
+                    {method.gateway === 'secondary' && (
+                      <div className='flex items-center gap-2'>
+                        <span className='text-muted-foreground min-w-20'>
+                          {t('Gateway')}
+                        </span>
+                        <span>{t('Secondary Epay gateway')}</span>
+                      </div>
+                    )}
                     {method.min_topup && (
                       <div className='flex items-center gap-2'>
                         <span className='text-muted-foreground min-w-20'>

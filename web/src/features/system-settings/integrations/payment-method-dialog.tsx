@@ -36,6 +36,14 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const createPaymentMethodDialogSchema = (t: (key: string) => string) =>
   z.object({
@@ -43,6 +51,7 @@ const createPaymentMethodDialogSchema = (t: (key: string) => string) =>
     type: z.string().min(1, t('Payment type key is required')),
     icon: z.string().optional(),
     min_topup: z.string().optional(),
+    gateway: z.enum(['primary', 'secondary']),
   })
 
 type PaymentMethodDialogFormValues = z.infer<
@@ -57,6 +66,8 @@ export type PaymentMethodData = {
   icon?: string
   min_topup?: string
   color?: string
+  /** 'secondary' sends this Epay method to the secondary gateway. */
+  gateway?: string
 }
 
 type PaymentMethodDialogProps = {
@@ -120,6 +131,7 @@ export function PaymentMethodDialog({
       type: '',
       icon: '',
       min_topup: '',
+      gateway: 'primary',
     },
   })
 
@@ -132,6 +144,7 @@ export function PaymentMethodDialog({
         type: editData.type,
         icon: editData.icon ?? getDefaultIconName(editData.type),
         min_topup: editData.min_topup ?? '',
+        gateway: editData.gateway === 'secondary' ? 'secondary' : 'primary',
       })
     } else {
       form.reset({
@@ -139,6 +152,7 @@ export function PaymentMethodDialog({
         type: '',
         icon: '',
         min_topup: '',
+        gateway: 'primary',
       })
     }
   }, [editData, form, open])
@@ -153,6 +167,9 @@ export function PaymentMethodDialog({
     }
     if (values.min_topup && values.min_topup.trim() !== '') {
       data.min_topup = values.min_topup
+    }
+    if (values.gateway === 'secondary') {
+      data.gateway = 'secondary'
     }
     onSave(data)
     form.reset()
@@ -250,6 +267,46 @@ export function PaymentMethodDialog({
                 <FormDescription className='leading-relaxed'>
                   {t(
                     'Used to decide the payment flow. Built-in keys include stripe for Stripe and waffo_pancake for Waffo Pancake; other values are sent to Epay as the type parameter.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='gateway'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Gateway')}</FormLabel>
+                <Select
+                  items={[
+                    { value: 'primary', label: t('Primary Epay gateway') },
+                    { value: 'secondary', label: t('Secondary Epay gateway') },
+                  ]}
+                  value={field.value}
+                  onValueChange={(value) => field.onChange(value)}
+                >
+                  <FormControl>
+                    <SelectTrigger className='w-full'>
+                      <SelectValue />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent alignItemWithTrigger={false}>
+                    <SelectGroup>
+                      <SelectItem value='primary'>
+                        {t('Primary Epay gateway')}
+                      </SelectItem>
+                      <SelectItem value='secondary'>
+                        {t('Secondary Epay gateway')}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  {t(
+                    'Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.'
                   )}
                 </FormDescription>
                 <FormMessage />
