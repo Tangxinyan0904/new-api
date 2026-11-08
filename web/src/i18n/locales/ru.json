@@ -7751,7 +7751,7 @@
     "View tickets": "Просмотр тикетов",
     "Handle tickets": "Обработка тикетов",
     "View all users' support tickets and attachments.": "Просмотр тикетов и вложений всех пользователей.",
-    "Reply to tickets and change their status and priority.": "Отвечать на тикеты и менять их статус и приоритет.",
+    "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.": "Отвечать на тикеты, менять их статус и приоритет, а также обнулять баланс владельцев тикетов на возврат.",
     "Support tickets": "Тикеты поддержки",
     "View your support tickets, replies, and attachments.": "Просмотр ваших тикетов, ответов и вложений.",
     "Open, reply to, and close your support tickets.": "Создавать тикеты, отвечать на них и закрывать их.",
@@ -7944,6 +7944,18 @@
     "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Второй шлюз, совместимый с Epay, например криптовалютный. Сюда отправляются только способы оплаты, настроенные на дополнительный шлюз; адрес обратного вызова выше общий.",
     "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Какой шлюз Epay получает заказы этого способа оплаты, например дополнительный шлюз для USDT. Другие встроенные типы это не учитывают.",
     "Payment methods must be a JSON array": "Способы оплаты должны быть массивом JSON",
-    "Payment method gateway must be empty or secondary": "Шлюз способа оплаты должен быть пустым или secondary"
+    "Payment method gateway must be empty or secondary": "Шлюз способа оплаты должен быть пустым или secondary",
+    "Refund tickets need an image of your payment QR code": "Для тикета на возврат нужно изображение QR-кода для получения оплаты",
+    "Only refund tickets can clear the owner's balance": "Обнулить баланс владельца можно только в тикете на возврат",
+    "The user has no balance to clear": "У пользователя нет баланса для обнуления",
+    "Attach your payment QR code": "Приложите QR-код для получения оплаты",
+    "We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.": "Мы отправляем возврат на приложенный QR-код для получения оплаты, например код Alipay или WeChat Pay. Без него тикет на возврат отправить нельзя.",
+    "Balance cleared": "Баланс обнулён",
+    "Clear balance": "Обнулить баланс",
+    "Clear the balance of {{name}}?": "Обнулить баланс {{name}}?",
+    "The remaining {{quota}} will be set to 0. Send the refund first: this is recorded in the logs and cannot be undone.": "Оставшиеся {{quota}} будут обнулены. Сначала отправьте возврат: действие записывается в журнал и не может быть отменено.",
+    "Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}": "Квота пользователя обнулена с {{from}} до 0 по тикету на возврат #{{ticket_id}}",
+    "Clear user quota for a refund ticket": "Обнулить квоту пользователя по тикету на возврат",
+    "Clear quota for user “{{name}}” for refund ticket #{{ticket}}": "Обнулить квоту пользователя «{{name}}» по тикету на возврат #{{ticket}}"
   }
 }

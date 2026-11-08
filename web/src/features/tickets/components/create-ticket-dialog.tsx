@@ -19,13 +19,14 @@ For commercial licensing, please contact support@quantumnous.com
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { Plus, QrCode } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 
 import { Dialog } from '@/components/dialog'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -72,14 +73,19 @@ export function CreateTicketDialog() {
   const [open, setOpen] = useState(false)
   const [images, setImages] = useState<File[]>([])
   const [logIds, setLogIds] = useState<number[]>([])
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const addImages = useTicketImageAdder(images, setImages)
   const form = useForm<CreateTicketFormValues>({
     resolver: zodResolver(getCreateTicketSchema(t)),
     defaultValues: CREATE_TICKET_DEFAULT_VALUES,
   })
   const isSubmitting = form.formState.isSubmitting
+  const category = form.watch('category')
   // Call logs can only be attached to API tickets.
-  const canAttachLogs = form.watch('category') === 'api'
+  const canAttachLogs = category === 'api'
+  // Refunds are paid to the QR code in an attached image, so one is required.
+  const needsQrCode = category === 'refund'
+  const qrCodeMissing = needsQrCode && images.length === 0
   const categoryItems = TICKET_CATEGORY_VALUES.map((value) => ({
     value,
     label: t(TICKET_CATEGORIES[value].labelKey),
@@ -92,10 +98,12 @@ export function CreateTicketDialog() {
       form.reset(CREATE_TICKET_DEFAULT_VALUES)
       setImages([])
       setLogIds([])
+      setSubmitAttempted(false)
     }
   }
 
   const onSubmit = async (values: CreateTicketFormValues) => {
+    if (qrCodeMissing) return
     try {
       const result = await createTicket({
         ...values,
@@ -158,7 +166,10 @@ export function CreateTicketDialog() {
         <form
           id='create-ticket-form'
           className='flex flex-col gap-4'
-          onSubmit={(event) => void form.handleSubmit(onSubmit)(event)}
+          onSubmit={(event) => {
+            setSubmitAttempted(true)
+            void form.handleSubmit(onSubmit)(event)
+          }}
         >
           <FormField
             control={form.control}
@@ -233,11 +244,27 @@ export function CreateTicketDialog() {
               </FormItem>
             )}
           />
+          {needsQrCode && (
+            <Alert>
+              <QrCode aria-hidden='true' />
+              <AlertTitle>{t('Attach your payment QR code')}</AlertTitle>
+              <AlertDescription>
+                {t(
+                  'We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.'
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
           <TicketImagePicker
             value={images}
             onChange={setImages}
             disabled={isSubmitting}
           />
+          {submitAttempted && qrCodeMissing && (
+            <p className='text-destructive text-sm'>
+              {t('Refund tickets need an image of your payment QR code')}
+            </p>
+          )}
           {canAttachLogs && (
             <TicketLogPicker
               value={logIds}

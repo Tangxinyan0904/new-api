@@ -132,7 +132,11 @@ export function StaffTicketDetail(props: { ticketId: number }) {
       <div className='mx-auto flex w-full max-w-4xl flex-col gap-4'>
         <TicketSummary ticket={ticket} audience='staff' />
         {ticket.category === 'refund' && (
-          <TicketRefundInfoPanel ticketId={ticket.id} />
+          <TicketRefundInfoPanel
+            ticketId={ticket.id}
+            ownerName={ticket.display_name || ticket.username || ''}
+            canClearQuota={canWrite}
+          />
         )}
         <TicketLogList logs={ticket.logs ?? []} audience='staff' />
         {canWrite && (

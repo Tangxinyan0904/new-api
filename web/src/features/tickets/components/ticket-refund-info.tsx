@@ -29,6 +29,7 @@ import { formatNumber, formatQuota, formatTimestamp } from '@/lib/format'
 
 import { getStaffTicketRefundInfo } from '../api'
 import { ticketQueryKeys } from '../constants'
+import { TicketRefundClearQuota } from './ticket-refund-clear-quota'
 
 /** Local midnight today and six days earlier, so the week includes today. */
 function refundUsageStarts(now: Date) {
@@ -39,8 +40,15 @@ function refundUsageStarts(now: Date) {
   }
 }
 
+interface TicketRefundInfoPanelProps {
+  ticketId: number
+  ownerName: string
+  /** Staff who handle tickets can clear the owner's balance. */
+  canClearQuota: boolean
+}
+
 /** Payments and recent usage of a refund ticket's owner, for staff. */
-export function TicketRefundInfoPanel(props: { ticketId: number }) {
+export function TicketRefundInfoPanel(props: TicketRefundInfoPanelProps) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [starts] = useState(() => refundUsageStarts(new Date()))
@@ -119,13 +127,22 @@ export function TicketRefundInfoPanel(props: { ticketId: number }) {
       aria-label={t('Refund reference')}
       className='bg-card flex flex-col gap-3 rounded-lg border p-3 sm:p-4'
     >
-      <div className='flex flex-col gap-0.5'>
-        <h3 className='text-sm font-semibold'>{t('Refund reference')}</h3>
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.'
-          )}
-        </p>
+      <div className='flex items-start justify-between gap-3'>
+        <div className='flex min-w-0 flex-col gap-0.5'>
+          <h3 className='text-sm font-semibold'>{t('Refund reference')}</h3>
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Online top-ups count successful orders by the amount paid; usage is net of refunds and follows your local time.'
+            )}
+          </p>
+        </div>
+        {props.canClearQuota && info && (
+          <TicketRefundClearQuota
+            ticketId={props.ticketId}
+            ownerName={props.ownerName}
+            quota={info.quota}
+          />
+        )}
       </div>
       {body}
     </section>

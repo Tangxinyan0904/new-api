@@ -43,7 +43,7 @@ const info: TicketRefundInfo = {
   week_quota: 900_000,
 }
 
-function renderPanel(data: TicketRefundInfo) {
+function renderPanel(data: TicketRefundInfo, canClearQuota = false) {
   const get = vi
     .spyOn(api, 'get')
     .mockResolvedValue({ data: { success: true, data } })
@@ -52,7 +52,11 @@ function renderPanel(data: TicketRefundInfo) {
   })
   render(
     <QueryClientProvider client={client}>
-      <TicketRefundInfoPanel ticketId={5} />
+      <TicketRefundInfoPanel
+        ticketId={5}
+        ownerName='alice'
+        canClearQuota={canClearQuota}
+      />
     </QueryClientProvider>
   )
   return get
@@ -118,5 +122,17 @@ describe('TicketRefundInfoPanel', () => {
     await screen.findByText('Remaining quota')
 
     expect(figure('Latest top-up').getByText('None')).toBeInTheDocument()
+  })
+
+  it('offers to clear the balance only to staff who handle tickets', async () => {
+    renderPanel(info, true)
+    expect(
+      await screen.findByRole('button', { name: 'Clear balance' })
+    ).toBeEnabled()
+    cleanup()
+
+    renderPanel(info, false)
+    await screen.findByText('Remaining quota')
+    expect(screen.queryByRole('button', { name: 'Clear balance' })).toBeNull()
   })
 })

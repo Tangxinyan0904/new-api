@@ -95,6 +95,20 @@ it.each([
     'Override quota for user “quota-owner”',
     'Requested quota: $0 · $1 → $0',
   ],
+  [
+    'ticket.refund_clear_quota',
+    {
+      ticket_id: 42,
+      target_user_id: 11,
+      target_username: 'quota-owner',
+      mode: 'override',
+      requested_quota: 0,
+      from: 500000,
+      to: 0,
+    },
+    'Clear quota for user “quota-owner” for refund ticket #42',
+    'Requested quota: $0 · $1 → $0',
+  ],
   ['token.create', { id: 11, name: '1' }, 'Create API token “1”', ''],
   [
     'token.update',

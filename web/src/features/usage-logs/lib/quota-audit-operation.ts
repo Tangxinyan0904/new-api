@@ -33,6 +33,10 @@ const QUOTA_OPERATIONS: Record<string, { label: string; named: string }> = {
     label: 'Override user quota',
     named: 'Override quota for user “{{name}}”',
   },
+  'ticket.refund_clear_quota': {
+    label: 'Clear user quota for a refund ticket',
+    named: 'Clear quota for user “{{name}}” for refund ticket #{{ticket}}',
+  },
 }
 
 function quotaText(value: unknown, t: Translate): string {
@@ -67,7 +71,9 @@ export function buildQuotaAuditOperation(
   } else if (typeof params.target_user_id === 'string') {
     id = params.target_user_id.trim()
   }
-  let headline = name ? t(operation.named, { name }) : t(operation.label)
+  let headline = name
+    ? t(operation.named, { name, ticket: params.ticket_id })
+    : t(operation.label)
   if (!name && !id) headline = `${headline} · ${t('Target not recorded')}`
   const identifier = id ? t('(ID: {{id}})', { id }) : ''
   const summary = id

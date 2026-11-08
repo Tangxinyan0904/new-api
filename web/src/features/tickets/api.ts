@@ -218,3 +218,15 @@ export async function getStaffTicketRefundInfo(
   return requireServerSuccess(res.data as ApiResponse<TicketRefundInfo>)
     .data as TicketRefundInfo
 }
+
+/** Sets the balance of a refund ticket's owner to zero. */
+export async function clearStaffTicketOwnerQuota(
+  id: number
+): Promise<ApiResponse<{ from: number; to: number }>> {
+  const res = await api.post(
+    `/api/ticket/admin/${id}/refund/clear-quota`,
+    undefined,
+    mutationConfig
+  )
+  return res.data
+}

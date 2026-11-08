@@ -7751,7 +7751,7 @@
     "View tickets": "Voir les tickets",
     "Handle tickets": "Traiter les tickets",
     "View all users' support tickets and attachments.": "Voir les tickets et pièces jointes de tous les utilisateurs.",
-    "Reply to tickets and change their status and priority.": "Répondre aux tickets et modifier leur statut et leur priorité.",
+    "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.": "Répondre aux tickets, modifier leur statut et leur priorité, et remettre à zéro le solde des propriétaires de tickets de remboursement.",
     "Support tickets": "Tickets de support",
     "View your support tickets, replies, and attachments.": "Voir vos tickets, réponses et pièces jointes.",
     "Open, reply to, and close your support tickets.": "Ouvrir, répondre à et fermer vos tickets.",
@@ -7944,6 +7944,18 @@
     "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Une seconde passerelle compatible Epay, par exemple une passerelle crypto. Seuls les moyens de paiement configurés pour la passerelle secondaire y sont envoyés ; l'adresse de rappel ci-dessus est partagée.",
     "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Passerelle Epay qui reçoit les commandes de ce moyen de paiement, par exemple la passerelle secondaire pour USDT. Les autres types intégrés l’ignorent.",
     "Payment methods must be a JSON array": "Les moyens de paiement doivent être un tableau JSON",
-    "Payment method gateway must be empty or secondary": "La passerelle d’un moyen de paiement doit être vide ou secondary"
+    "Payment method gateway must be empty or secondary": "La passerelle d’un moyen de paiement doit être vide ou secondary",
+    "Refund tickets need an image of your payment QR code": "Les tickets de remboursement nécessitent une image de votre QR code de paiement",
+    "Only refund tickets can clear the owner's balance": "Seuls les tickets de remboursement permettent de remettre à zéro le solde du propriétaire",
+    "The user has no balance to clear": "L’utilisateur n’a aucun solde à remettre à zéro",
+    "Attach your payment QR code": "Joignez votre QR code de paiement",
+    "We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.": "Nous envoyons les remboursements au QR code de paiement que vous joignez, par exemple un code de réception Alipay ou WeChat Pay. Un ticket de remboursement ne peut pas être envoyé sans lui.",
+    "Balance cleared": "Solde remis à zéro",
+    "Clear balance": "Remettre le solde à zéro",
+    "Clear the balance of {{name}}?": "Remettre à zéro le solde de {{name}} ?",
+    "The remaining {{quota}} will be set to 0. Send the refund first: this is recorded in the logs and cannot be undone.": "Le solde restant de {{quota}} sera mis à 0. Envoyez d’abord le remboursement : cette action est enregistrée dans les journaux et ne peut pas être annulée.",
+    "Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}": "Quota de l’utilisateur remis de {{from}} à 0 pour le ticket de remboursement n° {{ticket_id}}",
+    "Clear user quota for a refund ticket": "Remettre à zéro le quota pour un ticket de remboursement",
+    "Clear quota for user “{{name}}” for refund ticket #{{ticket}}": "Remettre à zéro le quota de « {{name}} » pour le ticket de remboursement n° {{ticket}}"
   }
 }
