@@ -361,6 +361,7 @@ func SetApiRouter(router *gin.Engine) {
 		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/attachment/:id", authz.TicketRead, controller.GetTicketAttachment)
 		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/:id", authz.TicketRead, controller.GetTicket)
 		handlePermissionRoute(ticketAdminRoute, http.MethodGet, "/:id/refund", authz.TicketRead, controller.GetTicketRefundInfo)
+		handlePermissionRoute(ticketAdminRoute, http.MethodPost, "/:id/refund/clear-quota", authz.TicketWrite, controller.ClearTicketOwnerQuota)
 		handlePermissionRoute(ticketAdminRoute, http.MethodPost, "/:id/reply", authz.TicketWrite, controller.ReplyTicket)
 		handlePermissionRoute(ticketAdminRoute, http.MethodPut, "/:id", authz.TicketWrite, controller.UpdateTicket)
 		handlePermissionRoute(ticketAdminRoute, http.MethodPut, "/:id/ban", authz.TicketWrite, controller.SetTicketOwnerBan)

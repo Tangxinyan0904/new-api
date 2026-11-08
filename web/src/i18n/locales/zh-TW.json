@@ -7751,7 +7751,7 @@
     "View tickets": "檢視工單",
     "Handle tickets": "處理工單",
     "View all users' support tickets and attachments.": "檢視所有使用者的工單及附件。",
-    "Reply to tickets and change their status and priority.": "回覆工單，修改工單狀態和優先級。",
+    "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.": "回覆工單，修改工單狀態和優先級，並可歸零退款工單使用者的餘額。",
     "Support tickets": "工單",
     "View your support tickets, replies, and attachments.": "檢視你的工單、回覆和附件。",
     "Open, reply to, and close your support tickets.": "提交、回覆和關閉你的工單。",
@@ -7944,6 +7944,18 @@
     "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "另一個相容易支付協定的閘道，例如加密貨幣收款閘道。只有設定為使用第二閘道的支付方式會發到這裡；上面的回呼位址兩者共用。",
     "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "這個支付方式的訂單發往哪個易支付閘道，例如 USDT 選第二閘道。Stripe 等內建類型不受影響。",
     "Payment methods must be a JSON array": "支付方式必須是 JSON 陣列",
-    "Payment method gateway must be empty or secondary": "支付方式的閘道只能為空或 secondary"
+    "Payment method gateway must be empty or secondary": "支付方式的閘道只能為空或 secondary",
+    "Refund tickets need an image of your payment QR code": "退款工單需要上傳收款碼圖片",
+    "Only refund tickets can clear the owner's balance": "只有退款工單可以歸零使用者餘額",
+    "The user has no balance to clear": "該使用者沒有可歸零的餘額",
+    "Attach your payment QR code": "請上傳收款碼",
+    "We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.": "退款將匯至你上傳的收款碼，例如支付寶或微信收款碼。未上傳收款碼無法提交退款工單。",
+    "Balance cleared": "餘額已歸零",
+    "Clear balance": "歸零餘額",
+    "Clear the balance of {{name}}?": "歸零 {{name}} 的餘額？",
+    "The remaining {{quota}} will be set to 0. Send the refund first: this is recorded in the logs and cannot be undone.": "剩餘的 {{quota}} 將被設為 0。請先完成退款匯款：此操作會記入日誌，且無法復原。",
+    "Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}": "因退款工單 #{{ticket_id}} 將使用者額度從 {{from}} 歸零",
+    "Clear user quota for a refund ticket": "因退款工單歸零使用者額度",
+    "Clear quota for user “{{name}}” for refund ticket #{{ticket}}": "因退款工單 #{{ticket}} 歸零使用者「{{name}}」的額度"
   }
 }

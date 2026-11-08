@@ -7751,7 +7751,7 @@
     "View tickets": "チケットの閲覧",
     "Handle tickets": "チケットの対応",
     "View all users' support tickets and attachments.": "すべてのユーザーのチケットと添付ファイルを閲覧します。",
-    "Reply to tickets and change their status and priority.": "チケットに返信し、ステータスと優先度を変更します。",
+    "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.": "チケットに返信し、ステータスと優先度を変更し、返金チケット所有者の残高をゼロにします。",
     "Support tickets": "サポートチケット",
     "View your support tickets, replies, and attachments.": "自分のチケット、返信、添付ファイルを閲覧します。",
     "Open, reply to, and close your support tickets.": "チケットの作成、返信、クローズを行います。",
@@ -7944,6 +7944,18 @@
     "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Epay互換の2つ目のゲートウェイ（暗号資産ゲートウェイなど）。セカンダリゲートウェイを使うよう設定した支払い方法だけがここに送られます。上のコールバックアドレスは共通です。",
     "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "この支払い方法の注文を受け取るEpayゲートウェイです（例：USDTはセカンダリ）。他の組み込みタイプには影響しません。",
     "Payment methods must be a JSON array": "支払い方法はJSON配列である必要があります",
-    "Payment method gateway must be empty or secondary": "支払い方法のゲートウェイは空またはsecondaryである必要があります"
+    "Payment method gateway must be empty or secondary": "支払い方法のゲートウェイは空またはsecondaryである必要があります",
+    "Refund tickets need an image of your payment QR code": "返金チケットには受取用 QR コードの画像が必要です",
+    "Only refund tickets can clear the owner's balance": "所有者の残高をゼロにできるのは返金チケットのみです",
+    "The user has no balance to clear": "このユーザーにはゼロにできる残高がありません",
+    "Attach your payment QR code": "受取用 QR コードを添付してください",
+    "We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.": "返金は添付された受取用 QR コード（Alipay や WeChat Pay の受取コードなど）宛てに送金します。添付しないと返金チケットを送信できません。",
+    "Balance cleared": "残高をゼロにしました",
+    "Clear balance": "残高をゼロにする",
+    "Clear the balance of {{name}}?": "{{name}} の残高をゼロにしますか？",
+    "The remaining {{quota}} will be set to 0. Send the refund first: this is recorded in the logs and cannot be undone.": "残りの {{quota}} は 0 になります。先に返金を送金してください。この操作はログに記録され、元に戻せません。",
+    "Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}": "返金チケット #{{ticket_id}} のため、ユーザーのクォータを {{from}} から 0 にしました",
+    "Clear user quota for a refund ticket": "返金チケットのためユーザーのクォータをゼロにする",
+    "Clear quota for user “{{name}}” for refund ticket #{{ticket}}": "返金チケット #{{ticket}} のため、ユーザー「{{name}}」のクォータをゼロにする"
   }
 }

@@ -42,7 +42,7 @@ type ticketResponse struct {
 func setupTicketControllerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
-	require.NoError(t, db.AutoMigrate(&model.Ticket{}, &model.TicketMessage{}, &model.TicketAttachment{}, &model.TicketLog{}, &model.TicketBan{}, &model.Log{}, &model.TopUp{}, &model.Redemption{}))
+	require.NoError(t, db.AutoMigrate(&model.Ticket{}, &model.TicketMessage{}, &model.TicketAttachment{}, &model.TicketLog{}, &model.TicketBan{}, &model.Log{}, &model.AuditLog{}, &model.TopUp{}, &model.Redemption{}))
 	require.NoError(t, db.Create(&[]model.User{
 		{Id: ticketStaffID, Username: "root", AffCode: "ticket-aff-root", Role: common.RoleRootUser, Status: common.UserStatusEnabled},
 		{Id: ticketOwnerID, Username: "owner", AffCode: "ticket-aff-owner", Role: common.RoleCommonUser, Status: common.UserStatusEnabled},
@@ -52,7 +52,7 @@ func setupTicketControllerTestDB(t *testing.T) *gorm.DB {
 }
 
 // callTicketHandler runs handler with a multipart form (fields and images) or
-// a JSON body (jsonBody) as user id.
+// a JSON body (jsonBody) as user id, with that user's stored role.
 func callTicketHandler(t *testing.T, handler gin.HandlerFunc, method, target string, userID int, params gin.Params, fields map[string]string, images [][]byte, jsonBody string) ticketResponse {
 	t.Helper()
 	var body bytes.Buffer
@@ -78,8 +78,11 @@ func callTicketHandler(t *testing.T, handler gin.HandlerFunc, method, target str
 	ctx.Request = httptest.NewRequest(method, target, &body)
 	ctx.Request.Header.Set("Content-Type", contentType)
 	ctx.Params = params
+	var caller model.User
+	require.NoError(t, model.DB.Select("role").First(&caller, userID).Error)
 	ctx.Set("id", userID)
 	ctx.Set("username", "user"+strconv.Itoa(userID))
+	ctx.Set("role", caller.Role)
 	handler(ctx)
 
 	var response ticketResponse
@@ -99,6 +102,19 @@ func createTestTicket(t *testing.T, userID int, images [][]byte) model.Ticket {
 		"category": model.TicketCategoryAPI,
 		"content":  "Requests fail with 401.",
 	}, images, "")
+	require.True(t, response.Success, response.Message)
+	var ticket model.Ticket
+	require.NoError(t, common.Unmarshal(response.Data, &ticket))
+	return ticket
+}
+
+// createRefundTestTicket opens a refund ticket for the owner with the required
+// payment QR code image.
+func createRefundTestTicket(t *testing.T) model.Ticket {
+	t.Helper()
+	response := callTicketHandler(t, CreateTicket, http.MethodPost, "/api/ticket/", ticketOwnerID, nil, map[string]string{
+		"subject": "Please refund", "category": model.TicketCategoryRefund, "content": "I no longer need the balance.",
+	}, [][]byte{ticketPNG}, "")
 	require.True(t, response.Success, response.Message)
 	var ticket model.Ticket
 	require.NoError(t, common.Unmarshal(response.Data, &ticket))
@@ -174,6 +190,7 @@ func TestCreateTicketNormalizesSubjectAndValidatesFields(t *testing.T) {
 		{name: "unknown category", fields: map[string]string{"subject": "s", "category": "sales", "content": "x"}, messageKey: "Invalid ticket category"},
 		{name: "blank content", fields: map[string]string{"subject": "s", "category": "api", "content": "  "}, messageKey: "Ticket content is required"},
 		{name: "long content", fields: map[string]string{"subject": "s", "category": "api", "content": strings.Repeat("a", model.TicketContentMaxRunes+1)}, messageKey: "Ticket content must be at most {{max}} characters"},
+		{name: "refund without a payment QR code", fields: map[string]string{"subject": "s", "category": "refund", "content": "x"}, messageKey: "Refund tickets need an image of your payment QR code"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -508,12 +525,7 @@ func TestTicketRefundInfoSumsPaymentsAndRecentUsage(t *testing.T) {
 		{UserId: ticketOtherID, Type: model.LogTypeConsume, Quota: 77, CreatedAt: now - 60},
 	}).Error)
 
-	created := callTicketHandler(t, CreateTicket, http.MethodPost, "/api/ticket/", ticketOwnerID, nil, map[string]string{
-		"subject": "Please refund", "category": model.TicketCategoryRefund, "content": "I no longer need the balance.",
-	}, nil, "")
-	require.True(t, created.Success, created.Message)
-	var refundTicket model.Ticket
-	require.NoError(t, common.Unmarshal(created.Data, &refundTicket))
+	refundTicket := createRefundTestTicket(t)
 	target := "/?today_start=" + strconv.FormatInt(todayStart, 10) + "&week_start=" + strconv.FormatInt(weekStart, 10)
 
 	response := callTicketHandler(t, GetTicketRefundInfo, http.MethodGet, target, ticketStaffID, idParam(refundTicket.Id), nil, nil, "")
@@ -540,4 +552,61 @@ func TestTicketRefundInfoSumsPaymentsAndRecentUsage(t *testing.T) {
 	badRange := callTicketHandler(t, GetTicketRefundInfo, http.MethodGet, "/?today_start=1&week_start=2", ticketStaffID, idParam(refundTicket.Id), nil, nil, "")
 	assert.False(t, badRange.Success)
 	assert.Equal(t, "Invalid parameters", badRange.MessageKey)
+}
+
+func TestClearTicketOwnerQuotaZeroesARefundOwnersBalanceAndLogsIt(t *testing.T) {
+	db := setupTicketControllerTestDB(t)
+	require.NoError(t, db.Model(&model.User{}).Where("id = ?", ticketOwnerID).Update("quota", 1234).Error)
+	refundTicket := createRefundTestTicket(t)
+	clear := func(ticketID, staffID int) ticketResponse {
+		return callTicketHandler(t, ClearTicketOwnerQuota, http.MethodPost, "/", staffID, idParam(ticketID), nil, nil, "")
+	}
+	ownerQuota := func() int {
+		var owner model.User
+		require.NoError(t, db.First(&owner, ticketOwnerID).Error)
+		return owner.Quota
+	}
+
+	other := createTestTicket(t, ticketOwnerID, nil)
+	assert.Equal(t, model.ErrTicketNotRefund.Key, clear(other.Id, ticketStaffID).MessageKey)
+	assert.Equal(t, model.ErrTicketNotFound.Key, clear(refundTicket.Id+100, ticketStaffID).MessageKey)
+	// An administrator cannot clear the balance of an administrator.
+	require.NoError(t, db.Model(&model.User{}).Where("id IN ?", []int{ticketOwnerID, ticketOtherID}).Update("role", common.RoleAdminUser).Error)
+	assert.Equal(t, "No permission to update users of same or higher permission level", clear(refundTicket.Id, ticketOtherID).MessageKey)
+	assert.Equal(t, 1234, ownerQuota())
+
+	cleared := clear(refundTicket.Id, ticketStaffID)
+	require.True(t, cleared.Success, cleared.Message)
+	assert.JSONEq(t, `{"from":1234,"to":0}`, string(cleared.Data))
+	assert.Zero(t, ownerQuota())
+
+	// The owner sees the change in their top-up logs; staff see it in the audit log.
+	expectedParams, err := common.Marshal(model.AuditFields{
+		"ticket_id": refundTicket.Id, "target_user_id": ticketOwnerID, "target_username": "owner",
+		"mode": "override", "requested_quota": 0, "from": 1234, "to": 0,
+	})
+	require.NoError(t, err)
+	logs, total, err := model.GetUserLogs(ticketOwnerID, model.LogFilter{Type: model.LogTypeTopup}, 0, 20)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	assert.Equal(t, "Cleared user quota from 1234 to 0 for refund ticket #"+strconv.Itoa(refundTicket.Id), logs[0].Content)
+	var logOther model.AuditOther
+	require.NoError(t, common.UnmarshalJsonStr(logs[0].Other, &logOther))
+	require.NotNil(t, logOther.Op)
+	assert.Equal(t, "ticket.refund_clear_quota", logOther.Op.Action)
+	params, err := common.Marshal(logOther.Op.Params)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(expectedParams), string(params))
+	var audits []model.AuditLog
+	require.NoError(t, model.LOG_DB.Find(&audits).Error)
+	require.Len(t, audits, 1)
+	assert.Equal(t, ticketStaffID, audits[0].UserId)
+	assert.Equal(t, "ticket.refund_clear_quota", audits[0].Action)
+	assert.True(t, audits[0].Success)
+
+	// Nothing is left to clear, and an overdrawn owner is never credited.
+	assert.Equal(t, model.ErrTicketOwnerNoQuota.Key, clear(refundTicket.Id, ticketStaffID).MessageKey)
+	require.NoError(t, db.Model(&model.User{}).Where("id = ?", ticketOwnerID).Update("quota", -50).Error)
+	assert.Equal(t, model.ErrTicketOwnerNoQuota.Key, clear(refundTicket.Id, ticketStaffID).MessageKey)
+	assert.Equal(t, -50, ownerQuota())
 }

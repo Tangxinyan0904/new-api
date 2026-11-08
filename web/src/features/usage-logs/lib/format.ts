@@ -492,6 +492,8 @@ const AUDIT_TEMPLATES: Record<string, string> = {
   'user.quota_add': 'Increased user quota by {{quota}}',
   'user.quota_subtract': 'Decreased user quota by {{quota}}',
   'user.quota_override': 'Overrode user quota from {{from}} to {{to}}',
+  'ticket.refund_clear_quota':
+    'Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}',
   'user.binding_clear': 'Cleared {{bindingType}} binding for user {{username}}',
   'user.2fa_disable': 'Force-disabled two-factor authentication for the user',
   'user.passkey_register': 'Registered a passkey',

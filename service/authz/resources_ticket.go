@@ -21,7 +21,7 @@ func init() {
 			{
 				Action:         ActionWrite,
 				LabelKey:       "Handle tickets",
-				DescriptionKey: "Reply to tickets and change their status and priority.",
+				DescriptionKey: "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.",
 				DefaultRoles:   []string{BuiltInRoleAdmin},
 			},
 		},

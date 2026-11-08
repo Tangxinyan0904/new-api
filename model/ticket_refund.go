@@ -1,6 +1,14 @@
 package model
 
-import "github.com/QuantumNous/new-api/common"
+import (
+	"github.com/QuantumNous/new-api/common"
+	"gorm.io/gorm"
+)
+
+var (
+	ErrTicketNotRefund    = common.NewMessage("Only refund tickets can clear the owner's balance")
+	ErrTicketOwnerNoQuota = common.NewMessage("The user has no balance to clear")
+)
 
 // TicketRefundTopUp is one completed online top-up.
 type TicketRefundTopUp struct {
@@ -95,4 +103,48 @@ func GetTicketRefundInfo(userId int, todayStart, weekStart int64) (*TicketRefund
 	}
 	info.TodayQuota, info.WeekQuota = usage.Today, usage.Week
 	return info, nil
+}
+
+// ClearTicketOwnerQuota sets the balance of a refund ticket's owner to zero
+// once staff have paid the refund. Only a positive balance can be cleared, so
+// an overdrawn owner is never credited.
+func ClearTicketOwnerQuota(ticketId, operatorRole int) (*UserQuotaAdjustment, error) {
+	var adjustment UserQuotaAdjustment
+	err := DB.Transaction(func(tx *gorm.DB) error {
+		var ticket Ticket
+		if err := tx.Select("id", "user_id", "category").Where("id = ?", ticketId).First(&ticket).Error; err != nil {
+			return ticketLookupError(err)
+		}
+		if ticket.Category != TicketCategoryRefund {
+			return ErrTicketNotRefund
+		}
+		var user User
+		if err := lockForUpdate(tx).First(&user, ticket.UserId).Error; err != nil {
+			return err
+		}
+		if operatorRole != common.RoleRootUser && operatorRole <= user.Role {
+			return ErrUserQuotaPermission
+		}
+		if user.Quota <= 0 {
+			return ErrTicketOwnerNoQuota
+		}
+		result := tx.Model(&User{}).Where("id = ?", user.Id).Update("quota", 0)
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		adjustment = UserQuotaAdjustment{UserID: user.Id, Username: user.Username, Before: user.Quota, After: 0}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Apply only the committed difference, preserving outstanding reservations.
+	if err := cacheIncrUserQuota(adjustment.UserID, -int64(adjustment.Before)); err != nil {
+		common.SysError(common.LogText("failed to sync manual quota adjustment for user %d: %s", adjustment.UserID, err))
+	}
+	return &adjustment, nil
 }

@@ -7751,7 +7751,7 @@
     "View tickets": "Xem phiếu hỗ trợ",
     "Handle tickets": "Xử lý phiếu hỗ trợ",
     "View all users' support tickets and attachments.": "Xem phiếu hỗ trợ và tệp đính kèm của mọi người dùng.",
-    "Reply to tickets and change their status and priority.": "Trả lời phiếu và thay đổi trạng thái, mức ưu tiên.",
+    "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.": "Trả lời phiếu, thay đổi trạng thái, mức ưu tiên và đặt số dư của chủ phiếu hoàn tiền về 0.",
     "Support tickets": "Phiếu hỗ trợ",
     "View your support tickets, replies, and attachments.": "Xem phiếu hỗ trợ, phản hồi và tệp đính kèm của bạn.",
     "Open, reply to, and close your support tickets.": "Tạo, trả lời và đóng phiếu hỗ trợ của bạn.",
@@ -7944,6 +7944,18 @@
     "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "Cổng thứ hai tương thích Epay, ví dụ cổng tiền mã hóa. Chỉ các phương thức thanh toán được đặt dùng cổng phụ mới gửi đến đây; địa chỉ callback ở trên dùng chung.",
     "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Cổng Epay nhận đơn của phương thức này, ví dụ cổng phụ cho USDT. Các loại tích hợp sẵn khác bỏ qua tùy chọn này.",
     "Payment methods must be a JSON array": "Phương thức thanh toán phải là mảng JSON",
-    "Payment method gateway must be empty or secondary": "Cổng của phương thức thanh toán phải để trống hoặc là secondary"
+    "Payment method gateway must be empty or secondary": "Cổng của phương thức thanh toán phải để trống hoặc là secondary",
+    "Refund tickets need an image of your payment QR code": "Phiếu hoàn tiền cần ảnh mã QR nhận tiền của bạn",
+    "Only refund tickets can clear the owner's balance": "Chỉ phiếu hoàn tiền mới có thể đặt số dư của chủ phiếu về 0",
+    "The user has no balance to clear": "Người dùng không có số dư để đặt về 0",
+    "Attach your payment QR code": "Đính kèm mã QR nhận tiền của bạn",
+    "We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.": "Chúng tôi gửi tiền hoàn vào mã QR nhận tiền bạn đính kèm, ví dụ mã nhận tiền Alipay hoặc WeChat Pay. Không thể gửi phiếu hoàn tiền nếu thiếu mã này.",
+    "Balance cleared": "Đã đặt số dư về 0",
+    "Clear balance": "Đặt số dư về 0",
+    "Clear the balance of {{name}}?": "Đặt số dư của {{name}} về 0?",
+    "The remaining {{quota}} will be set to 0. Send the refund first: this is recorded in the logs and cannot be undone.": "Số dư còn lại {{quota}} sẽ được đặt về 0. Hãy gửi tiền hoàn trước: thao tác này được ghi vào nhật ký và không thể hoàn tác.",
+    "Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}": "Đã đặt hạn mức người dùng từ {{from}} về 0 cho phiếu hoàn tiền #{{ticket_id}}",
+    "Clear user quota for a refund ticket": "Đặt hạn mức người dùng về 0 cho phiếu hoàn tiền",
+    "Clear quota for user “{{name}}” for refund ticket #{{ticket}}": "Đặt hạn mức cho người dùng “{{name}}” về 0 cho phiếu hoàn tiền #{{ticket}}"
   }
 }

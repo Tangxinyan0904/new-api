@@ -7751,7 +7751,7 @@
     "View tickets": "View tickets",
     "Handle tickets": "Handle tickets",
     "View all users' support tickets and attachments.": "View all users' support tickets and attachments.",
-    "Reply to tickets and change their status and priority.": "Reply to tickets and change their status and priority.",
+    "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.": "Reply to tickets, change their status and priority, and clear the balance of refund ticket owners.",
     "Support tickets": "Support tickets",
     "View your support tickets, replies, and attachments.": "View your support tickets, replies, and attachments.",
     "Open, reply to, and close your support tickets.": "Open, reply to, and close your support tickets.",
@@ -7944,6 +7944,18 @@
     "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.": "A second Epay-compatible gateway, for example a crypto gateway. Only payment methods set to use the secondary gateway are sent here; the callback address above is shared.",
     "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.": "Which Epay gateway receives orders for this method, for example the secondary gateway for USDT. Other built-in types ignore it.",
     "Payment methods must be a JSON array": "Payment methods must be a JSON array",
-    "Payment method gateway must be empty or secondary": "Payment method gateway must be empty or secondary"
+    "Payment method gateway must be empty or secondary": "Payment method gateway must be empty or secondary",
+    "Refund tickets need an image of your payment QR code": "Refund tickets need an image of your payment QR code",
+    "Only refund tickets can clear the owner's balance": "Only refund tickets can clear the owner's balance",
+    "The user has no balance to clear": "The user has no balance to clear",
+    "Attach your payment QR code": "Attach your payment QR code",
+    "We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.": "We send refunds to the payment QR code you attach, such as an Alipay or WeChat Pay receiving code. A refund ticket cannot be submitted without it.",
+    "Balance cleared": "Balance cleared",
+    "Clear balance": "Clear balance",
+    "Clear the balance of {{name}}?": "Clear the balance of {{name}}?",
+    "The remaining {{quota}} will be set to 0. Send the refund first: this is recorded in the logs and cannot be undone.": "The remaining {{quota}} will be set to 0. Send the refund first: this is recorded in the logs and cannot be undone.",
+    "Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}": "Cleared user quota from {{from}} to 0 for refund ticket #{{ticket_id}}",
+    "Clear user quota for a refund ticket": "Clear user quota for a refund ticket",
+    "Clear quota for user “{{name}}” for refund ticket #{{ticket}}": "Clear quota for user “{{name}}” for refund ticket #{{ticket}}"
   }
 }

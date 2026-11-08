@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"slices"
@@ -150,6 +151,11 @@ func CreateTicket(c *gin.Context) {
 	category := c.PostForm("category")
 	if !model.IsValidTicketCategory(category) {
 		common.ApiErrorT(c, "Invalid ticket category")
+		return
+	}
+	// Staff send the refund to the payment QR code in the image.
+	if category == model.TicketCategoryRefund && len(images) == 0 {
+		common.ApiErrorT(c, "Refund tickets need an image of your payment QR code")
 		return
 	}
 	content := strings.TrimSpace(c.PostForm("content"))
@@ -339,6 +345,44 @@ func GetTicketRefundInfo(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, info)
+}
+
+// ClearTicketOwnerQuota sets a refund ticket owner's balance to zero and logs
+// it like a manual quota change: in the owner's top-up logs and in the audit
+// log. Failed attempts are left to the admin audit fallback.
+func ClearTicketOwnerQuota(c *gin.Context) {
+	id, ok := ticketIdParam(c)
+	if !ok {
+		return
+	}
+	adjustment, err := model.ClearTicketOwnerQuota(id, c.GetInt("role"))
+	if err != nil {
+		if errors.Is(err, model.ErrUserQuotaPermission) {
+			common.ApiErrorT(c, "No permission to update users of same or higher permission level")
+			return
+		}
+		common.ApiError(c, err)
+		return
+	}
+	action := "ticket.refund_clear_quota"
+	params := model.AuditFields{
+		"ticket_id":       id,
+		"target_user_id":  adjustment.UserID,
+		"target_username": adjustment.Username,
+		"mode":            "override",
+		"requested_quota": 0,
+		"from":            adjustment.Before,
+		"to":              adjustment.After,
+	}
+	content := auditContentEN(action, params)
+	model.RecordOperationAuditLog(c.GetInt("id"), c.GetInt("role"), content, c.ClientIP(), action, params,
+		auditOperatorInfo(c), &model.AuditRequestInfo{
+			Method: c.Request.Method, Route: c.FullPath(), Status: http.StatusOK, Success: true,
+		}, c)
+	markAuditLogged(c)
+	operation := model.AuditOperation{Action: action, Params: params}
+	model.RecordLogWithAdminInfo(adjustment.UserID, model.LogTypeTopup, content, auditOperatorInfo(c), &operation, c)
+	common.ApiSuccess(c, gin.H{"from": adjustment.Before, "to": adjustment.After})
 }
 
 func ReplyTicket(c *gin.Context) {
