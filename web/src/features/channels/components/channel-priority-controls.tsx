@@ -123,10 +123,13 @@ export function ChannelSortControl(props: {
           ))}
         </SelectContent>
       </Select>
+      {/* The theme's outline buttons are taller and dashed; match the select
+          trigger instead so the pair reads as one control. */}
       <Button
         type='button'
-        size='icon'
-        variant='outline'
+        size='icon-sm'
+        variant='ghost'
+        className='border-input bg-background dark:bg-input/30 dark:hover:bg-input/50'
         disabled={props.disabled}
         aria-label={props.desc ? t('Descending') : t('Ascending')}
         title={props.desc ? t('Descending') : t('Ascending')}
