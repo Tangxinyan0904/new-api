@@ -37,18 +37,17 @@ var (
 	channelStatusNow     = time.Now
 	channelStatusCacheMu sync.Mutex
 	channelStatusCache   *ChannelStatusSnapshot
-	// channelStatusClosedCacheHits keeps the cache hits of ended buckets by
-	// bucket start, so a rebuild reads the cache logs of open buckets only.
+	// channelStatusClosedCache keeps the cache tallies of ended buckets by
+	// bucket start, so a rebuild reads the logs of the open bucket only.
 	// Guarded by channelStatusCacheMu.
-	channelStatusClosedCacheHits = map[int64]channelStatusBucketCacheHits{}
+	channelStatusClosedCache = map[int64]channelStatusBucketCache{}
 )
 
-// channelStatusBucketCacheHits counts, per group, the requests of one bucket
-// that reached the group's cache hit threshold. Thresholds identifies the
-// thresholds they were counted with.
-type channelStatusBucketCacheHits struct {
+// channelStatusBucketCache holds the per-group cache tallies of one bucket.
+// Thresholds identifies the thresholds they were counted with.
+type channelStatusBucketCache struct {
 	Thresholds string
-	Hits       map[string]int64
+	Tallies    map[string]ChannelStatusCacheTally
 }
 
 // ChannelStatusCacheTally counts the successful requests that sent input
@@ -157,32 +156,40 @@ func BuildChannelStatusSnapshot(groups []string, cacheHitThresholds map[string]i
 		}
 		for _, row := range rows {
 			snapshot.record(row.GroupName, row.ModelName, bucket, ChannelStatusTally{Success: row.Count, DurationSum: row.UseTime})
-			snapshot.group(row.GroupName).Cache.Requests += row.InputCount
 		}
 		if len(cacheGroups) == 0 {
 			continue
 		}
-		counted, closed := channelStatusClosedCacheHits[start]
+		counted, closed := channelStatusClosedCache[start]
 		if !closed || counted.Thresholds != thresholds.String() {
-			counted = channelStatusBucketCacheHits{Thresholds: thresholds.String(), Hits: map[string]int64{}}
+			counted = channelStatusBucketCache{Thresholds: thresholds.String(), Tallies: map[string]ChannelStatusCacheTally{}}
 			cacheRows, err := model.ListChannelStatusCacheRows(cacheGroups, start, end)
 			if err != nil {
 				return nil, err
 			}
 			for _, row := range cacheRows {
-				if model.LogCacheHitRate(row.PromptTokens, row.Other) >= float64(cacheHitThresholds[row.GroupName]) {
-					counted.Hits[row.GroupName]++
+				rate, hasInput := model.LogCacheHitRate(row.PromptTokens, row.Other)
+				if !hasInput {
+					continue
 				}
+				tally := counted.Tallies[row.GroupName]
+				tally.Requests++
+				if rate >= float64(cacheHitThresholds[row.GroupName]) {
+					tally.Hits++
+				}
+				counted.Tallies[row.GroupName] = tally
 			}
 			if end+channelStatusClosedDelaySeconds <= now {
-				channelStatusClosedCacheHits[start] = counted
+				channelStatusClosedCache[start] = counted
 			}
 		}
-		for group, hits := range counted.Hits {
-			snapshot.group(group).Cache.Hits += hits
+		for group, tally := range counted.Tallies {
+			stats := snapshot.group(group)
+			stats.Cache.Requests += tally.Requests
+			stats.Cache.Hits += tally.Hits
 		}
 	}
-	maps.DeleteFunc(channelStatusClosedCacheHits, func(start int64, _ channelStatusBucketCacheHits) bool {
+	maps.DeleteFunc(channelStatusClosedCache, func(start int64, _ channelStatusBucketCache) bool {
 		return start < snapshot.WindowStart
 	})
 

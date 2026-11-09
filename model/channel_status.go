@@ -87,10 +87,6 @@ func DeleteChannelStatusMonitor(id int) error {
 	return result.Error
 }
 
-// channelStatusCacheTokensLike matches a log whose other field records cache
-// read tokens, which every text request has.
-const channelStatusCacheTokensLike = `%"cache_tokens":%`
-
 // ChannelStatusSuccessRow counts the successful calls of one group and model.
 type ChannelStatusSuccessRow struct {
 	GroupName string
@@ -98,9 +94,6 @@ type ChannelStatusSuccessRow struct {
 	Count     int64
 	// UseTime is the summed duration in seconds.
 	UseTime int64
-	// InputCount counts the calls that sent input tokens, the ones a cache
-	// hit rate applies to.
-	InputCount int64
 }
 
 // CountChannelStatusSuccesses counts the consume logs of groups created in
@@ -108,8 +101,7 @@ type ChannelStatusSuccessRow struct {
 func CountChannelStatusSuccesses(groups []string, start, end int64) ([]ChannelStatusSuccessRow, error) {
 	rows := make([]ChannelStatusSuccessRow, 0)
 	err := LOG_DB.Model(&Log{}).
-		Select(logGroupCol+" AS group_name, model_name, COUNT(*) AS count, COALESCE(SUM(use_time), 0) AS use_time, "+
-			"COALESCE(SUM(CASE WHEN prompt_tokens > 0 OR other LIKE ? THEN 1 ELSE 0 END), 0) AS input_count", channelStatusCacheTokensLike).
+		Select(logGroupCol+" AS group_name, model_name, COUNT(*) AS count, COALESCE(SUM(use_time), 0) AS use_time").
 		Where("created_at >= ? AND created_at < ? AND type = ?", start, end, LogTypeConsume).
 		Where(logGroupCol+" IN ?", groups).
 		Group(logGroupCol + ", model_name").
@@ -117,7 +109,8 @@ func CountChannelStatusSuccesses(groups []string, start, end int64) ([]ChannelSt
 	return rows, err
 }
 
-// ChannelStatusCacheRow is a successful call that may have read the cache.
+// ChannelStatusCacheRow is a successful call with what its cache hit rate
+// is computed from.
 type ChannelStatusCacheRow struct {
 	GroupName    string
 	PromptTokens int
@@ -125,14 +118,13 @@ type ChannelStatusCacheRow struct {
 }
 
 // ListChannelStatusCacheRows returns the consume logs of groups created in
-// [start, end) that record cache read tokens.
+// [start, end).
 func ListChannelStatusCacheRows(groups []string, start, end int64) ([]ChannelStatusCacheRow, error) {
 	rows := make([]ChannelStatusCacheRow, 0)
 	err := LOG_DB.Model(&Log{}).
 		Select(logGroupCol+" AS group_name, prompt_tokens, other").
 		Where("created_at >= ? AND created_at < ? AND type = ?", start, end, LogTypeConsume).
 		Where(logGroupCol+" IN ?", groups).
-		Where("other LIKE ?", channelStatusCacheTokensLike).
 		Scan(&rows).Error
 	return rows, err
 }

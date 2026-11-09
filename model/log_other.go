@@ -115,9 +115,10 @@ func (o *LogOther) InputTokens(promptTokens int) int {
 
 // LogCacheHitRate returns the cache hit rate, in percent, of a stored log
 // from its prompt tokens and other field, counted like the usage log cache
-// hit column. It is 0 when the log has no input tokens or unreadable fields.
-func LogCacheHitRate(promptTokens int, otherJSON string) float64 {
-	var stored struct {
+// hit column, and whether the log had input tokens at all. Unreadable fields
+// count as no cache.
+func LogCacheHitRate(promptTokens int, otherJSON string) (float64, bool) {
+	type cacheFields struct {
 		CacheTokens           *int   `json:"cache_tokens"`
 		CacheWriteTokens      *int   `json:"cache_write_tokens"`
 		CacheCreationTokens   *int   `json:"cache_creation_tokens"`
@@ -126,8 +127,9 @@ func LogCacheHitRate(promptTokens int, otherJSON string) float64 {
 		UsageSemantic         string `json:"usage_semantic"`
 		Claude                bool   `json:"claude"`
 	}
-	if err := common.UnmarshalJsonStr(otherJSON, &stored); err != nil {
-		return 0
+	var stored cacheFields
+	if otherJSON != "" && common.UnmarshalJsonStr(otherJSON, &stored) != nil {
+		stored = cacheFields{}
 	}
 	other := NewLogOther()
 	for key, value := range map[string]*int{
@@ -145,9 +147,9 @@ func LogCacheHitRate(promptTokens int, otherJSON string) float64 {
 	other.SetPublic("claude", stored.Claude)
 	input := other.InputTokens(promptTokens)
 	if input <= 0 {
-		return 0
+		return 0, false
 	}
-	return min(100, max(0, float64(other.CacheTokens())*100/float64(input)))
+	return min(100, max(0, float64(other.CacheTokens())*100/float64(input))), true
 }
 
 func (o *LogOther) setContent(parts []*common.Message) string {

@@ -202,6 +202,8 @@ func TestChannelStatusSharesRequestsThatReachTheCacheHitThreshold(t *testing.T) 
 	// Claude usage counts cache reads and writes as input: 300 of 1000 is 30%.
 	addChannelStatusCacheLog(t, "vip", now-60, 200, `{"cache_tokens":300,"cache_creation_tokens":500,"claude":true}`)
 	addChannelStatusCacheLog(t, "vip", now-60, 1000, `{"cache_tokens":0}`) // 0%
+	// Claude reports no prompt tokens when all input came from the cache: 100%.
+	addChannelStatusCacheLog(t, "vip", now-60, 0, `{"cache_tokens":1000,"claude":true}`)
 	// A request without input tokens, such as an image, is not counted.
 	addChannelStatusCacheLog(t, "vip", now-60, 0, "")
 	// A bucket that ended long ago, counted once and kept: 40%.
@@ -222,10 +224,10 @@ func TestChannelStatusSharesRequestsThatReachTheCacheHitThreshold(t *testing.T) 
 
 	listed := items()
 	assert.Equal(t, 50, listed[0].CacheHitThreshold, "users see the cache figures of public monitors")
-	assert.Equal(t, int64(5), listed[0].CacheRequestCount)
-	assert.Equal(t, int64(2), listed[0].CacheHitCount, "90% and 60% reach 50%")
+	assert.Equal(t, int64(6), listed[0].CacheRequestCount)
+	assert.Equal(t, int64(3), listed[0].CacheHitCount, "100%, 90% and 60% reach 50%")
 	require.NotNil(t, listed[0].CacheHitShare)
-	assert.InDelta(t, 40.0, *listed[0].CacheHitShare, 0.001)
+	assert.InDelta(t, 50.0, *listed[0].CacheHitShare, 0.001)
 	assert.Zero(t, listed[1].CacheHitThreshold)
 	assert.Nil(t, listed[1].CacheHitShare, "a monitor without a threshold shows no cache figures")
 	assert.Zero(t, listed[1].CacheRequestCount)
@@ -235,7 +237,7 @@ func TestChannelStatusSharesRequestsThatReachTheCacheHitThreshold(t *testing.T) 
 		gin.Params{{Key: "id", Value: strconv.Itoa(vip.Id)}}, `{"group":"vip","public_name":"VIP","public_enabled":true,"cache_hit_threshold":30}`)
 	require.True(t, updated.Success, updated.Message)
 	listed = items()
-	assert.Equal(t, int64(4), listed[0].CacheHitCount, "90%, 60%, 40% and 30% reach 30%")
+	assert.Equal(t, int64(5), listed[0].CacheHitCount, "100%, 90%, 60%, 40% and 30% reach 30%")
 	require.NotNil(t, listed[0].CacheHitShare)
-	assert.InDelta(t, 80.0, *listed[0].CacheHitShare, 0.001)
+	assert.InDelta(t, 100.0*5/6, *listed[0].CacheHitShare, 0.001)
 }
