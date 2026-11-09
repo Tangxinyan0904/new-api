@@ -65,6 +65,10 @@ const vip: ChannelStatusItem = {
   success_count: 111,
   failure_count: 1,
   average_duration_ms: 2500,
+  cache_hit_threshold: 80,
+  cache_hit_share: 63.5,
+  cache_hit_count: 70,
+  cache_request_count: 110,
   timeline: timeline({
     status: 'failed',
     success_rate: 50,
@@ -84,6 +88,10 @@ const quiet: ChannelStatusItem = {
   success_count: 0,
   failure_count: 0,
   average_duration_ms: null,
+  cache_hit_threshold: 0,
+  cache_hit_share: null,
+  cache_hit_count: 0,
+  cache_request_count: 0,
   timeline: timeline({}).map((point) => ({
     ...point,
     status: 'unknown' as const,
@@ -167,6 +175,29 @@ describe('ChannelStatus', () => {
     expect(within(card).getByText('99.2%')).toBeInTheDocument()
     expect(within(card).getByText('112')).toBeInTheDocument()
     expect(within(card).getByText('2.5s')).toBeInTheDocument()
+  })
+
+  it('shows the share of requests that reached the monitor cache hit threshold', async () => {
+    renderPage(true)
+    const card = await screen.findByRole('button', {
+      name: 'View VIP lane details',
+    })
+
+    const cache = within(card).getByText('Cache ≥ 80%').parentElement
+    expect(cache).toHaveTextContent('63.5%')
+    expect(cache).toHaveAttribute('title', expect.stringContaining('70 of 110'))
+  })
+
+  it('leaves out the cache figure when the monitor has no threshold', async () => {
+    renderPage(true)
+    const card = await screen.findByRole('button', {
+      name: 'View Quiet group details',
+    })
+
+    expect(within(card).queryByText(/^Cache ≥/)).toBeNull()
+    expect(card.querySelectorAll('[data-slot="monitor-metric"]')).toHaveLength(
+      3
+    )
   })
 
   it('draws twelve five-minute bars oldest first with their outcomes', async () => {

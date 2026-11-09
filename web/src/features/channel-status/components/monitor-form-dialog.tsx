@@ -41,6 +41,7 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
+  InputGroupText,
 } from '@/components/ui/input-group'
 import {
   Select,
@@ -70,6 +71,9 @@ function formValues(monitor: ChannelStatusItem | null): MonitorFormInput {
     public_name: monitor?.public_name ?? '',
     name_color: monitor?.name_color ?? '',
     public_enabled: monitor?.public_enabled ?? true,
+    cache_hit_threshold: monitor?.cache_hit_threshold
+      ? String(monitor.cache_hit_threshold)
+      : '',
   }
 }
 
@@ -103,7 +107,11 @@ export function MonitorFormDialog(props: {
 
   const mutation = useMutation({
     mutationFn: (values: MonitorFormValues) =>
-      saveChannelStatusMonitor(values, props.monitor?.id),
+      saveChannelStatusMonitor(
+        // An empty threshold is 0: no cache figures.
+        { ...values, cache_hit_threshold: Number(values.cache_hit_threshold) },
+        props.monitor?.id
+      ),
     onSuccess: async (result) => {
       if (!result.success) {
         handleServerError(result)
@@ -252,6 +260,33 @@ export function MonitorFormDialog(props: {
                 </FormItem>
               )
             }}
+          />
+          <FormField
+            control={form.control}
+            name='cache_hit_threshold'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Cache hit threshold')}</FormLabel>
+                <InputGroup>
+                  <FormControl>
+                    <InputGroupInput
+                      {...field}
+                      inputMode='numeric'
+                      placeholder={t('Off')}
+                    />
+                  </FormControl>
+                  <InputGroupAddon align='inline-end'>
+                    <InputGroupText>%</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
+                <FormDescription>
+                  {t(
+                    'Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
           />
           <FormField
             control={form.control}

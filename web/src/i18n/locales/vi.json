@@ -7985,6 +7985,11 @@
     "Undo changes": "Hoàn tác thay đổi",
     "Unsaved price changes": "Thay đổi giá chưa lưu",
     "By clicking sign in, you agree to our": "Bằng cách nhấp đăng nhập, bạn đồng ý với",
-    "By creating an account, you agree to our": "Bằng cách tạo tài khoản, bạn đồng ý với"
+    "By creating an account, you agree to our": "Bằng cách tạo tài khoản, bạn đồng ý với",
+    "Cache hit threshold": "Ngưỡng tỷ lệ trúng bộ nhớ đệm",
+    "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "Hiển thị tỷ lệ yêu cầu trong một giờ qua có tỷ lệ trúng bộ nhớ đệm đạt giá trị này. Để trống để ẩn.",
+    "Cache hit threshold must be from 1 to 100, or empty": "Ngưỡng tỷ lệ trúng bộ nhớ đệm phải là số nguyên từ 1 đến 100, hoặc để trống",
+    "Cache ≥ {{threshold}}%": "Bộ nhớ đệm ≥ {{threshold}}%",
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "{{hits}} / {{total}} yêu cầu thành công có đầu vào trong một giờ qua đạt tỷ lệ trúng bộ nhớ đệm {{threshold}}%"
   }
 }

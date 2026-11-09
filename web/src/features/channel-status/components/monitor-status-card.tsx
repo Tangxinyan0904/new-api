@@ -80,9 +80,9 @@ function TimelinePoint(props: {
   )
 }
 
-function Metric(props: { label: string; value: string }) {
+function Metric(props: { label: string; value: string; title?: string }) {
   return (
-    <div className='min-w-0'>
+    <div data-slot='monitor-metric' className='min-w-0' title={props.title}>
       <span className='text-muted-foreground block truncate text-xs'>
         {props.label}
       </span>
@@ -103,6 +103,7 @@ export function MonitorStatusCard(props: {
 }) {
   const { t } = useTranslation()
   const monitor = props.monitor
+  const showsCache = monitor.cache_hit_threshold > 0
 
   return (
     <div className='bg-card flex min-h-[14rem] min-w-0 flex-col overflow-hidden rounded-lg border shadow-sm'>
@@ -140,7 +141,12 @@ export function MonitorStatusCard(props: {
           <ChannelStatusIndicator status={monitor.status} />
         </div>
 
-        <div className='grid w-full grid-cols-3 gap-3'>
+        <div
+          className={cn(
+            'grid w-full gap-3',
+            showsCache ? 'grid-cols-2' : 'grid-cols-3'
+          )}
+        >
           <Metric
             label={t('Success rate')}
             value={formatPercent(monitor.success_rate)}
@@ -153,6 +159,22 @@ export function MonitorStatusCard(props: {
             label={t('Average duration')}
             value={formatAverageDuration(monitor.average_duration_ms)}
           />
+          {showsCache ? (
+            <Metric
+              label={t('Cache ≥ {{threshold}}%', {
+                threshold: monitor.cache_hit_threshold,
+              })}
+              value={formatPercent(monitor.cache_hit_share)}
+              title={t(
+                '{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate',
+                {
+                  hits: formatNumber(monitor.cache_hit_count),
+                  total: formatNumber(monitor.cache_request_count),
+                  threshold: monitor.cache_hit_threshold,
+                }
+              )}
+            />
+          ) : null}
         </div>
 
         <div className='mt-auto w-full min-w-0'>

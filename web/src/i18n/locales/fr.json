@@ -7985,6 +7985,11 @@
     "Undo changes": "Annuler les modifications",
     "Unsaved price changes": "Modifications de prix non enregistrées",
     "By clicking sign in, you agree to our": "En cliquant sur se connecter, vous acceptez nos",
-    "By creating an account, you agree to our": "En créant un compte, vous acceptez nos"
+    "By creating an account, you agree to our": "En créant un compte, vous acceptez nos",
+    "Cache hit threshold": "Seuil de succès du cache",
+    "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "Affiche la part des requêtes de la dernière heure dont le taux de succès du cache atteint cette valeur. Laissez vide pour la masquer.",
+    "Cache hit threshold must be from 1 to 100, or empty": "Le seuil de succès du cache doit être un entier de 1 à 100, ou vide",
+    "Cache ≥ {{threshold}}%": "Cache ≥ {{threshold}} %",
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "{{hits}} sur {{total}} requêtes réussies avec entrée de la dernière heure ont atteint un taux de succès du cache de {{threshold}} %"
   }
 }
