@@ -159,12 +159,16 @@ func TestChannelStatusMonitorsAreValidatedPerGroup(t *testing.T) {
 	assert.Equal(t, "This group does not exist", create(`{"group":"ghost","public_name":"Ghost"}`).MessageKey)
 	assert.Equal(t, "Display name is required", create(`{"group":"vip","public_name":"  "}`).MessageKey)
 	assert.Equal(t, "Name color must use #RRGGBB format", create(`{"group":"vip","public_name":"VIP","name_color":"red"}`).MessageKey)
+	for _, threshold := range []string{"-1", "101"} {
+		assert.Equal(t, "Cache hit threshold must be from 1 to 100, or empty", create(`{"group":"vip","public_name":"VIP","cache_hit_threshold":`+threshold+`}`).MessageKey)
+	}
 
-	created := create(`{"group":"vip","public_name":"VIP","name_color":"#12ab3c","public_enabled":true}`)
+	created := create(`{"group":"vip","public_name":"VIP","name_color":"#12ab3c","public_enabled":true,"cache_hit_threshold":80}`)
 	require.True(t, created.Success, created.Message)
 	var monitor model.ChannelStatusMonitor
 	require.NoError(t, common.Unmarshal(created.Data, &monitor))
 	assert.Equal(t, "#12AB3C", monitor.NameColor)
+	assert.Equal(t, 80, monitor.CacheHitThreshold)
 	assert.Equal(t, model.ErrChannelStatusGroupTaken.Key, create(`{"group":"vip","public_name":"Again"}`).MessageKey)
 
 	idParams := gin.Params{{Key: "id", Value: strconv.Itoa(monitor.Id)}}
@@ -174,9 +178,64 @@ func TestChannelStatusMonitorsAreValidatedPerGroup(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "default", stored.Group)
 	assert.False(t, stored.PublicEnabled)
+	assert.Zero(t, stored.CacheHitThreshold)
 
 	deleted := callChannelStatus(t, DeleteChannelStatusMonitor, http.MethodDelete, common.RoleRootUser, idParams, "")
 	require.True(t, deleted.Success, deleted.Message)
 	again := callChannelStatus(t, DeleteChannelStatusMonitor, http.MethodDelete, common.RoleRootUser, idParams, "")
 	assert.Equal(t, model.ErrChannelStatusMonitorNotFound.Key, again.MessageKey)
+}
+
+func addChannelStatusCacheLog(t *testing.T, group string, createdAt int64, promptTokens int, other string) {
+	t.Helper()
+	require.NoError(t, model.LOG_DB.Create(&model.Log{
+		Type: model.LogTypeConsume, Group: group, ModelName: "claude", CreatedAt: createdAt,
+		PromptTokens: promptTokens, UseTime: 1, Other: other,
+	}).Error)
+}
+
+func TestChannelStatusSharesRequestsThatReachTheCacheHitThreshold(t *testing.T) {
+	setupChannelStatusTest(t)
+	now := time.Now().Unix()
+	addChannelStatusCacheLog(t, "vip", now-60, 1000, `{"cache_tokens":600}`) // 60%
+	addChannelStatusCacheLog(t, "vip", now-60, 1000, `{"cache_tokens":900}`) // 90%
+	// Claude usage counts cache reads and writes as input: 300 of 1000 is 30%.
+	addChannelStatusCacheLog(t, "vip", now-60, 200, `{"cache_tokens":300,"cache_creation_tokens":500,"claude":true}`)
+	addChannelStatusCacheLog(t, "vip", now-60, 1000, `{"cache_tokens":0}`) // 0%
+	// A request without input tokens, such as an image, is not counted.
+	addChannelStatusCacheLog(t, "vip", now-60, 0, "")
+	// A bucket that ended long ago, counted once and kept: 40%.
+	addChannelStatusCacheLog(t, "vip", now-1800, 1000, `{"cache_tokens":400}`)
+	addChannelStatusCacheLog(t, "default", now-60, 1000, `{"cache_tokens":900}`)
+
+	vip := &model.ChannelStatusMonitor{Group: "vip", PublicName: "VIP", PublicEnabled: true, CacheHitThreshold: 50}
+	require.NoError(t, model.SaveChannelStatusMonitor(vip))
+	require.NoError(t, model.SaveChannelStatusMonitor(&model.ChannelStatusMonitor{Group: "default", PublicName: "Standard", PublicEnabled: true}))
+	items := func() []channelStatusItem {
+		response := callChannelStatus(t, GetChannelStatus, http.MethodGet, common.RoleCommonUser, nil, "")
+		require.True(t, response.Success, response.Message)
+		var status channelStatusTestResponse
+		require.NoError(t, common.Unmarshal(response.Data, &status))
+		require.Len(t, status.Items, 2)
+		return status.Items
+	}
+
+	listed := items()
+	assert.Equal(t, 50, listed[0].CacheHitThreshold, "users see the cache figures of public monitors")
+	assert.Equal(t, int64(5), listed[0].CacheRequestCount)
+	assert.Equal(t, int64(2), listed[0].CacheHitCount, "90% and 60% reach 50%")
+	require.NotNil(t, listed[0].CacheHitShare)
+	assert.InDelta(t, 40.0, *listed[0].CacheHitShare, 0.001)
+	assert.Zero(t, listed[1].CacheHitThreshold)
+	assert.Nil(t, listed[1].CacheHitShare, "a monitor without a threshold shows no cache figures")
+	assert.Zero(t, listed[1].CacheRequestCount)
+
+	// A lower threshold recounts the ended bucket too: its 40% now counts.
+	updated := callChannelStatus(t, UpdateChannelStatusMonitor, http.MethodPut, common.RoleRootUser,
+		gin.Params{{Key: "id", Value: strconv.Itoa(vip.Id)}}, `{"group":"vip","public_name":"VIP","public_enabled":true,"cache_hit_threshold":30}`)
+	require.True(t, updated.Success, updated.Message)
+	listed = items()
+	assert.Equal(t, int64(4), listed[0].CacheHitCount, "90%, 60%, 40% and 30% reach 30%")
+	require.NotNil(t, listed[0].CacheHitShare)
+	assert.InDelta(t, 80.0, *listed[0].CacheHitShare, 0.001)
 }

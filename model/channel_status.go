@@ -20,10 +20,13 @@ type ChannelStatusMonitor struct {
 	PublicName string `json:"public_name" gorm:"type:varchar(128);not null"`
 	NameColor  string `json:"name_color" gorm:"type:varchar(7)"`
 	// PublicEnabled shows the monitor to every user; otherwise only staff see it.
-	PublicEnabled bool  `json:"public_enabled"`
-	CreatedBy     int   `json:"created_by"`
-	CreatedAt     int64 `json:"created_at"`
-	UpdatedAt     int64 `json:"updated_at"`
+	PublicEnabled bool `json:"public_enabled"`
+	// CacheHitThreshold is a cache hit rate in percent (1-100). The monitor
+	// shows the share of requests that reached it; 0 hides that figure.
+	CacheHitThreshold int   `json:"cache_hit_threshold" gorm:"default:0"`
+	CreatedBy         int   `json:"created_by"`
+	CreatedAt         int64 `json:"created_at"`
+	UpdatedAt         int64 `json:"updated_at"`
 }
 
 // ListChannelStatusMonitors returns the monitors in creation order, only the
@@ -68,7 +71,7 @@ func SaveChannelStatusMonitor(monitor *ChannelStatusMonitor) error {
 		return DB.Create(monitor).Error
 	}
 	result := DB.Model(&ChannelStatusMonitor{}).Where("id = ?", monitor.Id).
-		Select("group_name", "public_name", "name_color", "public_enabled", "updated_at").
+		Select("group_name", "public_name", "name_color", "public_enabled", "cache_hit_threshold", "updated_at").
 		Updates(monitor)
 	if result.Error == nil && result.RowsAffected == 0 {
 		return ErrChannelStatusMonitorNotFound
@@ -84,6 +87,10 @@ func DeleteChannelStatusMonitor(id int) error {
 	return result.Error
 }
 
+// channelStatusCacheTokensLike matches a log whose other field records cache
+// read tokens, which every text request has.
+const channelStatusCacheTokensLike = `%"cache_tokens":%`
+
 // ChannelStatusSuccessRow counts the successful calls of one group and model.
 type ChannelStatusSuccessRow struct {
 	GroupName string
@@ -91,6 +98,9 @@ type ChannelStatusSuccessRow struct {
 	Count     int64
 	// UseTime is the summed duration in seconds.
 	UseTime int64
+	// InputCount counts the calls that sent input tokens, the ones a cache
+	// hit rate applies to.
+	InputCount int64
 }
 
 // CountChannelStatusSuccesses counts the consume logs of groups created in
@@ -98,10 +108,31 @@ type ChannelStatusSuccessRow struct {
 func CountChannelStatusSuccesses(groups []string, start, end int64) ([]ChannelStatusSuccessRow, error) {
 	rows := make([]ChannelStatusSuccessRow, 0)
 	err := LOG_DB.Model(&Log{}).
-		Select(logGroupCol+" AS group_name, model_name, COUNT(*) AS count, COALESCE(SUM(use_time), 0) AS use_time").
+		Select(logGroupCol+" AS group_name, model_name, COUNT(*) AS count, COALESCE(SUM(use_time), 0) AS use_time, "+
+			"COALESCE(SUM(CASE WHEN prompt_tokens > 0 OR other LIKE ? THEN 1 ELSE 0 END), 0) AS input_count", channelStatusCacheTokensLike).
 		Where("created_at >= ? AND created_at < ? AND type = ?", start, end, LogTypeConsume).
 		Where(logGroupCol+" IN ?", groups).
 		Group(logGroupCol + ", model_name").
+		Scan(&rows).Error
+	return rows, err
+}
+
+// ChannelStatusCacheRow is a successful call that may have read the cache.
+type ChannelStatusCacheRow struct {
+	GroupName    string
+	PromptTokens int
+	Other        string
+}
+
+// ListChannelStatusCacheRows returns the consume logs of groups created in
+// [start, end) that record cache read tokens.
+func ListChannelStatusCacheRows(groups []string, start, end int64) ([]ChannelStatusCacheRow, error) {
+	rows := make([]ChannelStatusCacheRow, 0)
+	err := LOG_DB.Model(&Log{}).
+		Select(logGroupCol+" AS group_name, prompt_tokens, other").
+		Where("created_at >= ? AND created_at < ? AND type = ?", start, end, LogTypeConsume).
+		Where(logGroupCol+" IN ?", groups).
+		Where("other LIKE ?", channelStatusCacheTokensLike).
 		Scan(&rows).Error
 	return rows, err
 }

@@ -37,6 +37,10 @@ const existing: ChannelStatusItem = {
   success_count: 1,
   failure_count: 0,
   average_duration_ms: 1000,
+  cache_hit_threshold: 0,
+  cache_hit_share: null,
+  cache_hit_count: 0,
+  cache_request_count: 0,
   timeline: [],
 }
 
@@ -83,6 +87,7 @@ describe('MonitorFormDialog', () => {
         public_name: 'default',
         name_color: '',
         public_enabled: true,
+        cache_hit_threshold: 0,
       },
       expect.anything()
     )
@@ -106,6 +111,7 @@ describe('MonitorFormDialog', () => {
           public_name: 'Premium',
           name_color: '',
           public_enabled: false,
+          cache_hit_threshold: 0,
         },
         expect.anything()
       )
@@ -124,4 +130,56 @@ describe('MonitorFormDialog', () => {
     ).toBeInTheDocument()
     expect(save).not.toHaveBeenCalled()
   })
+
+  it('sends the cache hit threshold as a number', async () => {
+    const user = userEvent.setup()
+    const { save } = renderDialog(existing)
+
+    await user.type(screen.getByLabelText('Cache hit threshold'), '80')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        '/api/channel-monitor/17',
+        expect.objectContaining({ cache_hit_threshold: 80 }),
+        expect.anything()
+      )
+    )
+  })
+
+  it('turns the cache figure off when the threshold is cleared', async () => {
+    const user = userEvent.setup()
+    const { save } = renderDialog({ ...existing, cache_hit_threshold: 80 })
+
+    const threshold = screen.getByLabelText('Cache hit threshold')
+    expect(threshold).toHaveValue('80')
+    await user.clear(threshold)
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+
+    await waitFor(() =>
+      expect(save).toHaveBeenCalledWith(
+        '/api/channel-monitor/17',
+        expect.objectContaining({ cache_hit_threshold: 0 }),
+        expect.anything()
+      )
+    )
+  })
+
+  it.each(['0', '101', '12.5', 'abc'])(
+    'rejects the cache hit threshold %s without saving',
+    async (value) => {
+      const user = userEvent.setup()
+      const { save } = renderDialog(existing)
+
+      await user.type(screen.getByLabelText('Cache hit threshold'), value)
+      await user.click(screen.getByRole('button', { name: 'Save' }))
+
+      expect(
+        await screen.findByText(
+          'Cache hit threshold must be from 1 to 100, or empty'
+        )
+      ).toBeInTheDocument()
+      expect(save).not.toHaveBeenCalled()
+    }
+  )
 })

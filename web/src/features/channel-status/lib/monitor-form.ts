@@ -36,6 +36,20 @@ export const monitorFormSchema = z.object({
     )
     .transform((value) => value.toUpperCase()),
   public_enabled: z.boolean(),
+  /**
+   * A whole percentage from 1 to 100; empty turns the cache figures off. It
+   * stays text here because the form fields need matching input and output
+   * types; it is sent as a number.
+   */
+  cache_hit_threshold: z
+    .string()
+    .trim()
+    .refine(
+      (value) =>
+        value === '' ||
+        (/^\d+$/.test(value) && Number(value) >= 1 && Number(value) <= 100),
+      'Cache hit threshold must be from 1 to 100, or empty'
+    ),
 })
 
 export type MonitorFormInput = z.input<typeof monitorFormSchema>

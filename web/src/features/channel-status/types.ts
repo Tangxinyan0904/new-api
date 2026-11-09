@@ -55,6 +55,13 @@ export const channelStatusItemSchema = channelStatusFiguresSchema.extend({
   /** Only sent to staff. */
   group: z.string().optional(),
   public_enabled: z.boolean(),
+  /** Cache hit rate, in percent, the monitor counts requests against; 0 is off. */
+  cache_hit_threshold: z.number().int().min(0).max(100),
+  /** Percentage of requests with input that reached the threshold; null when off or without them. */
+  cache_hit_share: z.number().finite().nullable(),
+  cache_hit_count: z.number().int().nonnegative(),
+  /** Successful requests that sent input tokens. */
+  cache_request_count: z.number().int().nonnegative(),
   timeline: z.array(channelStatusTimelinePointSchema),
 })
 
@@ -112,4 +119,6 @@ export interface ChannelStatusMonitorInput {
   public_name: string
   name_color: string
   public_enabled: boolean
+  /** 1-100, or 0 to show no cache figures. */
+  cache_hit_threshold: number
 }

@@ -7985,6 +7985,11 @@
     "Undo changes": "復原修改",
     "Unsaved price changes": "未儲存的價格修改",
     "By clicking sign in, you agree to our": "點擊登入即表示您同意我們的",
-    "By creating an account, you agree to our": "建立帳戶即表示您同意我們的"
+    "By creating an account, you agree to our": "建立帳戶即表示您同意我們的",
+    "Cache hit threshold": "快取命中率達標線",
+    "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "顯示最近一小時內快取命中率達到該值的請求佔比。留空則不顯示。",
+    "Cache hit threshold must be from 1 to 100, or empty": "快取命中率達標線須為 1 到 100 的整數，或留空",
+    "Cache ≥ {{threshold}}%": "快取 ≥ {{threshold}}%",
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "最近一小時有輸入的成功請求中，{{hits}} / {{total}} 個快取命中率達到 {{threshold}}%"
   }
 }

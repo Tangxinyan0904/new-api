@@ -7985,6 +7985,11 @@
     "Undo changes": "変更を元に戻す",
     "Unsaved price changes": "未保存の価格変更",
     "By clicking sign in, you agree to our": "サインインをクリックすると、以下に同意したことになります：",
-    "By creating an account, you agree to our": "アカウントを作成すると、以下に同意したことになります："
+    "By creating an account, you agree to our": "アカウントを作成すると、以下に同意したことになります：",
+    "Cache hit threshold": "キャッシュヒット率の基準",
+    "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "直近 1 時間でキャッシュヒット率がこの値に達したリクエストの割合を表示します。空欄にすると表示しません。",
+    "Cache hit threshold must be from 1 to 100, or empty": "キャッシュヒット率の基準は 1〜100 の整数か空欄にしてください",
+    "Cache ≥ {{threshold}}%": "キャッシュ ≥ {{threshold}}%",
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "直近 1 時間の入力ありの成功リクエストのうち {{hits}} / {{total}} 件がキャッシュヒット率 {{threshold}}% に達しました"
   }
 }

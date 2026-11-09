@@ -50,6 +50,7 @@ type channelStatusItem struct {
 	Group         string `json:"group,omitempty"`
 	PublicEnabled bool   `json:"public_enabled"`
 	service.ChannelStatusFigures
+	service.ChannelStatusCacheFigures
 	Timeline []channelStatusTimelinePoint `json:"timeline"`
 }
 
@@ -87,12 +88,13 @@ func channelStatusItemOf(monitor model.ChannelStatusMonitor, snapshot *service.C
 		stats = &service.ChannelStatusGroupStats{}
 	}
 	item := channelStatusItem{
-		Id:                   monitor.Id,
-		PublicName:           monitor.PublicName,
-		NameColor:            monitor.NameColor,
-		PublicEnabled:        monitor.PublicEnabled,
-		ChannelStatusFigures: service.ChannelStatusFiguresOf(stats.Total),
-		Timeline:             make([]channelStatusTimelinePoint, 0, len(stats.Buckets)),
+		Id:                        monitor.Id,
+		PublicName:                monitor.PublicName,
+		NameColor:                 monitor.NameColor,
+		PublicEnabled:             monitor.PublicEnabled,
+		ChannelStatusFigures:      service.ChannelStatusFiguresOf(stats.Total),
+		ChannelStatusCacheFigures: service.ChannelStatusCacheFiguresOf(stats.Cache, monitor.CacheHitThreshold),
+		Timeline:                  make([]channelStatusTimelinePoint, 0, len(stats.Buckets)),
 	}
 	if staff {
 		item.Group = monitor.Group
@@ -212,20 +214,26 @@ func GetChannelStatusPublicSummary(c *gin.Context) {
 // channelStatusMonitorFromRequest reads and validates a monitor from the body.
 func channelStatusMonitorFromRequest(c *gin.Context) (*model.ChannelStatusMonitor, bool) {
 	var request struct {
-		Group         string `json:"group"`
-		PublicName    string `json:"public_name"`
-		NameColor     string `json:"name_color"`
-		PublicEnabled bool   `json:"public_enabled"`
+		Group             string `json:"group"`
+		PublicName        string `json:"public_name"`
+		NameColor         string `json:"name_color"`
+		PublicEnabled     bool   `json:"public_enabled"`
+		CacheHitThreshold int    `json:"cache_hit_threshold"`
 	}
 	if err := common.DecodeJson(c.Request.Body, &request); err != nil {
 		common.ApiErrorT(c, "Invalid parameters")
 		return nil, false
 	}
 	monitor := &model.ChannelStatusMonitor{
-		Group:         strings.TrimSpace(request.Group),
-		PublicName:    strings.TrimSpace(request.PublicName),
-		NameColor:     strings.ToUpper(strings.TrimSpace(request.NameColor)),
-		PublicEnabled: request.PublicEnabled,
+		Group:             strings.TrimSpace(request.Group),
+		PublicName:        strings.TrimSpace(request.PublicName),
+		NameColor:         strings.ToUpper(strings.TrimSpace(request.NameColor)),
+		PublicEnabled:     request.PublicEnabled,
+		CacheHitThreshold: request.CacheHitThreshold,
+	}
+	if monitor.CacheHitThreshold < 0 || monitor.CacheHitThreshold > 100 {
+		common.ApiErrorT(c, "Cache hit threshold must be from 1 to 100, or empty")
+		return nil, false
 	}
 	if monitor.Group == "" || !ratio_setting.ContainsGroupRatio(monitor.Group) {
 		common.ApiErrorT(c, "This group does not exist")
