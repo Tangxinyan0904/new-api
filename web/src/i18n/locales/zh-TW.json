@@ -7990,6 +7990,7 @@
     "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "顯示最近一小時內快取命中率達到該值的請求佔比。留空則不顯示。",
     "Cache hit threshold must be from 1 to 100, or empty": "快取命中率達標線須為 1 到 100 的整數，或留空",
     "Cache ≥ {{threshold}}%": "快取 ≥ {{threshold}}%",
-    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "最近一小時有輸入的成功請求中，{{hits}} / {{total}} 個快取命中率達到 {{threshold}}%"
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "最近一小時有輸入的成功請求中，{{hits}} / {{total}} 個快取命中率達到 {{threshold}}%",
+    "{{group}} users": "{{group}} 使用者"
   }
 }

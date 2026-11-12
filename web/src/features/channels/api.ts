@@ -36,6 +36,7 @@ import type {
   GetChannelResponse,
   GetChannelsParams,
   GetChannelsResponse,
+  GroupRatios,
   MultiKeyManageParams,
   MultiKeyStatusResponse,
   SearchChannelsParams,
@@ -702,6 +703,14 @@ export async function getOllamaVersion(
  * Get all available groups (re-exported from users API for convenience)
  */
 export const getGroups = getUserGroups
+
+/** Each group's ratio and the special ratios set for user groups. */
+export async function getGroupRatios(): Promise<GroupRatios> {
+  const response = await api.get<{ success: boolean; data: GroupRatios }>(
+    '/api/group/ratios'
+  )
+  return requireServerSuccess(response.data).data
+}
 
 // ============================================================================
 // Prefill Groups (Model Groups)

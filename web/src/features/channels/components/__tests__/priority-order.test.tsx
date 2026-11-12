@@ -148,6 +148,14 @@ beforeEach(() => {
       if (url === '/api/group/') {
         return { data: { success: true, data: ['default'] } }
       }
+      if (url === '/api/group/ratios') {
+        return {
+          data: {
+            success: true,
+            data: { group_ratio: { default: 1 }, group_group_ratio: {} },
+          },
+        }
+      }
       return { data: { success: true, data: [] } }
     }
   )

@@ -393,3 +393,10 @@ export interface AddChannelRequest {
   batch_add_set_key_prefix_2_name?: boolean
   channel: Partial<Channel>
 }
+
+/** What each group charges, as set in the ratio settings. */
+export interface GroupRatios {
+  group_ratio: Record<string, number>
+  /** Special ratios: by user group, then by the group billed. */
+  group_group_ratio: Record<string, Record<string, number>>
+}

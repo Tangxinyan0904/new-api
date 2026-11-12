@@ -24,6 +24,17 @@ func GetGroups(c *gin.Context) {
 	})
 }
 
+// GetGroupRatios lists what each group charges: its own ratio, and the special
+// ratios that users of a given group pay when billed as it (keyed by user
+// group, then by billing group).
+func GetGroupRatios(c *gin.Context) {
+	snapshot := ratio_setting.GetWalletRatioSettingsSnapshot()
+	common.ApiSuccess(c, gin.H{
+		"group_ratio":       snapshot.BaseRatios,
+		"group_group_ratio": snapshot.SpecialRatios,
+	})
+}
+
 func GetUserGroups(c *gin.Context) {
 	usableGroups := make(map[string]map[string]any)
 	userGroup := ""
