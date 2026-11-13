@@ -7990,6 +7990,7 @@
     "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "显示最近一小时内缓存命中率达到该值的请求占比。留空则不显示。",
     "Cache hit threshold must be from 1 to 100, or empty": "缓存命中率达标线须为 1 到 100 的整数，或留空",
     "Cache ≥ {{threshold}}%": "缓存 ≥ {{threshold}}%",
-    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "最近一小时有输入的成功请求中，{{hits}} / {{total}} 个缓存命中率达到 {{threshold}}%"
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "最近一小时有输入的成功请求中，{{hits}} / {{total}} 个缓存命中率达到 {{threshold}}%",
+    "{{group}} users": "{{group}} 用户"
   }
 }

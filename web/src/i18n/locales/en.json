@@ -7990,6 +7990,7 @@
     "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.",
     "Cache hit threshold must be from 1 to 100, or empty": "Cache hit threshold must be from 1 to 100, or empty",
     "Cache ≥ {{threshold}}%": "Cache ≥ {{threshold}}%",
-    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate"
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate",
+    "{{group}} users": "{{group}} users"
   }
 }

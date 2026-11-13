@@ -7990,6 +7990,7 @@
     "Shows the share of requests in the last hour whose cache hit rate reaches this value. Leave empty to hide it.": "Показывает долю запросов за последний час, у которых доля попаданий в кэш достигает этого значения. Оставьте пустым, чтобы скрыть.",
     "Cache hit threshold must be from 1 to 100, or empty": "Порог попаданий в кэш должен быть целым числом от 1 до 100 или пустым",
     "Cache ≥ {{threshold}}%": "Кэш ≥ {{threshold}}%",
-    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "{{hits}} из {{total}} успешных запросов с входными данными за последний час достигли доли попаданий в кэш {{threshold}}%"
+    "{{hits}} of {{total}} successful requests with input in the last hour reached a {{threshold}}% cache hit rate": "{{hits}} из {{total}} успешных запросов с входными данными за последний час достигли доли попаданий в кэш {{threshold}}%",
+    "{{group}} users": "Пользователи {{group}}"
   }
 }
