@@ -16,7 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
 import type { ApiKey } from '../../types'
@@ -63,7 +70,7 @@ function installApiFixtures(createdPayloads: Array<Record<string, unknown>>) {
             data: {
               auto: { desc: 'Automatic routing', ratio: 'auto' },
               default: { desc: 'Standard access', ratio: 1 },
-              vip: { desc: 'Priority access', ratio: 2 },
+              vip: { desc: 'Priority access', ratio: 0, original_ratio: 2 },
             },
           },
         }
@@ -108,7 +115,7 @@ async function renderCreateDrawer(): Promise<void> {
       data: {
         auto: { desc: 'Automatic routing', ratio: 'auto' },
         default: { desc: 'Standard access', ratio: 1 },
-        vip: { desc: 'Priority access', ratio: 2 },
+        vip: { desc: 'Priority access', ratio: 0, original_ratio: 2 },
       },
     },
     { updatedAt: freshAt }
@@ -206,6 +213,23 @@ afterEach(() => {
 })
 
 describe('API keys mutate drawer Auto group integration', () => {
+  test('uses the account rate in the group picker and submits the chosen group name', async () => {
+    const createdPayloads: Array<Record<string, unknown>> = []
+    installApiFixtures(createdPayloads)
+    await renderCreateDrawer()
+    const trigger = getControlByLabel('Group')
+    selectComboboxOption(trigger, 'Priority access')
+    expect(within(trigger).getByText('2x', { selector: 'del' })).toBeVisible()
+    expect(within(trigger).getByText('0x')).toBeVisible()
+    expect(
+      within(trigger).getByText('Your special group rate applies')
+    ).toBeVisible()
+    changeInput(getControlByLabel('Name'), 'free-group')
+    fireEvent.click(findButton('Save changes', true))
+    await waitFor(() => expect(createdPayloads).toHaveLength(1))
+    expect(createdPayloads[0]?.group).toBe('vip')
+  })
+
   test('inherits the root Auto order and sends an empty override for every batch-created key', async () => {
     const createdPayloads: Array<Record<string, unknown>> = []
     installApiFixtures(createdPayloads)

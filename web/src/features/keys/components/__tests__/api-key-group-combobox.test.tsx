@@ -17,7 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { fireEvent, render, screen, within } from '@testing-library/react'
-import { describe, expect, test } from 'vitest'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, test, vi } from 'vitest'
 
 let shouldReduceMotion = false
 const reducedMotionMediaQuery = window.matchMedia('(prefers-reduced-motion)')
@@ -96,6 +97,65 @@ function getCommandItem(label: string): HTMLElement {
   }
   return item
 }
+
+test('pins Auto and shows matching families in price order while keyboard search still selects the real group', async () => {
+  const user = userEvent.setup()
+  const onSelect = vi.fn()
+  render(
+    <I18nextProvider i18n={i18n}>
+      <ApiKeyGroupCombobox
+        value='gpt-free'
+        onValueChange={onSelect}
+        options={[
+          { value: 'misc', label: 'Other route', ratio: 0 },
+          { value: 'GPT-pro', label: 'Premium route', ratio: 5 },
+          { value: 'Claude-main', label: 'Main route', ratio: 7 },
+          {
+            value: 'gpt-free',
+            label: 'Free route',
+            ratio: 0,
+            originalRatio: 2,
+          },
+          { value: 'auto', label: 'Automatic route', ratio: 'auto' },
+        ]}
+      />
+    </I18nextProvider>
+  )
+
+  const trigger = getTrigger()
+  expect(within(trigger).getByText('2x', { selector: 'del' })).toBeVisible()
+  expect(within(trigger).getByText('0x')).toBeVisible()
+  await user.click(trigger)
+  const list = screen.getByRole('listbox')
+  for (const category of ['Claude', 'GPT', 'Other']) {
+    expect(within(list).getByRole('group', { name: category })).toBeVisible()
+  }
+  const rows = within(list).getAllByRole('option')
+  expect(rows.map((row) => row.getAttribute('data-value'))).toEqual([
+    'auto',
+    'Claude-main',
+    'gpt-free',
+    'GPT-pro',
+    'misc',
+  ])
+  expect(
+    within(within(list).getByRole('option', { name: /Free route/ })).getByText(
+      '2x',
+      { selector: 'del' }
+    )
+  ).toBeVisible()
+  expect(
+    within(
+      within(list).getByRole('option', { name: /Other route/ })
+    ).queryByText('Your special group rate applies')
+  ).toBeNull()
+  const input = screen.getByPlaceholderText('Search...')
+  await user.type(input, 'gpt')
+  expect(within(list).getAllByRole('group')).toHaveLength(1)
+  expect(within(list).getByRole('group', { name: 'GPT' })).toBeVisible()
+  await user.keyboard('{End}{Enter}')
+  expect(onSelect).toHaveBeenCalledWith('GPT-pro')
+})
 
 describe('API key group combobox Auto effect', () => {
   test('uses the compact table capsules in the selected group and dropdown options', () => {

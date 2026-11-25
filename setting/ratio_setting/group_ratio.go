@@ -80,6 +80,34 @@ func GetGroupRatioCopy() map[string]float64 {
 	return groupRatioMap.ReadAll()
 }
 
+// GetVisibleGroupRatios returns the effective prices for usable groups. An
+// original price is shown only when this viewer's override changes it.
+func GetVisibleGroupRatios(userGroup string, usable map[string]string) (effective, original map[string]float64) {
+	groupPricingSnapshotMutex.RLock()
+	defer groupPricingSnapshotMutex.RUnlock()
+
+	var overrides map[string]float64
+	if userGroup != "" {
+		overrides, _ = groupGroupRatioMap.Get(userGroup)
+	}
+	effective = make(map[string]float64, len(usable))
+	original = make(map[string]float64)
+	for group := range usable {
+		base, ok := groupRatioMap.Get(group)
+		if !ok {
+			continue
+		}
+		effective[group] = base
+		if special, ok := overrides[group]; ok && special != base {
+			effective[group] = special
+			if group != "auto" {
+				original[group] = base
+			}
+		}
+	}
+	return effective, original
+}
+
 func ContainsGroupRatio(name string) bool {
 	_, ok := groupRatioMap.Get(name)
 	return ok

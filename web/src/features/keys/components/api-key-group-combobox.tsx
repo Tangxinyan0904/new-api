@@ -35,6 +35,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useMediaQuery } from '@/hooks'
+import { categorizePricingGroups } from '@/lib/group-pricing'
 import { cn } from '@/lib/utils'
 
 import {
@@ -48,6 +49,7 @@ export type ApiKeyGroupOption = {
   label: string
   desc?: string
   ratio?: number | string
+  originalRatio?: number
 }
 
 type ApiKeyGroupComboboxProps = {
@@ -74,19 +76,26 @@ export function ApiKeyGroupCombobox({
   const selectedOption = options.find((option) => option.value === value)
   const isAutoSelected = selectedOption?.value === 'auto'
 
-  const filteredOptions = useMemo(() => {
+  const visibleGroups = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
-    if (!search) return options
-
-    return options.filter((option) => {
-      const ratioText = String(option.ratio ?? '').toLowerCase()
-      return (
-        option.value.toLowerCase().includes(search) ||
-        option.label.toLowerCase().includes(search) ||
-        option.desc?.toLowerCase().includes(search) ||
-        ratioText.includes(search)
-      )
-    })
+    const filtered = search
+      ? options.filter((option) => {
+          const ratioText = String(option.ratio ?? '').toLowerCase()
+          return (
+            option.value.toLowerCase().includes(search) ||
+            option.label.toLowerCase().includes(search) ||
+            option.desc?.toLowerCase().includes(search) ||
+            ratioText.includes(search)
+          )
+        })
+      : options
+    const auto = filtered.find((option) => option.value === 'auto')
+    const categories = categorizePricingGroups(
+      filtered.filter((option) => option.value !== 'auto'),
+      (option) => option.value,
+      (option) => option.ratio
+    )
+    return auto ? [{ label: null, items: [auto] }, ...categories] : categories
   }, [options, searchValue])
 
   const handleSelect = (selectedValue: string) => {
@@ -125,11 +134,11 @@ export function ApiKeyGroupCombobox({
         )}
         <span
           className={cn(
-            'flex min-w-0 flex-1 items-center justify-between gap-2',
+            'flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2',
             !compact && 'sm:gap-3'
           )}
         >
-          <span className='min-w-0'>
+          <span className='min-w-0 flex-1 basis-16'>
             <span className='block font-medium break-words whitespace-normal'>
               {selectedOption?.label || placeholder || t('Select a group')}
             </span>
@@ -139,9 +148,10 @@ export function ApiKeyGroupCombobox({
               </span>
             )}
           </span>
-          <span className={cn(!compact && 'hidden sm:block')}>
+          <span className='max-w-full min-w-0'>
             <GroupRatioBadge
               ratio={selectedOption?.ratio}
+              originalRatio={selectedOption?.originalRatio}
               isAuto={isAutoSelected}
               shouldReduceMotion={shouldReduceMotion}
             />
@@ -155,7 +165,7 @@ export function ApiKeyGroupCombobox({
       <PopoverContent
         className={cn(
           'data-closed:zoom-out-100 data-open:zoom-in-100 data-[side=bottom]:slide-in-from-top-0 data-[side=left]:slide-in-from-right-0 data-[side=right]:slide-in-from-left-0 data-[side=top]:slide-in-from-bottom-0 w-[var(--anchor-width)] overflow-hidden rounded-xl p-0 shadow-lg data-closed:duration-75 data-open:duration-100',
-          compact && 'min-w-64'
+          compact && 'min-w-[min(16rem,var(--available-width))]'
         )}
         onWheel={(event) => event.stopPropagation()}
         onTouchMove={(event) => event.stopPropagation()}
@@ -167,58 +177,66 @@ export function ApiKeyGroupCombobox({
             value={searchValue}
             onValueChange={setSearchValue}
           />
-          <CommandList className='max-h-[360px]'>
+          <CommandList className='max-h-[min(360px,calc(var(--available-height)-3rem))]'>
             <CommandEmpty>{t('No group found.')}</CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => {
-                const isAutoOption = option.value === 'auto'
+            {visibleGroups.map((group) => (
+              <CommandGroup
+                key={group.label ?? 'auto'}
+                heading={group.label ? t(group.label) : undefined}
+              >
+                {group.items.map((option) => {
+                  const isAutoOption = option.value === 'auto'
 
-                return (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    data-auto-group-effect={isAutoOption ? 'option' : undefined}
-                    onSelect={() => handleSelect(option.value)}
-                    className={cn(
-                      'data-[selected=true]:bg-muted items-start gap-3 rounded-lg px-3 py-3 transition-colors',
-                      isAutoOption &&
-                        cn(
-                          AUTO_GROUP_FRAME_CLASS_NAME,
-                          'border-primary/35 data-[selected=true]:border-primary/55'
-                        )
-                    )}
-                  >
-                    {isAutoOption && (
-                      <AutoGroupFlowBorder
+                  return (
+                    <CommandItem
+                      key={option.value}
+                      value={option.value}
+                      data-auto-group-effect={
+                        isAutoOption ? 'option' : undefined
+                      }
+                      onSelect={() => handleSelect(option.value)}
+                      className={cn(
+                        'data-[selected=true]:bg-muted flex-wrap items-start gap-2 rounded-lg px-3 py-3 transition-colors sm:gap-3',
+                        isAutoOption &&
+                          cn(
+                            AUTO_GROUP_FRAME_CLASS_NAME,
+                            'border-primary/35 data-[selected=true]:border-primary/55'
+                          )
+                      )}
+                    >
+                      {isAutoOption && (
+                        <AutoGroupFlowBorder
+                          shouldReduceMotion={shouldReduceMotion}
+                        />
+                      )}
+                      <Check
+                        aria-hidden='true'
+                        className={cn(
+                          'mt-0.5 size-4',
+                          value === option.value ? 'opacity-100' : 'opacity-0'
+                        )}
+                      />
+                      <span className='min-w-0 flex-1 basis-20'>
+                        <span className='block font-medium break-words whitespace-normal'>
+                          {option.label}
+                        </span>
+                        {option.desc && (
+                          <span className='text-muted-foreground block text-xs break-words whitespace-normal'>
+                            {option.desc}
+                          </span>
+                        )}
+                      </span>
+                      <GroupRatioBadge
+                        ratio={option.ratio}
+                        originalRatio={option.originalRatio}
+                        isAuto={isAutoOption}
                         shouldReduceMotion={shouldReduceMotion}
                       />
-                    )}
-                    <Check
-                      aria-hidden='true'
-                      className={cn(
-                        'mt-0.5 size-4',
-                        value === option.value ? 'opacity-100' : 'opacity-0'
-                      )}
-                    />
-                    <span className='min-w-0 flex-1'>
-                      <span className='block font-medium break-words whitespace-normal'>
-                        {option.label}
-                      </span>
-                      {option.desc && (
-                        <span className='text-muted-foreground block text-xs break-words whitespace-normal'>
-                          {option.desc}
-                        </span>
-                      )}
-                    </span>
-                    <GroupRatioBadge
-                      ratio={option.ratio}
-                      isAuto={isAutoOption}
-                      shouldReduceMotion={shouldReduceMotion}
-                    />
-                  </CommandItem>
-                )
-              })}
-            </CommandGroup>
+                    </CommandItem>
+                  )
+                })}
+              </CommandGroup>
+            ))}
           </CommandList>
         </Command>
       </PopoverContent>

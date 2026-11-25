@@ -70,6 +70,7 @@ function useGroupOptions(): GroupOptionsData {
           label: group,
           desc: info.desc || group,
           ratio: info.ratio,
+          originalRatio: info.original_ratio,
         })
       }
       return { options }
