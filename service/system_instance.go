@@ -20,6 +20,10 @@ const systemInstanceReportInterval = 30 * time.Second
 
 var systemInstanceReporterOnce sync.Once
 
+// systemInstanceReportMu orders the heartbeat and the writes after a sync, so
+// an older snapshot never lands after a newer one.
+var systemInstanceReportMu sync.Mutex
+
 type SystemInstanceInfo struct {
 	SchemaVersion int                       `json:"schema_version"`
 	Node          common.NodeIdentity       `json:"node"`
@@ -30,7 +34,9 @@ type SystemInstanceInfo struct {
 	// RelayActivity lets other nodes add this node's requests in flight to
 	// the dashboard and API key figures.
 	RelayActivity RelayActivityCounts `json:"relay_activity"`
-	Extra         map[string]any      `json:"extra,omitempty"`
+	// Sync is what this node has applied of each sync topic.
+	Sync  map[string]NodeSyncTopicState `json:"sync,omitempty"`
+	Extra map[string]any                `json:"extra,omitempty"`
 }
 
 type SystemInstanceRoleInfo struct {
@@ -80,6 +86,8 @@ func StartSystemInstanceReporter() {
 }
 
 func ReportCurrentSystemInstance() error {
+	systemInstanceReportMu.Lock()
+	defer systemInstanceReportMu.Unlock()
 	identity := common.GetNodeIdentity()
 	hostname, hostnameErr := os.Hostname()
 	if strings.TrimSpace(identity.Name) == "" {
@@ -123,6 +131,7 @@ func ReportCurrentSystemInstance() error {
 			},
 		},
 		RelayActivity: LocalRelayActivity(),
+		Sync:          NodeSyncStates(),
 	}
 	return model.UpsertSystemInstance(identity.Name, info, common.StartTime, common.GetTimestamp())
 }

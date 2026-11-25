@@ -21,9 +21,18 @@ For commercial licensing, please contact support@quantumnous.com
 export const SYSTEM_TASK_TYPE_LABEL: Record<string, string> = {
   log_cleanup: 'Log cleanup',
   channel_test: 'Batch channel test',
+  channel_balance: 'Batch balance update',
   model_update: 'Batch upstream model update',
   midjourney_poll: 'Drawing task polling',
   async_task_poll: 'Async task polling',
   ticket_auto_close: 'Ticket auto close',
   canvas_update: 'Infinite canvas update',
+  system_task_cleanup: 'Task history cleanup',
+  sync_options: 'Settings sync',
+  sync_channels: 'Channel sync',
+  sync_authz: 'Permission sync',
+  sync_plugins: 'Plugin sync',
+  sync_oauth_providers: 'Login provider sync',
+  sync_models: 'Model sync',
+  sync_subscription_plans: 'Subscription plan sync',
 }
