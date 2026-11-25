@@ -169,6 +169,7 @@ export function ApiKeysMutateDrawer({
         label: key,
         desc: info.desc ? translateServerText(t, info.desc) : key,
         ratio: info.ratio,
+        originalRatio: info.original_ratio,
       })),
     [groupsData, t]
   )

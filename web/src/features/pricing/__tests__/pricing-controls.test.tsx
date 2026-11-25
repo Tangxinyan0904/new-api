@@ -388,4 +388,36 @@ describe('pricing controls', () => {
     await user.keyboard('{Escape}')
     expect(await screen.findByRole('button', { name: /Filter/ })).toHaveFocus()
   })
+
+  it('groups filter choices by family and orders each family by the viewer’s price', async () => {
+    const props = toolbarProps()
+    const user = userEvent.setup()
+    render(
+      <PricingSidebar
+        {...props}
+        groups={['GPT-premium', 'default', 'Claude-fast', 'codex-free']}
+        groupRatios={{
+          'GPT-premium': 2,
+          default: 1,
+          'Claude-fast': 3,
+          'codex-free': 0,
+        }}
+        originalGroupRatios={{ 'codex-free': 5 }}
+      />
+    )
+    const categories = screen
+      .getAllByRole('group')
+      .filter((group) => group.hasAttribute('aria-label'))
+    expect(categories.map((group) => group.getAttribute('aria-label'))).toEqual(
+      ['Claude', 'GPT', 'Other']
+    )
+    const buttons = within(categories[1]).getAllByRole('button')
+    expect(buttons.map((button) => button.title)).toEqual([
+      'codex-free',
+      'GPT-premium',
+    ])
+    expect(within(buttons[0]).getByRole('deletion')).toHaveTextContent('5')
+    await user.click(buttons[0])
+    expect(props.onGroupChange).toHaveBeenCalledWith('codex-free')
+  })
 })

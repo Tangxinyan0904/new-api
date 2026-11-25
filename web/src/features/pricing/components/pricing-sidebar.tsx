@@ -20,6 +20,7 @@ import { ChevronDown, RotateCcw } from 'lucide-react'
 import { memo, useMemo, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { GroupPriceRatio } from '@/components/group-price-ratio'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -27,6 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { categorizePricingGroups } from '@/lib/group-pricing'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 
@@ -39,12 +41,13 @@ import {
 } from '../constants'
 import { getModelQuotaType, parseTags } from '../lib/filters'
 import type { PricingModel, PricingVendor } from '../types'
+import { PricingGroupCategory } from './pricing-group-category'
 
 type FilterOption = {
   value: string
   label: string
   count?: number
-  suffix?: string
+  suffix?: ReactNode
   icon?: ReactNode
 }
 
@@ -52,6 +55,7 @@ type FilterSectionProps = {
   title: string
   value: string
   options: FilterOption[]
+  children?: ReactNode
   onChange: (value: string) => void
 }
 
@@ -69,19 +73,12 @@ export interface PricingSidebarProps {
   vendors: PricingVendor[]
   groups: string[]
   groupRatios?: Record<string, number>
+  originalGroupRatios?: Record<string, number>
   tags: string[]
   models: PricingModel[]
   hasActiveFilters: boolean
   onClearFilters: () => void
   className?: string
-}
-
-function formatGroupRatio(ratio: number | undefined): string | undefined {
-  if (ratio == null) return undefined
-  const formatted = Number.isInteger(ratio)
-    ? ratio.toString()
-    : ratio.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
-  return `x${formatted}`
 }
 
 function FilterChip(props: {
@@ -98,9 +95,10 @@ function FilterChip(props: {
       aria-pressed={props.active}
       className={cn(
         'group inline-flex max-w-full items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition-all hover:-translate-y-0.5',
+        props.option.suffix && 'h-auto min-h-8',
         props.active
-          ? 'border-[#64b5f6] bg-[#64b5f6] text-white shadow-[0_4px_10px_rgba(100,181,246,0.3)]'
-          : 'border-dashed border-[#ffd1dc] bg-transparent text-[#7f8c8d] hover:border-solid hover:border-[#64b5f6] hover:text-[#64b5f6] dark:border-[#3b2d35] dark:text-[#94a3b8]'
+          ? 'border-[#64b5f6] bg-[#64b5f6] text-[#17354b] shadow-[0_4px_10px_rgba(100,181,246,0.3)] hover:bg-[#80c4fa]'
+          : 'text-muted-foreground border-dashed border-[#ffd1dc] bg-transparent hover:border-solid hover:border-[#64b5f6] hover:bg-[#f0f8ff] hover:text-[#245a83] dark:border-[#3b2d35] dark:hover:bg-[#1a2436] dark:hover:text-[#90caf9]'
       )}
       title={props.option.label}
     >
@@ -109,14 +107,7 @@ function FilterChip(props: {
       )}
       <span className='truncate'>{props.option.label}</span>
       {(props.option.suffix || props.option.count != null) && (
-        <span
-          className={cn(
-            'rounded-full px-1.5 py-0.5 text-[10px] font-black',
-            props.active
-              ? 'bg-white/20 text-white'
-              : 'bg-[#f0f8ff] text-[#2196f3] group-hover:bg-[#64b5f6]/10 dark:bg-[#1a2436] dark:text-[#42a5f5]'
-          )}
-        >
+        <span className='rounded-full bg-[#f0f8ff] px-1.5 py-0.5 text-[10px] font-black text-[#245a83] dark:bg-[#1a2436] dark:text-[#90caf9]'>
           {props.option.suffix ?? props.option.count}
         </span>
       )}
@@ -147,6 +138,7 @@ function FilterSection(props: FilterSectionProps) {
             />
           ))}
         </div>
+        {props.children}
       </CollapsibleContent>
     </Collapsible>
   )
@@ -200,17 +192,15 @@ export const PricingSidebar = memo(function PricingSidebar(
       .filter((vendor) => vendor.count > 0),
   ]
 
-  const groupOptions: FilterOption[] = [
-    {
-      value: FILTER_ALL,
-      label: t('All Groups'),
-    },
-    ...props.groups.map((group) => ({
-      value: group,
-      label: group,
-      suffix: formatGroupRatio(props.groupRatios?.[group]),
-    })),
-  ]
+  const groupCategories = useMemo(
+    () =>
+      categorizePricingGroups(
+        props.groups,
+        (name) => name,
+        (name) => props.groupRatios?.[name]
+      ),
+    [props.groups, props.groupRatios]
+  )
 
   const quotaOptions: FilterOption[] = [
     {
@@ -306,9 +296,37 @@ export const PricingSidebar = memo(function PricingSidebar(
         <FilterSection
           title={t('Groups')}
           value={props.groupFilter}
-          options={groupOptions}
+          options={[{ value: FILTER_ALL, label: t('All Groups') }]}
           onChange={props.onGroupChange}
-        />
+        >
+          {groupCategories.map((category) => (
+            <PricingGroupCategory key={category.label} label={category.label}>
+              <div className='flex flex-wrap gap-2'>
+                {category.items.map((group) => {
+                  const ratio = props.groupRatios?.[group]
+                  return (
+                    <FilterChip
+                      key={group}
+                      active={props.groupFilter === group}
+                      onClick={() => props.onGroupChange(group)}
+                      option={{
+                        value: group,
+                        label: group,
+                        suffix:
+                          typeof ratio === 'number' ? (
+                            <GroupPriceRatio
+                              ratio={ratio}
+                              originalRatio={props.originalGroupRatios?.[group]}
+                            />
+                          ) : undefined,
+                      }}
+                    />
+                  )
+                })}
+              </div>
+            </PricingGroupCategory>
+          ))}
+        </FilterSection>
         <FilterSection
           title={t('All Vendors')}
           value={props.vendorFilter}

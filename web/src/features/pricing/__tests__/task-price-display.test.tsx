@@ -621,7 +621,11 @@ it('switches provider group prices, localized conditions and examples, and shows
   expect(within(panel).getByText('$0.5')).toBeVisible()
 })
 
-function renderModelDetails(target: PricingModel) {
+function renderModelDetails(
+  target: PricingModel,
+  groupRatio: Record<string, number> = { default: 2 },
+  originalGroupRatio?: Record<string, number>
+) {
   vi.spyOn(api, 'get').mockResolvedValue({ data: { data: { groups: [] } } })
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -631,8 +635,14 @@ function renderModelDetails(target: PricingModel) {
     <QueryClientProvider client={client}>
       <ModelDetailsContent
         model={target}
-        groupRatio={{ default: 2 }}
-        usableGroup={{ default: { desc: '', ratio: 2 } }}
+        groupRatio={groupRatio}
+        originalGroupRatio={originalGroupRatio}
+        usableGroup={Object.fromEntries(
+          Object.entries(groupRatio).map(([group, ratio]) => [
+            group,
+            { desc: '', ratio },
+          ])
+        )}
         endpointMap={{}}
         autoGroups={[]}
         priceRate={1}
@@ -642,6 +652,48 @@ function renderModelDetails(target: PricingModel) {
     </QueryClientProvider>
   )
 }
+
+it.each([
+  [
+    'token',
+    {
+      billing_mode: undefined,
+      billing_expr: undefined,
+      billing_usage_schema: undefined,
+    },
+  ],
+  [
+    'fixed request',
+    {
+      quota_type: 1,
+      model_price: 2.5,
+      billing_mode: undefined,
+      billing_expr: undefined,
+      billing_usage_schema: undefined,
+    },
+  ],
+  ['task', {}],
+] as const)(
+  'shows the effective zero price and original ratio in %s group pricing',
+  (_, pricing) => {
+    renderModelDetails(
+      { ...model, ...pricing, enable_groups: ['GPT-pro', 'codex-free'] },
+      { 'GPT-pro': 2, 'codex-free': 0, private: 1 },
+      { 'codex-free': 1 }
+    )
+    const panel = screen.getByRole('group', { name: 'GPT' })
+    expect(within(panel).getByRole('deletion')).toHaveTextContent('1')
+    expect(within(panel).getAllByText(/^\$0(?:\.0+)?$/).length).toBeGreaterThan(
+      0
+    )
+    const free = within(panel).getByText('codex-free')
+    expect(
+      free.compareDocumentPosition(within(panel).getByText('GPT-pro')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(within(panel).queryByText('private')).not.toBeInTheDocument()
+  }
+)
 
 it('shows the chat token price beside a plugin that cannot use it when ordinary requests still pay it', async () => {
   renderModelDetails({

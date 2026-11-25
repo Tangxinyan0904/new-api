@@ -20,6 +20,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { GroupBadge, GroupMultiplierBadge } from '@/components/group-badge'
+import { GroupPriceRatio } from '@/components/group-price-ratio'
 import { cn } from '@/lib/utils'
 
 export type GroupRatio = number | string | null | undefined
@@ -74,6 +75,7 @@ export function AutoGroupFrame(props: AutoGroupFrameProps) {
 type GroupRatioBadgeProps = {
   isAuto?: boolean
   ratio: GroupRatio
+  originalRatio?: number
   shouldReduceMotion?: boolean
 }
 
@@ -84,7 +86,7 @@ export function GroupRatioBadge(props: GroupRatioBadgeProps) {
     return null
   }
 
-  return (
+  const badge = (
     <GroupMultiplierBadge
       ratio={typeof props.ratio === 'number' ? props.ratio : undefined}
       label={typeof props.ratio === 'number' ? undefined : t('Auto')}
@@ -101,6 +103,18 @@ export function GroupRatioBadge(props: GroupRatioBadgeProps) {
       )}
     </GroupMultiplierBadge>
   )
+  if (
+    !props.isAuto &&
+    typeof props.ratio === 'number' &&
+    props.originalRatio != null
+  ) {
+    return (
+      <GroupPriceRatio ratio={props.ratio} originalRatio={props.originalRatio}>
+        {badge}
+      </GroupPriceRatio>
+    )
+  }
+  return badge
 }
 
 export function AutoGroupBadge(props: { shouldReduceMotion: boolean }) {
