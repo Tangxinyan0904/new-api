@@ -30,6 +30,7 @@ import { EmailSettingsSection } from '../email-settings-section'
 
 type EmailValues = ComponentProps<typeof EmailSettingsSection>['defaultValues']
 const defaults: EmailValues = {
+  TicketAdminEmail: '',
   QuotaRemindEnabled: true,
   QuotaRemindThreshold: '0',
   EmailProvider: 'smtp',
@@ -70,6 +71,48 @@ function renderEmail(values: Partial<EmailValues> = {}) {
 afterEach(() => vi.restoreAllMocks())
 
 describe('email delivery settings', () => {
+  it.each([
+    { provider: 'smtp', initial: '', next: 'support@example.com' },
+    { provider: 'resend', initial: 'support@example.com', next: '' },
+  ] as const)(
+    'saves the ticket mailbox independently with $provider selected',
+    async ({ provider, initial, next }) => {
+      const request = vi
+        .spyOn(api, 'put')
+        .mockResolvedValue({ data: { success: true } })
+      const user = renderEmail({
+        EmailProvider: provider,
+        TicketAdminEmail: initial,
+      })
+      const mailbox = screen.getByRole('textbox', {
+        name: 'Admin email for new tickets',
+      })
+      expect(mailbox).toHaveValue(initial)
+      await user.clear(mailbox)
+      if (next) await user.type(mailbox, next)
+      await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+      await waitFor(() => expect(request).toHaveBeenCalledTimes(1))
+      expect(request).toHaveBeenCalledWith('/api/option/', {
+        key: 'ticket_setting.admin_email',
+        value: next,
+      })
+    }
+  )
+
+  it('rejects an invalid ticket mailbox before saving settings', async () => {
+    const request = vi.spyOn(api, 'put')
+    const user = renderEmail()
+    await user.type(
+      screen.getByRole('textbox', { name: 'Admin email for new tickets' }),
+      'invalid-address'
+    )
+    await user.click(screen.getByRole('button', { name: 'Save Changes' }))
+    expect(
+      await screen.findByText('Enter a valid email or leave blank')
+    ).toBeVisible()
+    expect(request).not.toHaveBeenCalled()
+  })
+
   it('keeps balance notifications editable when Resend is selected', async () => {
     const request = vi
       .spyOn(api, 'put')

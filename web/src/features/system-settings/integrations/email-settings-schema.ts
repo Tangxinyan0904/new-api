@@ -21,6 +21,13 @@ import * as z from 'zod'
 export const createEmailSchema = (t: (key: string) => string) =>
   z
     .object({
+      TicketAdminEmail: z
+        .string()
+        .trim()
+        .refine(
+          (email) => email === '' || z.regexes.email.test(email),
+          t('Enter a valid email or leave blank')
+        ),
       EmailProvider: z.enum(['smtp', 'resend']),
       ResendApiKey: z.string(),
       ResendKeyConfigured: z.boolean(),

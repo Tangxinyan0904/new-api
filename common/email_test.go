@@ -279,15 +279,17 @@ func TestSendEmailUsesExplicitStartTLSWithInsecureCertificate(t *testing.T) {
 	SMTPInsecureSkipVerify = true
 	SMTPForceAuthLogin = false
 	SMTPAccount = "sender@example.com"
-	SMTPFrom = "sender@example.com"
+	SMTPFrom = ""
 	SMTPToken = "secret"
 	SystemName = "New API"
 
 	err := SendEmail("Verification", "receiver@example.com", "<p>123456</p>")
 	require.NoError(t, err)
+	require.Empty(t, SMTPFrom)
 
 	select {
 	case message := <-server.messages:
+		require.Contains(t, message, "From: New API <sender@example.com>")
 		require.Contains(t, message, "Subject: =?UTF-8?B?")
 		require.Contains(t, message, "<p>123456</p>")
 	case <-time.After(2 * time.Second):

@@ -169,6 +169,36 @@ func TestEmailProviderOptionRejectsInvalidValues(t *testing.T) {
 	}
 }
 
+func TestTicketAdminMailboxCanBeSetAndClearedButRejectsMultipleRecipients(t *testing.T) {
+	const key = "ticket_setting.admin_email"
+	db := setupTicketControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Option{}))
+	configureEmailDelivery(t, map[string]string{})
+
+	for _, tc := range []struct {
+		value string
+		valid bool
+	}{
+		{"support+new@example.com", true},
+		{"missing-domain", false},
+		{"a@example.com;b@example.com", false},
+		{"a@example.com\r\nBcc: b@example.com", false},
+		{"", true},
+	} {
+		body, err := common.Marshal(OptionUpdateRequest{Key: key, Value: tc.value})
+		require.NoError(t, err)
+		result := callTicketHandler(t, UpdateOption, http.MethodPut, "/api/option/", ticketStaffID, nil, nil, nil, string(body))
+		require.Equal(t, tc.valid, result.Success, "saving %q", tc.value)
+		var saved model.Option
+		require.NoError(t, db.First(&saved, &model.Option{Key: key}).Error)
+		if tc.valid {
+			assert.Equal(t, tc.value, saved.Value)
+		} else {
+			assert.Equal(t, "support+new@example.com", saved.Value)
+		}
+	}
+}
+
 func TestEmailProviderCannotActivateIncompleteResend(t *testing.T) {
 	for name, settings := range map[string]map[string]string{
 		"missing key":    {"ResendFrom": "sender@example.com"},
