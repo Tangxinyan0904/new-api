@@ -101,7 +101,10 @@ func isEpayTopUpEnabled() bool {
 }
 
 func isEpayWebhookConfigured() bool {
-	return slices.ContainsFunc(epayGateways, isEpayGatewayConfigured)
+	return slices.ContainsFunc(epayGateways, func(gateway string) bool {
+		config, _ := epayGatewayConfig(gateway)
+		return config != nil
+	})
 }
 
 func isEpayWebhookEnabled() bool {

@@ -34,6 +34,8 @@ const baseDefaults: SectionProps['defaultValues'] = {
   PayAddress: 'https://pay.example.com',
   EpayId: '10001',
   EpayKey: '',
+  EpaySignType: 'MD5',
+  EpayPlatformPublicKey: '',
   SecondaryEpayAddress: '',
   SecondaryEpayId: '',
   SecondaryEpayKey: '',
@@ -114,11 +116,14 @@ async function openEpayTab(
 afterEach(() => vi.restoreAllMocks())
 
 describe('secondary Epay gateway settings', () => {
-  it('when the secondary gateway is filled in, saves its address, merchant ID and key as payment settings', async () => {
+  it('saves only the secondary MD5 settings when the primary gateway uses RSA', async () => {
     const request = vi
       .spyOn(api, 'put')
       .mockResolvedValue({ data: { success: true } })
-    const user = await openEpayTab()
+    const user = await openEpayTab({
+      EpaySignType: 'RSA',
+      EpayPlatformPublicKey: 'saved-primary-platform-key',
+    })
 
     await user.type(
       screen.getByRole('textbox', { name: 'Secondary Epay endpoint' }),
