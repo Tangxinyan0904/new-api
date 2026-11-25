@@ -10,12 +10,16 @@ import (
 	"time"
 )
 
-func generateMessageID() (string, error) {
-	split := strings.Split(SMTPFrom, "@")
-	if len(split) < 2 {
+// ValidEmailRecipient accepts one bare mailbox safe for both mail providers.
+func ValidEmailRecipient(address string) bool {
+	return !strings.ContainsAny(address, ";\r\n\x00") && Validate.Var(address, "required,max=254,email") == nil
+}
+
+func generateMessageID(from string) (string, error) {
+	_, domain, ok := strings.Cut(from, "@")
+	if !ok {
 		return "", fmt.Errorf("invalid SMTP account")
 	}
-	domain := strings.Split(SMTPFrom, "@")[1]
 	return fmt.Sprintf("<%d.%s@%s>", time.Now().UnixNano(), GetRandomString(12), domain), nil
 }
 
@@ -90,10 +94,11 @@ func SendEmail(subject string, receiver string, content string) error {
 	default:
 		return NewMessage("Email sending method must be SMTP or Resend")
 	}
-	if SMTPFrom == "" { // for compatibility
-		SMTPFrom = SMTPAccount
+	from := SMTPFrom
+	if from == "" { // Older configurations use the account as the sender.
+		from = SMTPAccount
 	}
-	id, err2 := generateMessageID()
+	id, err2 := generateMessageID(from)
 	if err2 != nil {
 		return err2
 	}
@@ -107,7 +112,7 @@ func SendEmail(subject string, receiver string, content string) error {
 		"Date: %s\r\n"+
 		"Message-ID: %s\r\n"+ // 添加 Message-ID 头
 		"Content-Type: text/html; charset=UTF-8\r\n\r\n%s\r\n",
-		receiver, SystemName, SMTPFrom, encodedSubject, time.Now().Format(time.RFC1123Z), id, content))
+		receiver, SystemName, from, encodedSubject, time.Now().Format(time.RFC1123Z), id, content))
 	auth := getSMTPAuth()
 	addr := fmt.Sprintf("%s:%d", SMTPServer, SMTPPort)
 	to := strings.Split(receiver, ";")
@@ -122,7 +127,7 @@ func SendEmail(subject string, receiver string, content string) error {
 			return err
 		}
 	}
-	if err = client.Mail(SMTPFrom); err != nil {
+	if err = client.Mail(from); err != nil {
 		return err
 	}
 	for _, receiver := range to {

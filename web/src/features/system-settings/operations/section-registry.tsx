@@ -64,6 +64,7 @@ const OPERATIONS_SECTIONS = [
     build: (settings: OperationsSettings) => (
       <EmailSettingsSection
         defaultValues={{
+          TicketAdminEmail: settings['ticket_setting.admin_email'],
           QuotaRemindEnabled: settings.QuotaRemindEnabled,
           QuotaRemindThreshold: settings.QuotaRemindThreshold,
           EmailProvider: settings.EmailProvider,

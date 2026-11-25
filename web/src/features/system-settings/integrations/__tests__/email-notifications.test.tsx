@@ -35,6 +35,7 @@ function Fixture() {
       <SettingsPageProvider actionsContainer={container}>
         <EmailSettingsSection
           defaultValues={{
+            TicketAdminEmail: '',
             EmailProvider: 'smtp',
             ResendApiKey: '',
             ResendKeyConfigured: false,

@@ -565,6 +565,7 @@
   "failed to search topups: %s": "搜索充值记录失败: %s",
   "failed to search user logs: %s": "搜索用户日志失败: %s",
   "failed to send email to %s: %v": "向 %s 发送邮件失败: %v",
+  "failed to email administrator for new ticket %d: %s": "新工单 %d 的管理员邮件发送失败：%s",
   "failed to send notice %s to user %d: %s": "向用户 %[2]d 发送通知 %[1]s 失败: %[3]s",
   "failed to send password reset email to %s: %s": "向 %s 发送密码重置邮件失败: %s",
   "failed to send quota notify to user %d: %s": "向用户 %d 发送额度通知失败: %s",

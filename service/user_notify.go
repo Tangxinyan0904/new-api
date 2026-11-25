@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/mail"
 	"net/url"
 	"strings"
 
@@ -24,7 +25,7 @@ func NotifyChannelWatchers(notifyType string, render func(lang string) (subject 
 			return *setting.ChannelNotifyEnabled
 		}
 		return role == common.RoleRootUser
-	}, render)
+	}, render, nil)
 }
 
 // NotifyUpstreamModelUpdateWatchers sends the upstream model update notice to
@@ -33,13 +34,13 @@ func NotifyChannelWatchers(notifyType string, render func(lang string) (subject 
 func NotifyUpstreamModelUpdateWatchers(render func(lang string) (subject string, content string)) {
 	sentCount := notifyAdmins(dto.NotifyTypeChannelUpdate, func(_ int, setting dto.UserSetting) bool {
 		return setting.UpstreamModelUpdateNotifyEnabled
-	}, render)
+	}, render, nil)
 	common.SysLog(common.LogText("upstream model update notifications sent: %d", sentCount))
 }
 
 // notifyAdmins sends a notice to each enabled administrator for whom receives
 // returns true, and returns how many notices it sent.
-func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSetting) bool, render func(lang string) (subject string, content string)) int {
+func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSetting) bool, render func(lang string) (subject string, content string), emailed notificationMailboxes) int {
 	var users []model.User
 	if err := model.DB.
 		Select("id", "email", "role", "status", "setting").
@@ -55,8 +56,23 @@ func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSet
 		if !receives(user.Role, userSetting) {
 			continue
 		}
+		var recipients []string
+		if emailed != nil && (userSetting.NotifyType == "" || userSetting.NotifyType == dto.NotifyTypeEmail) {
+			recipients = emailed.remaining(notificationEmail(user.Email, userSetting))
+			if len(recipients) == 0 {
+				continue
+			}
+			userSetting.NotificationEmail = strings.Join(recipients, ";")
+		}
+		if err := reserveUserNotification(user.Id, notifyType); err != nil {
+			common.SysLog(common.LogText("failed to send notice %s to user %d: %s", notifyType, user.Id, err.Error()))
+			continue
+		}
+		for _, address := range recipients {
+			emailed[strings.ToLower(address)] = true
+		}
 		subject, content := render(userSetting.Language)
-		if err := NotifyUser(user.Id, user.Email, userSetting, dto.NewNotify(notifyType, subject, content, nil)); err != nil {
+		if err := deliverUserNotification(user.Id, user.Email, userSetting, dto.NewNotify(notifyType, subject, content, nil)); err != nil {
 			common.SysLog(common.LogText("failed to send notice %s to user %d: %s", notifyType, user.Id, err.Error()))
 			continue
 		}
@@ -66,28 +82,57 @@ func notifyAdmins(notifyType string, receives func(role int, setting dto.UserSet
 }
 
 func NotifyUser(userId int, userEmail string, userSetting dto.UserSetting, data dto.Notify) error {
-	notifyType := userSetting.NotifyType
-	if notifyType == "" {
-		notifyType = dto.NotifyTypeEmail
+	if err := reserveUserNotification(userId, data.Type); err != nil {
+		return err
 	}
+	return deliverUserNotification(userId, userEmail, userSetting, data)
+}
 
-	// Check notification limit
-	canSend, err := CheckNotificationLimit(userId, data.Type)
+func reserveUserNotification(userId int, eventType string) error {
+	canSend, err := CheckNotificationLimit(userId, eventType)
 	if err != nil {
 		common.SysLog(common.LogText("failed to check notification limit: %s", err.Error()))
 		return err
 	}
 	if !canSend {
-		return fmt.Errorf("notification limit exceeded for user %d with type %s", userId, notifyType)
+		return fmt.Errorf("notification limit exceeded for user %d with type %s", userId, eventType)
 	}
+	return nil
+}
 
-	switch notifyType {
-	case dto.NotifyTypeEmail:
-		// 优先使用设置中的通知邮箱，如果为空则使用用户的默认邮箱
-		emailToUse := userSetting.NotificationEmail
-		if emailToUse == "" {
-			emailToUse = userEmail
+func notificationEmail(userEmail string, setting dto.UserSetting) string {
+	if setting.NotificationEmail != "" {
+		return setting.NotificationEmail
+	}
+	return userEmail
+}
+
+// notificationMailboxes tracks addresses already targeted by one event.
+type notificationMailboxes map[string]bool
+
+func (sent notificationMailboxes) remaining(addresses string) []string {
+	var remaining []string
+	seen := notificationMailboxes{}
+	for address := range strings.SplitSeq(addresses, ";") {
+		address = strings.TrimSpace(address)
+		parsed, err := mail.ParseAddress(address)
+		if err != nil || !common.ValidEmailRecipient(parsed.Address) {
+			continue
 		}
+		address = parsed.Address
+		key := strings.ToLower(address)
+		if !sent[key] && !seen[key] {
+			seen[key] = true
+			remaining = append(remaining, address)
+		}
+	}
+	return remaining
+}
+
+func deliverUserNotification(userId int, userEmail string, userSetting dto.UserSetting, data dto.Notify) error {
+	switch userSetting.NotifyType {
+	case "", dto.NotifyTypeEmail:
+		emailToUse := notificationEmail(userEmail, userSetting)
 		if emailToUse == "" {
 			common.SysLog(common.LogText("user %d has no email, skip sending email", userId))
 			return nil

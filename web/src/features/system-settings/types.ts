@@ -370,6 +370,7 @@ export type BillingSettings = {
 }
 
 export type OperationsSettings = {
+  'ticket_setting.admin_email': string
   DefaultCollapseSidebar: boolean
   DemoSiteEnabled: boolean
   SelfUseModeEnabled: boolean

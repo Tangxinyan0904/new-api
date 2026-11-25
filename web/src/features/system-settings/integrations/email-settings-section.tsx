@@ -133,6 +133,12 @@ export function EmailSettingsSection({
     }
 
     const updates: Array<{ key: string; value: string | boolean }> = []
+    if (values.TicketAdminEmail !== defaultValues.TicketAdminEmail) {
+      updates.push({
+        key: 'ticket_setting.admin_email',
+        value: values.TicketAdminEmail,
+      })
+    }
 
     if (values.EmailProvider === 'resend') {
       const from = values.ResendFrom.trim()
@@ -583,6 +589,24 @@ export function EmailSettingsSection({
               />
             </>
           )}
+          <FormField
+            control={form.control}
+            name='TicketAdminEmail'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Admin email for new tickets')}</FormLabel>
+                <FormControl>
+                  <Input {...field} type='email' disabled={isSaving} />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Send new ticket alerts to this address. Leave blank to disable this mailbox.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
           <SettingsControlGroup>
             <FormField
               control={form.control}

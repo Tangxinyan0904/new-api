@@ -276,6 +276,9 @@ func validateOptionValue(key string, value string) error {
 	if key == "ResendKeyConfigured" {
 		return common.NewMessage("Resend key configuration status is read-only")
 	}
+	if key == operation_setting.TicketAdminEmailOptionKey && value != "" && !common.ValidEmailRecipient(value) {
+		return common.NewMessage("Invalid email address")
+	}
 	if key == operation_setting.ToolPriceOptionKey {
 		return operation_setting.ValidateToolPricesJSON(value)
 	}
