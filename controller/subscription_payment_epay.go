@@ -13,7 +13,6 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/gin-gonic/gin"
-	"github.com/samber/lo"
 )
 
 type SubscriptionEpayPayRequest struct {
@@ -116,26 +115,7 @@ func SubscriptionRequestEpay(c *gin.Context) {
 }
 
 func SubscriptionEpayNotify(c *gin.Context) {
-	var params map[string]string
-
-	if c.Request.Method == "POST" {
-		// POST 请求：从 POST body 解析参数
-		if err := c.Request.ParseForm(); err != nil {
-			_, _ = c.Writer.Write([]byte("fail"))
-			return
-		}
-		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.PostForm.Get(t)
-			return r
-		}, map[string]string{})
-	} else {
-		// GET 请求：从 URL Query 解析参数
-		params = lo.Reduce(lo.Keys(c.Request.URL.Query()), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.URL.Query().Get(t)
-			return r
-		}, map[string]string{})
-	}
-
+	params := epayCallbackParams(c.Request)
 	if len(params) == 0 {
 		_, _ = c.Writer.Write([]byte("fail"))
 		return
@@ -171,26 +151,7 @@ func SubscriptionEpayNotify(c *gin.Context) {
 // SubscriptionEpayReturn handles browser return after payment.
 // It verifies the payload and completes the order, then redirects to console.
 func SubscriptionEpayReturn(c *gin.Context) {
-	var params map[string]string
-
-	if c.Request.Method == "POST" {
-		// POST 请求：从 POST body 解析参数
-		if err := c.Request.ParseForm(); err != nil {
-			c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
-			return
-		}
-		params = lo.Reduce(lo.Keys(c.Request.PostForm), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.PostForm.Get(t)
-			return r
-		}, map[string]string{})
-	} else {
-		// GET 请求：从 URL Query 解析参数
-		params = lo.Reduce(lo.Keys(c.Request.URL.Query()), func(r map[string]string, t string, i int) map[string]string {
-			r[t] = c.Request.URL.Query().Get(t)
-			return r
-		}, map[string]string{})
-	}
-
+	params := epayCallbackParams(c.Request)
 	if len(params) == 0 {
 		c.Redirect(http.StatusFound, paymentReturnPath("/wallet?pay=fail"))
 		return

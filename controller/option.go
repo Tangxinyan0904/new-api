@@ -83,6 +83,9 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 }
 
 func isSensitiveOptionKey(key string) bool {
+	if key == operation_setting.EpayPlatformPublicKeyOptionKey {
+		return false
+	}
 	lowerKey := strings.ToLower(key)
 	return strings.HasSuffix(key, "Token") ||
 		strings.HasSuffix(key, "Secret") ||

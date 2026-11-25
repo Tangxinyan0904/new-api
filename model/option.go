@@ -260,6 +260,9 @@ func validateOptionValue(key string, value string) error {
 	if err := operation_setting.ValidateQuotaOption(key, value); err != nil {
 		return err
 	}
+	if err := operation_setting.ValidateEpaySignOption(key, value); err != nil {
+		return err
+	}
 	if key == "EmailProvider" || key == "ResendApiKey" || key == "ResendFrom" {
 		if key == "EmailProvider" && value != "smtp" && value != "resend" {
 			return common.NewMessage("Email sending method must be SMTP or Resend")
@@ -306,6 +309,11 @@ func validateOptionValue(key string, value string) error {
 }
 
 func UpdateOption(key string, value string) error {
+	switch key {
+	case operation_setting.EpaySignTypeOptionKey, operation_setting.EpayMerchantPrivateKeyOptionKey, operation_setting.EpayPlatformPublicKeyOptionKey:
+		// The live gateway must only switch credentials or signing mode after commit.
+		return UpdateOptionsBulk(map[string]string{key: value})
+	}
 	if IsRequestPolicyOption(key) {
 		return UpdateRequestPolicyOptions(map[string]string{key: value})
 	}

@@ -162,6 +162,9 @@ const BILLING_SECTIONS = [
             settings['payment_setting.secondary_epay_address'],
           SecondaryEpayId: settings['payment_setting.secondary_epay_id'],
           SecondaryEpayKey: settings['payment_setting.secondary_epay_key'],
+          EpaySignType: settings['payment_setting.epay_sign_type'],
+          EpayPlatformPublicKey:
+            settings['payment_setting.epay_platform_public_key'],
           Price: settings.Price,
           MinTopUp: settings.MinTopUp,
           CustomCallbackAddress: settings.CustomCallbackAddress,
