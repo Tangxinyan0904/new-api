@@ -412,6 +412,14 @@ describe('pricing controls', () => {
       ['Claude', 'GPT', 'Other']
     )
     const buttons = within(categories[1]).getAllByRole('button')
+    for (const button of [
+      screen.getByRole('button', { name: 'All Groups' }),
+      ...categories.flatMap((category) =>
+        within(category).getAllByRole('button')
+      ),
+    ]) {
+      expect(button).toHaveClass('w-full', 'justify-between')
+    }
     expect(buttons.map((button) => button.title)).toEqual([
       'codex-free',
       'GPT-premium',

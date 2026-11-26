@@ -46,6 +46,7 @@ import { PricingGroupCategory } from './pricing-group-category'
 type FilterOption = {
   value: string
   label: string
+  fullWidth?: boolean
   count?: number
   suffix?: ReactNode
   icon?: ReactNode
@@ -86,28 +87,42 @@ function FilterChip(props: {
   active: boolean
   onClick: () => void
 }) {
+  const { fullWidth } = props.option
+  const chipVariant = props.active ? 'secondary' : 'outline'
   return (
     <Button
       type='button'
-      variant={props.active ? 'secondary' : 'outline'}
+      variant={fullWidth ? 'ghost' : chipVariant}
       size='sm'
       onClick={props.onClick}
       aria-pressed={props.active}
       className={cn(
-        'group inline-flex max-w-full items-center gap-1.5 rounded-full border-2 px-3 py-1.5 text-xs font-bold transition-all hover:-translate-y-0.5',
-        props.option.suffix && 'h-auto min-h-8',
-        props.active
-          ? 'border-[#64b5f6] bg-[#64b5f6] text-[#17354b] shadow-[0_4px_10px_rgba(100,181,246,0.3)] hover:bg-[#80c4fa]'
-          : 'text-muted-foreground border-dashed border-[#ffd1dc] bg-transparent hover:border-solid hover:border-[#64b5f6] hover:bg-[#f0f8ff] hover:text-[#245a83] dark:border-[#3b2d35] dark:hover:bg-[#1a2436] dark:hover:text-[#90caf9]'
+        'max-w-full items-center px-3 py-1.5 text-xs',
+        fullWidth
+          ? 'border-border bg-background text-foreground hover:bg-muted aria-pressed:border-primary aria-pressed:bg-primary/10 h-auto min-h-11 w-full justify-between gap-3 rounded-lg border text-start font-semibold whitespace-normal shadow-none transition-colors'
+          : cn(
+              'gap-1.5 rounded-full border-2 font-bold transition-all hover:-translate-y-0.5',
+              props.active
+                ? 'border-[#64b5f6] bg-[#64b5f6] text-[#17354b] shadow-[0_4px_10px_rgba(100,181,246,0.3)] hover:bg-[#80c4fa]'
+                : 'text-muted-foreground border-dashed border-[#ffd1dc] bg-transparent hover:border-solid hover:border-[#64b5f6] hover:bg-[#f0f8ff] hover:text-[#245a83] dark:border-[#3b2d35] dark:hover:bg-[#1a2436] dark:hover:text-[#90caf9]'
+            )
       )}
       title={props.option.label}
     >
       {props.option.icon && (
         <span className='shrink-0'>{props.option.icon}</span>
       )}
-      <span className='truncate'>{props.option.label}</span>
+      <span className={fullWidth ? 'min-w-0 flex-1 wrap-anywhere' : 'truncate'}>
+        {props.option.label}
+      </span>
       {(props.option.suffix || props.option.count != null) && (
-        <span className='rounded-full bg-[#f0f8ff] px-1.5 py-0.5 text-[10px] font-black text-[#245a83] dark:bg-[#1a2436] dark:text-[#90caf9]'>
+        <span
+          className={
+            fullWidth
+              ? 'max-w-1/2 min-w-0 text-end font-semibold wrap-anywhere text-[#245a83] tabular-nums dark:text-[#90caf9]'
+              : 'rounded-full bg-[#f0f8ff] px-1.5 py-0.5 text-[10px] font-black text-[#245a83] dark:bg-[#1a2436] dark:text-[#90caf9]'
+          }
+        >
           {props.option.suffix ?? props.option.count}
         </span>
       )}
@@ -296,12 +311,14 @@ export const PricingSidebar = memo(function PricingSidebar(
         <FilterSection
           title={t('Groups')}
           value={props.groupFilter}
-          options={[{ value: FILTER_ALL, label: t('All Groups') }]}
+          options={[
+            { value: FILTER_ALL, label: t('All Groups'), fullWidth: true },
+          ]}
           onChange={props.onGroupChange}
         >
           {groupCategories.map((category) => (
             <PricingGroupCategory key={category.label} label={category.label}>
-              <div className='flex flex-wrap gap-2'>
+              <div className='grid grid-cols-1 gap-1.5'>
                 {category.items.map((group) => {
                   const ratio = props.groupRatios?.[group]
                   return (
@@ -312,9 +329,11 @@ export const PricingSidebar = memo(function PricingSidebar(
                       option={{
                         value: group,
                         label: group,
+                        fullWidth: true,
                         suffix:
                           typeof ratio === 'number' ? (
                             <GroupPriceRatio
+                              className='items-end'
                               ratio={ratio}
                               originalRatio={props.originalGroupRatios?.[group]}
                             />

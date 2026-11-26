@@ -26,6 +26,8 @@ import {
 } from '@testing-library/react'
 import { afterEach, describe, expect, test, vi } from 'vitest'
 
+import { useAuthStore } from '@/stores/auth-store'
+
 import type { ApiKey } from '../../types'
 
 const { createInstance } = await import('i18next')
@@ -213,17 +215,27 @@ afterEach(() => {
 })
 
 describe('API keys mutate drawer Auto group integration', () => {
-  test('uses the account rate in the group picker and submits the chosen group name', async () => {
+  test('names the account group for a special rate and submits the chosen token group', async ({
+    onTestFinished,
+  }) => {
+    const previous = useAuthStore.getState()
+    onTestFinished(() => useAuthStore.setState(previous, true))
+    previous.auth.setUser({
+      id: 17,
+      username: 'alice',
+      role: 1,
+      group: 'partners',
+    })
     const createdPayloads: Array<Record<string, unknown>> = []
     installApiFixtures(createdPayloads)
     await renderCreateDrawer()
     const trigger = getControlByLabel('Group')
+    selectComboboxOption(trigger, 'Standard access')
+    expect(within(trigger).queryByText('partners group rate')).toBeNull()
     selectComboboxOption(trigger, 'Priority access')
     expect(within(trigger).getByText('2x', { selector: 'del' })).toBeVisible()
     expect(within(trigger).getByText('0x')).toBeVisible()
-    expect(
-      within(trigger).getByText('Your special group rate applies')
-    ).toBeVisible()
+    expect(within(trigger).getByText('partners group rate')).toBeVisible()
     changeInput(getControlByLabel('Name'), 'free-group')
     fireEvent.click(findButton('Save changes', true))
     await waitFor(() => expect(createdPayloads).toHaveLength(1))
