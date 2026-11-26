@@ -20,6 +20,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { cn } from '@/lib/utils'
+import { useAuthStore } from '@/stores/auth-store'
 
 export function GroupPriceRatio(props: {
   ratio: number
@@ -28,6 +29,7 @@ export function GroupPriceRatio(props: {
   children?: ReactNode
 }) {
   const { t } = useTranslation()
+  const accountGroup = useAuthStore((state) => state.auth.user?.group?.trim())
   const actual = props.children ?? `${props.ratio}x`
   if (
     typeof props.originalRatio !== 'number' ||
@@ -48,8 +50,10 @@ export function GroupPriceRatio(props: {
         <span className='sr-only'>{t('Current')} </span>
         {actual}
       </span>
-      <small className='text-muted-foreground text-[11px] leading-tight font-normal whitespace-normal'>
-        {t('Your special group rate applies')}
+      <small className='text-muted-foreground text-[11px] leading-tight font-normal wrap-anywhere whitespace-normal'>
+        {accountGroup
+          ? t('{{group}} group rate', { group: accountGroup })
+          : t('Special ratios')}
       </small>
     </span>
   )

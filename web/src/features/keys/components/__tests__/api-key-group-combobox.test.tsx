@@ -125,6 +125,7 @@ test('pins Auto and shows matching families in price order while keyboard search
   const trigger = getTrigger()
   expect(within(trigger).getByText('2x', { selector: 'del' })).toBeVisible()
   expect(within(trigger).getByText('0x')).toBeVisible()
+  expect(within(trigger).getByText('Special ratios')).toBeVisible()
   await user.click(trigger)
   const list = screen.getByRole('listbox')
   for (const category of ['Claude', 'GPT', 'Other']) {
@@ -147,7 +148,7 @@ test('pins Auto and shows matching families in price order while keyboard search
   expect(
     within(
       within(list).getByRole('option', { name: /Other route/ })
-    ).queryByText('Your special group rate applies')
+    ).queryByText('Special ratios')
   ).toBeNull()
   const input = screen.getByPlaceholderText('Search...')
   await user.type(input, 'gpt')
